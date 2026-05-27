@@ -965,27 +965,29 @@ class AppState {
             let registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
             if (Array.isArray(registeredUsers) && Array.isArray(this.animes)) {
                 registeredUsers.forEach(user => {
-                    const rawLower = user.username.toLowerCase();
-                    const sanitized = rawLower.replace(/[^a-z0-9]/g, '');
-                    if (rawLower !== sanitized) {
-                        this.animes.forEach(anime => {
-                            if (anime.ratings) {
-                                if (anime.ratings[rawLower]) {
-                                    anime.ratings[sanitized] = {
-                                        ...anime.ratings[sanitized],
-                                        ...anime.ratings[rawLower]
-                                    };
-                                    delete anime.ratings[rawLower];
-                                }
-                            }
-                            if (anime.comments) {
-                                anime.comments.forEach(comment => {
-                                    if (comment.friendId && comment.friendId.toLowerCase() === rawLower) {
-                                        comment.friendId = sanitized;
+                    if (user && user.username) {
+                        const rawLower = user.username.toLowerCase();
+                        const sanitized = rawLower.replace(/[^a-z0-9]/g, '');
+                        if (rawLower !== sanitized) {
+                            this.animes.forEach(anime => {
+                                if (anime.ratings) {
+                                    if (anime.ratings[rawLower]) {
+                                        anime.ratings[sanitized] = {
+                                            ...anime.ratings[sanitized],
+                                            ...anime.ratings[rawLower]
+                                        };
+                                        delete anime.ratings[rawLower];
                                     }
-                                });
-                            }
-                        });
+                                }
+                                if (anime.comments) {
+                                    anime.comments.forEach(comment => {
+                                        if (comment.friendId && comment.friendId.toLowerCase() === rawLower) {
+                                            comment.friendId = sanitized;
+                                        }
+                                    });
+                                }
+                            });
+                        }
                     }
                 });
                 localStorage.setItem('anivoid_list_v2', JSON.stringify(this.animes));
@@ -1018,58 +1020,66 @@ class AppState {
     }
 
     loadLocalSession() {
-        this.loggedInUser = localStorage.getItem('anivoid_logged_in_username') || null;
-        if (this.loggedInUser) {
-            let registeredUsers = [];
-            try {
-                registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
-            } catch (err) {}
-            
-            const curUser = registeredUsers.find(u => u.username.toLowerCase() === this.loggedInUser.toLowerCase());
-            if (curUser) {
-                const list = [];
-                list.push({
-                    id: curUser.username.toLowerCase().replace(/[^a-z0-9]/g, ''),
-                    name: curUser.username + ' (Você)',
-                    avatar: curUser.avatar,
-                    color: curUser.color,
-                    email: curUser.email,
-                    password: curUser.password,
-                    emailVerified: curUser.emailVerified || false,
-                    favoriteGenres: curUser.favoriteGenres || [],
-                    favoriteStudios: curUser.favoriteStudios || [],
-                    favoriteAnimes: curUser.favoriteAnimes || [],
-                    isMe: true
-                });
+        try {
+            this.loggedInUser = localStorage.getItem('anivoid_logged_in_username') || null;
+            if (this.loggedInUser) {
+                let registeredUsers = [];
+                try {
+                    registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+                } catch (err) {}
                 
-                if (curUser.friends && Array.isArray(curUser.friends)) {
-                    curUser.friends.forEach(fUsername => {
-                        const fUser = registeredUsers.find(u => u.username.toLowerCase() === fUsername.toLowerCase());
-                        if (fUser) {
-                            list.push({
-                                id: fUser.username.toLowerCase().replace(/[^a-z0-9]/g, ''),
-                                name: fUser.username,
-                                avatar: fUser.avatar,
-                                color: fUser.color,
-                                email: fUser.email,
-                                emailVerified: fUser.emailVerified || false,
-                                favoriteGenres: fUser.favoriteGenres || [],
-                                favoriteStudios: fUser.favoriteStudios || [],
-                                favoriteAnimes: fUser.favoriteAnimes || []
-                            });
-                        }
+                const curUser = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === this.loggedInUser.toLowerCase());
+                if (curUser) {
+                    const list = [];
+                    list.push({
+                        id: curUser.username.toLowerCase().replace(/[^a-z0-9]/g, ''),
+                        name: curUser.username + ' (Você)',
+                        avatar: curUser.avatar,
+                        color: curUser.color,
+                        email: curUser.email,
+                        password: curUser.password,
+                        emailVerified: curUser.emailVerified || false,
+                        favoriteGenres: curUser.favoriteGenres || [],
+                        favoriteStudios: curUser.favoriteStudios || [],
+                        favoriteAnimes: curUser.favoriteAnimes || [],
+                        isMe: true
                     });
-                }
-                this.friends = list;
-                
-                if (!this.currentFriendId || !this.friends.some(f => f.id === this.currentFriendId)) {
-                    this.currentFriendId = this.friends[0]?.id || null;
+                    
+                    if (curUser.friends && Array.isArray(curUser.friends)) {
+                        curUser.friends.forEach(fUsername => {
+                            if (fUsername) {
+                                const fUser = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === fUsername.toLowerCase());
+                                if (fUser) {
+                                    list.push({
+                                        id: fUser.username.toLowerCase().replace(/[^a-z0-9]/g, ''),
+                                        name: fUser.username,
+                                        avatar: fUser.avatar,
+                                        color: fUser.color,
+                                        email: fUser.email,
+                                        emailVerified: fUser.emailVerified || false,
+                                        favoriteGenres: fUser.favoriteGenres || [],
+                                        favoriteStudios: fUser.favoriteStudios || [],
+                                        favoriteAnimes: fUser.favoriteAnimes || []
+                                    });
+                                }
+                            }
+                        });
+                    }
+                    this.friends = list;
+                    
+                    if (!this.currentFriendId || !this.friends.some(f => f.id === this.currentFriendId)) {
+                        this.currentFriendId = this.friends[0]?.id || null;
+                    }
+                } else {
+                    this.friends = [];
                 }
             } else {
                 this.friends = [];
             }
-        } else {
+        } catch (e) {
+            console.error('Error loading session:', e);
             this.friends = [];
+            this.loggedInUser = null;
         }
     }
 
@@ -1142,22 +1152,22 @@ class AppState {
             if (serverState.registeredUsers && Array.isArray(serverState.registeredUsers) && this.loggedInUser) {
                 try {
                     const prevUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
-                    const prevMe = prevUsers.find(u => u.username.toLowerCase() === this.loggedInUser.toLowerCase());
-                    const nextMe = serverState.registeredUsers.find(u => u.username.toLowerCase() === this.loggedInUser.toLowerCase());
-
+                    const prevMe = prevUsers.find(u => u && u.username && u.username.toLowerCase() === this.loggedInUser.toLowerCase());
+                    const nextMe = serverState.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === this.loggedInUser.toLowerCase());
+ 
                     if (prevMe && nextMe) {
                         const prevReqs = new Set((prevMe.friendRequests || []).map(r => r.from.toLowerCase()));
                         (nextMe.friendRequests || []).forEach(r => {
-                            if (!prevReqs.has(r.from.toLowerCase())) {
-                                const sender = serverState.registeredUsers.find(u => u.username.toLowerCase() === r.from.toLowerCase()) || { avatar: '👤', color: '#FF4500' };
+                            if (r.from && !prevReqs.has(r.from.toLowerCase())) {
+                                const sender = serverState.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === r.from.toLowerCase()) || { avatar: '👤', color: '#FF4500' };
                                 showToast('Solicitação de Amizade 🤝', `**${r.from}** te enviou um convite!`, sender.avatar, sender.color);
                             }
                         });
-
+ 
                         const prevFrs = new Set((prevMe.friends || []).map(f => f.toLowerCase()));
                         (nextMe.friends || []).forEach(f => {
-                            if (!prevFrs.has(f.toLowerCase())) {
-                                const friendObj = serverState.registeredUsers.find(u => u.username.toLowerCase() === f.toLowerCase()) || { avatar: '👤', color: '#00FF00' };
+                            if (f && !prevFrs.has(f.toLowerCase())) {
+                                const friendObj = serverState.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === f.toLowerCase()) || { avatar: '👤', color: '#00FF00' };
                                 showToast('Nova Amizade! 🎉', `**${f}** aceitou seu convite de amizade!`, friendObj.avatar, friendObj.color);
                             }
                         });
@@ -1646,7 +1656,7 @@ class AppState {
         if (!friend) {
             try {
                 const registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
-                const foundUser = registeredUsers.find(u => u.username && u.username.toLowerCase() === friendId.toLowerCase());
+                const foundUser = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === friendId.toLowerCase());
                 if (foundUser) {
                     friend = { id: friendId, name: foundUser.username, color: foundUser.color, avatar: foundUser.avatar };
                 }
@@ -1701,7 +1711,7 @@ class AppState {
         const friendId = friendUsername.toLowerCase().replace(/[^a-z0-9]/g, '');
 
         // Check if this friend is already registered. If not, create a virtual account for them.
-        let matchedUser = registeredUsers.find(u => u.username.toLowerCase() === friendUsername.toLowerCase());
+        let matchedUser = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === friendUsername.toLowerCase());
         if (!matchedUser) {
             matchedUser = {
                 username: friendUsername,
@@ -1721,7 +1731,7 @@ class AppState {
 
         // Add this friend to the logged-in user's friend list
         if (loggedInUsername) {
-            const curUser = registeredUsers.find(u => u.username.toLowerCase() === loggedInUsername.toLowerCase());
+            const curUser = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === loggedInUsername.toLowerCase());
             if (curUser) {
                 if (!curUser.friends) curUser.friends = [];
                 if (!curUser.friends.some(f => f.toLowerCase().replace(/[^a-z0-9]/g, '') === friendId)) {
@@ -2164,7 +2174,7 @@ function updateProfileIndicator() {
         } catch (err) {}
         
         const loggedInUsername = localStorage.getItem('anivoid_logged_in_username') || '';
-        const curUser = registeredUsers.find(u => u.username.toLowerCase() === loggedInUsername.toLowerCase());
+        const curUser = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === loggedInUsername.toLowerCase());
         
         if (curUser && curUser.friendRequests && curUser.friendRequests.length > 0) {
             badge.textContent = curUser.friendRequests.length;
@@ -4816,9 +4826,9 @@ function initRegistrationOptions() {
                 registeredUsers = [];
             }
 
-            const matchedUser = registeredUsers.find(u => u.email.toLowerCase() === emailVal.toLowerCase() && u.password === passwordVal);
+            const matchedUser = registeredUsers.find(u => u && u.email && u.email.toLowerCase() === emailVal.toLowerCase() && u.password === passwordVal);
 
-            if (matchedUser) {
+            if (matchedUser && matchedUser.username) {
                 const userId = matchedUser.username.toLowerCase().replace(/[^a-z0-9]/g, '');
 
                 // Migrate ratings and reviews from key '1' if they exist in localStorage
@@ -4885,7 +4895,7 @@ function initRegistrationOptions() {
                 registeredUsers = [];
             }
 
-            const exists = registeredUsers.some(u => u.username.toLowerCase() === name.toLowerCase());
+            const exists = registeredUsers.some(u => u && u.username && u.username.toLowerCase() === name.toLowerCase());
             if (exists) {
                 alert('Este nome de usuário já está cadastrado por outro otaku. Escolha outro nome!');
                 return;
@@ -5285,7 +5295,7 @@ function setupEditProfileModal() {
                 registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
             } catch (err) {}
             
-            const user = registeredUsers.find(u => u.username.toLowerCase() === loggedInUsername.toLowerCase());
+            const user = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === loggedInUsername.toLowerCase());
             if (!user) return;
 
             if (nameInput) {
@@ -5336,7 +5346,7 @@ function setupEditProfileModal() {
             registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
         } catch (err) {}
         
-        const userRecord = registeredUsers.find(u => u.username.toLowerCase() === loggedInUsername.toLowerCase());
+        const userRecord = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === loggedInUsername.toLowerCase());
         if (userRecord) {
             userRecord.email = newEmail;
             userRecord.color = newColor;
@@ -5582,18 +5592,18 @@ function renderRegisteredUsersSuggestions() {
     const loggedInUsername = localStorage.getItem('anivoid_logged_in_username') || '';
     if (!loggedInUsername) return;
 
-    const curUser = registeredUsers.find(u => u.username.toLowerCase() === loggedInUsername.toLowerCase());
+    const curUser = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === loggedInUsername.toLowerCase());
     if (!curUser) return;
 
     // Filter out ourselves and virtual users
     const filteredUsers = registeredUsers.filter(u => 
-        u.username.toLowerCase() !== loggedInUsername.toLowerCase() && !u.isVirtual
+        u && u.username && u.username.toLowerCase() !== loggedInUsername.toLowerCase() && !u.isVirtual
     );
 
     // Filter by query
     const matched = filteredUsers.filter(u => 
-        u.username.toLowerCase().includes(query) || 
-        (u.email && u.email.toLowerCase().includes(query))
+        (u && u.username && u.username.toLowerCase().includes(query)) || 
+        (u && u.email && u.email.toLowerCase().includes(query))
     );
 
     listContainer.innerHTML = '';
@@ -5619,9 +5629,9 @@ function renderRegisteredUsersSuggestions() {
 
         // Determine status and button
         let actionBtnHtml = '';
-        const isFriend = curUser.friends && curUser.friends.some(f => f.toLowerCase() === user.username.toLowerCase());
-        const hasSentRequest = user.friendRequests && user.friendRequests.some(r => r.from.toLowerCase() === loggedInUsername.toLowerCase());
-        const hasReceivedRequest = curUser.friendRequests && curUser.friendRequests.some(r => r.from.toLowerCase() === user.username.toLowerCase());
+        const isFriend = curUser.friends && curUser.friends.some(f => user && user.username && f.toLowerCase() === user.username.toLowerCase());
+        const hasSentRequest = user && user.friendRequests && user.friendRequests.some(r => r.from && r.from.toLowerCase() === loggedInUsername.toLowerCase());
+        const hasReceivedRequest = curUser.friendRequests && curUser.friendRequests.some(r => r.from && user && user.username && r.from.toLowerCase() === user.username.toLowerCase());
 
         if (isFriend) {
             actionBtnHtml = `<span class="text-[10px] text-gray-500 font-mono uppercase tracking-wider font-semibold">Amigos</span>`;
@@ -5708,7 +5718,7 @@ function renderPendingRequests() {
         return;
     }
 
-    const curUser = registeredUsers.find(u => u.username.toLowerCase() === loggedInUsername.toLowerCase());
+    const curUser = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === loggedInUsername.toLowerCase());
     if (!curUser || !curUser.friendRequests || curUser.friendRequests.length === 0) {
         section.classList.add('hidden');
         container.innerHTML = '';
@@ -5719,7 +5729,7 @@ function renderPendingRequests() {
     container.innerHTML = '';
 
     curUser.friendRequests.forEach(req => {
-        const sender = registeredUsers.find(u => u.username.toLowerCase() === req.from.toLowerCase()) || {
+        const sender = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === req.from.toLowerCase()) || {
             username: req.from,
             avatar: '👤',
             color: '#FF4500'
@@ -5790,7 +5800,7 @@ function renderModalFriendsList() {
         return;
     }
 
-    const curUser = registeredUsers.find(u => u.username.toLowerCase() === loggedInUsername.toLowerCase());
+    const curUser = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === loggedInUsername.toLowerCase());
     if (!curUser || !curUser.friends || curUser.friends.length === 0) {
         container.innerHTML = `<p class="text-gray-500 italic text-[11px] py-4 text-center w-full">Nenhum amigo adicionado ainda. Procure por outros usuários acima!</p>`;
         return;
@@ -5799,7 +5809,7 @@ function renderModalFriendsList() {
     container.innerHTML = '';
 
     curUser.friends.forEach(fUsername => {
-        const friend = registeredUsers.find(u => u.username.toLowerCase() === fUsername.toLowerCase());
+        const friend = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === fUsername.toLowerCase());
         if (!friend) return;
 
         const item = document.createElement('div');
@@ -6012,7 +6022,7 @@ function renderGroupStats() {
 
     if (state.loggedInUser) {
         registeredUsers = registeredUsers.filter(u => {
-            const uId = u.username.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const uId = u && u.username ? u.username.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
             return groupUserIds.has(uId);
         });
     }
@@ -6021,7 +6031,7 @@ function renderGroupStats() {
 
     // 1. Calculate stats per user
     const userStats = registeredUsers.map(user => {
-        const userId = user.username.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const userId = user && user.username ? user.username.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
         let totalEpisodes = 0;
         let ratingSum = 0;
         let ratingCount = 0;

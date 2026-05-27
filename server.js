@@ -392,8 +392,8 @@ const server = http.createServer((req, res) => {
                         try { state = JSON.parse(data); } catch(e) {}
                     }
                     
-                    const fromUser = state.registeredUsers.find(u => u.username.toLowerCase() === from.toLowerCase());
-                    const toUser = state.registeredUsers.find(u => u.username.toLowerCase() === to.toLowerCase());
+                    const fromUser = state.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === from.toLowerCase());
+                    const toUser = state.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === to.toLowerCase());
                     
                     if (!fromUser || !toUser) {
                         res.statusCode = 404;
@@ -468,8 +468,8 @@ const server = http.createServer((req, res) => {
                         try { state = JSON.parse(data); } catch(e) {}
                     }
                     
-                    const user = state.registeredUsers.find(u => u.username.toLowerCase() === username.toLowerCase());
-                    const targetUser = state.registeredUsers.find(u => u.username.toLowerCase() === target.toLowerCase());
+                    const user = state.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === username.toLowerCase());
+                    const targetUser = state.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === target.toLowerCase());
                     
                     if (!user || !targetUser) {
                         res.statusCode = 404;
@@ -536,8 +536,8 @@ const server = http.createServer((req, res) => {
                         try { state = JSON.parse(data); } catch(e) {}
                     }
                     
-                    const user = state.registeredUsers.find(u => u.username.toLowerCase() === username.toLowerCase());
-                    const targetUser = state.registeredUsers.find(u => u.username.toLowerCase() === target.toLowerCase());
+                    const user = state.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === username.toLowerCase());
+                    const targetUser = state.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === target.toLowerCase());
                     
                     if (user) {
                         if (user.friends) {
