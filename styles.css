@@ -616,11 +616,11 @@ input[type="range"]::-webkit-slider-thumb:hover {
     font-weight: 900;
     font-size: 8vw;
     text-transform: uppercase;
-    letter-spacing: -0.05em;
+    letter-spacing: -0.03em;
     line-height: 1;
     color: #000000;
     user-select: none;
-    transform: scaleX(1.35) scaleY(0.88);
+    transform: scaleX(1.06); /* Balanced wide font styling, no vertical squashing */
     transform-origin: center center;
 }
 
@@ -633,41 +633,34 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .splash-text-part {
     display: inline-block;
     opacity: 0;
-    filter: blur(10px);
+    filter: blur(6px);
+    transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.8s ease;
 }
 
 #part-left {
-    animation: slide-part-left 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transform: translateX(1.5em); /* Hidden behind the center Ø initially */
+    animation: slide-part-left 1.6s cubic-bezier(0.19, 1, 0.22, 1) 0.6s forwards;
 }
 
 #part-right {
-    animation: slide-part-right 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transform: translateX(-1.5em); /* Hidden behind the center Ø initially */
+    animation: slide-part-right 1.6s cubic-bezier(0.19, 1, 0.22, 1) 0.6s forwards;
 }
 
 .splash-void-symbol {
     display: inline-block;
     opacity: 0;
-    transform: scale(0) rotate(-270deg);
+    transform: scale(0.3) rotate(-180deg);
     color: #000000;
     margin: 0 -0.02em;
     position: relative;
     z-index: 10;
-    animation: morph-void 1.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    animation: morph-void 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 /* Keyframes for sliding parts OUTWARDS from behind the central Ø */
 @keyframes slide-part-left {
-    0% {
-        opacity: 0;
-        transform: translateX(4vw); /* Start shifted behind the central Ø */
-        filter: blur(8px);
-    }
-    35% {
-        opacity: 0;
-        transform: translateX(4vw);
-        filter: blur(8px);
-    }
-    100% {
+    to {
         opacity: 1;
         transform: translateX(0);
         filter: blur(0);
@@ -675,68 +668,48 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 @keyframes slide-part-right {
-    0% {
-        opacity: 0;
-        transform: translateX(-4vw); /* Start shifted behind the central Ø */
-        filter: blur(8px);
-    }
-    35% {
-        opacity: 0;
-        transform: translateX(-4vw);
-        filter: blur(8px);
-    }
-    100% {
+    to {
         opacity: 1;
         transform: translateX(0);
         filter: blur(0);
     }
 }
 
-/* More dramatic pulsing empty set Ø entry reveal */
+/* Smooth empty set Ø entry reveal */
 @keyframes morph-void {
     0% {
         opacity: 0;
-        transform: scale(0) rotate(-270deg);
+        transform: scale(0.3) rotate(-180deg);
         filter: drop-shadow(0 0 0px rgba(0, 0, 0, 0));
-    }
-    50% {
-        opacity: 1;
-        transform: scale(1.6) rotate(45deg);
-        filter: drop-shadow(0 0 20px rgba(0, 0, 0, 0.5));
-    }
-    75% {
-        transform: scale(0.9) rotate(-15deg);
-        filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.3));
     }
     100% {
         opacity: 1;
-        transform: scale(1.05) rotate(0deg);
-        filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.15));
+        transform: scale(1) rotate(0deg);
+        filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.15));
     }
 }
 
-/* Portal Transition Exit: outer letters disappear, void scales to infinity swallowing the screen */
+/* Portal Transition Exit: outer letters slide away, void scales to swallow the screen smoothly */
 .splash-warp-active {
-    background-color: #050505 !important; /* Transition red background to black */
-    transition: background-color 1.4s cubic-bezier(0.76, 0, 0.24, 1) !important;
+    opacity: 0 !important;
+    background-color: #050505 !important; /* Smooth fade to black */
+    transition: opacity 0.9s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.9s ease !important;
 }
 
 .splash-logo-warp-active #part-left {
-    transform: translateX(-150vw) scale(0.5);
+    transform: translateX(-40px);
     opacity: 0;
-    transition: transform 1.2s cubic-bezier(0.76, 0, 0.24, 1), opacity 0.8s ease;
 }
 
 .splash-logo-warp-active #part-right {
-    transform: translateX(150vw) scale(0.5);
+    transform: translateX(40px);
     opacity: 0;
-    transition: transform 1.2s cubic-bezier(0.76, 0, 0.24, 1), opacity 0.8s ease;
 }
 
 .splash-logo-warp-active #part-void {
-    transform: scale(220) rotate(180deg);
+    transform: scale(25) rotate(45deg);
     opacity: 0;
-    transition: transform 1.5s cubic-bezier(0.76, 0, 0.24, 1), opacity 1.3s cubic-bezier(0.76, 0, 0.24, 1);
+    transition: transform 0.9s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.8s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 
