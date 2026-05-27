@@ -3154,7 +3154,8 @@ function renderStudiosDirectory() {
     }
 
     // ── STATE B: STUDIO SELECTED → show studio profile ───────────────────────
-    const activeAnimes = studiosMap[activeStudioName];
+    // Deduplicate by id to avoid duplicate cards
+    const activeAnimes = Array.from(new Map((studiosMap[activeStudioName] || []).map(a => [a.id, a])).values());
     const initials = getStudioInitials(activeStudioName);
     const description = getStudioDescription(activeStudioName, activeAnimes);
     const logoSrc = STUDIO_LOGOS[activeStudioName] || null;
