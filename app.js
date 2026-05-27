@@ -1969,16 +1969,12 @@ function setupSplashScreen() {
         if (transitioned) return;
         transitioned = true;
         
-        // Add warp effect to the logo
+        // Add warp classes for the new empty set morph exit transition
         const logo = document.getElementById('splash-logo');
         if (logo) {
-            logo.classList.add('splash-warp-out');
+            logo.classList.add('splash-logo-warp-active');
         }
-        
-        splashScreen.style.transition = 'all 1.5s cubic-bezier(0.77, 0, 0.175, 1)';
-        splashScreen.style.transform = 'scale(1.08)';
-        splashScreen.style.opacity = '0';
-        splashScreen.style.pointerEvents = 'none';
+        splashScreen.classList.add('splash-warp-active');
         
         setTimeout(() => {
             splashScreen.classList.add('hidden');
@@ -1997,7 +1993,7 @@ function setupSplashScreen() {
                 document.body.classList.remove('overflow-hidden');
             }
             if (window.initObserver) window.initObserver();
-        }, 1500);
+        }, 1300);
     };
 
     // After 2.5 seconds, auto-transition to main dashboard
