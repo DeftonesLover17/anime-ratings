@@ -116,6 +116,16 @@ function mergeStates(localState, serverState, loggedInUser) {
                     });
                 }
             } else {
+                // Populate/Update metadata fields from localAnime if missing or rich
+                serverAnime.title = localAnime.title || serverAnime.title;
+                serverAnime.japaneseTitle = localAnime.japaneseTitle || serverAnime.japaneseTitle;
+                serverAnime.synopsis = localAnime.synopsis || serverAnime.synopsis;
+                serverAnime.coverUrl = localAnime.coverUrl || serverAnime.coverUrl;
+                serverAnime.genres = localAnime.genres || serverAnime.genres;
+                serverAnime.studio = localAnime.studio || serverAnime.studio;
+                serverAnime.season = localAnime.season || serverAnime.season;
+                serverAnime.episodes = localAnime.episodes || serverAnime.episodes;
+
                 // Merge ratings map
                 if (localAnime.ratings) {
                     if (!serverAnime.ratings) serverAnime.ratings = {};

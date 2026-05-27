@@ -1122,7 +1122,32 @@ class AppState {
 
             // Update local memory and localStorage with the merged server state
             if (serverState.animes && Array.isArray(serverState.animes)) {
-                this.animes = serverState.animes;
+                const serverAnimesMap = {};
+                serverState.animes.forEach(sa => {
+                    serverAnimesMap[sa.id] = sa;
+                });
+
+                // Merge server ratings and comments into local rich animes to prevent loss of metadata fields
+                this.animes = this.animes.map(localAnime => {
+                    const sa = serverAnimesMap[localAnime.id];
+                    if (sa) {
+                        return {
+                            ...localAnime,
+                            ratings: sa.ratings || {},
+                            comments: sa.comments || []
+                        };
+                    }
+                    return localAnime;
+                });
+
+                // Also check if there are new custom animes from the server that are not in our local list
+                const localIds = new Set(this.animes.map(a => a.id));
+                serverState.animes.forEach(sa => {
+                    if (sa && sa.id && !localIds.has(sa.id)) {
+                        this.animes.push(sa);
+                    }
+                });
+
                 localStorage.setItem('anivoid_list_v2', JSON.stringify(this.animes));
             }
             // Check new activities and trigger Toasts
