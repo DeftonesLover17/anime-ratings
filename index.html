@@ -69,12 +69,32 @@
             <span class="text-xs border border-white/10 px-4 py-1.5 rounded-full font-mono text-white/45">v1.0.0</span>
         </div>
 
-        <!-- Central Entry Content (Ultra Clean: Name only with tracking expand) -->
-        <div class="relative z-20 text-center flex flex-col items-center my-auto">
-            <h1 id="splash-logo" class="text-6xl md:text-8xl font-medium tracking-tight text-[#ffe0e0] font-serif glow-accent animate-title-in" 
-                style="text-shadow: 0 0 25px rgba(255, 69, 0, 0.45);">
-                Anivoid.
-            </h1>
+        <!-- Central Entry Content (Motion Design) -->
+        <div class="relative z-20 text-center flex flex-col items-center my-auto select-none">
+            <!-- Glowing Ring Background -->
+            <div class="absolute w-64 h-64 rounded-full bg-brand/5 blur-[60px] -translate-y-12 animate-[pulse_4s_infinite_1.5s] pointer-events-none"></div>
+            
+            <!-- Logo Container with Shine Effect -->
+            <div class="relative w-28 h-28 md:w-36 md:h-36 mb-6 overflow-hidden rounded-[2.5rem] border border-white/5 bg-[#0a0a0a]/50 p-6 flex items-center justify-center shadow-[0_12px_40px_rgba(0,0,0,0.8)] group animate-[logo-intro_1.6s_cubic-bezier(0.16,1,0.3,1)_forwards]">
+                <!-- Glow behind logo -->
+                <div class="absolute inset-0 bg-gradient-to-tr from-brand/10 to-transparent opacity-0 animate-[fade-in-glow_1s_ease-out_0.8s_forwards]"></div>
+                
+                <!-- The Monogram Logo Image -->
+                <img src="logo.png" class="w-full h-full object-contain filter drop-shadow-[0_0_8px_rgba(255,69,0,0.15)] animate-[logo-glow-pulse_3s_infinite_2s]" alt="Anivoid Logo">
+                
+                <!-- Laser Shine Sweep -->
+                <div class="absolute inset-0 w-[200%] h-full bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full skew-x-12 animate-[shine-sweep_2.5s_cubic-bezier(0.25,1,0.5,1)_infinite_1.5s]"></div>
+            </div>
+            
+            <!-- Site Name with Letter-by-Letter Reveal or Smooth Tracking Expansion -->
+            <div class="flex flex-col items-center gap-2">
+                <h1 id="splash-logo" class="text-4xl md:text-6xl font-medium tracking-[0.25em] text-[#f7f7f7] font-serif glow-accent animate-[tracking-reveal_1.8s_cubic-bezier(0.16,1,0.3,1)_forwards]" style="text-shadow: 0 0 30px rgba(255, 69, 0, 0.25);">
+                    ANIVOID
+                </h1>
+                <p class="text-[9px] md:text-[10px] font-mono tracking-[0.4em] uppercase text-white/35 opacity-0 animate-[fade-in_1s_ease-out_1.2s_forwards]">
+                    Season Ratings
+                </p>
+            </div>
         </div>
 
         <!-- Splash Footer -->
