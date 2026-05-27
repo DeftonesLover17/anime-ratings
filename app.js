@@ -906,7 +906,7 @@ const DEFAULT_ANIMES = [
 // App State Management
 const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? '' 
-    : 'https://seu-servidor-backend.onrender.com'; // <--- Você substituirá por sua URL do Render depois
+    : 'https://anime-ratings.onrender.com'; // <--- Você substituirá por sua URL do Render depois
 
 class AppState {
     constructor() {
