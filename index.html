@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anivoid | Season Ratings</title>
+    <!-- EmailJS SDK for real email delivery (optional) -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Iconify Icons CDN -->
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css?v=7">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: 'var(--brand, #FF4500)',
+                        bgDark: '#050505',
+                        cardDark: '#111111',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-bgDark text-white overflow-hidden">
+    <!-- Global Noise Overlay -->
+    <div class="noise-overlay"></div>
+
+    <!-- 1. INTRO SPLASH SCREEN -->
+    <div id="splash-screen" class="fixed inset-0 bg-bgDark z-[9999] flex flex-col justify-between items-center py-12 overflow-hidden">
+        <!-- Ambient Glowing Background Elements (Deep Crimson / Orange Auroras) -->
+        <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none select-none">
+            <!-- Pulsing Red Aurora Left -->
+            <div class="absolute top-[10%] left-[-15%] w-[65vw] h-[65vw] rounded-full bg-[#800000] opacity-35 blur-[160px] animate-drift-left"></div>
+            <!-- Pulsing Orange/Crimson Aurora Right -->
+            <div class="absolute bottom-[-15%] right-[-15%] w-[60vw] h-[60vw] rounded-full bg-[#FF4500] opacity-20 blur-[140px] animate-drift-right"></div>
+            <!-- Slow Moving Center Glow -->
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[45vw] h-[45vw] rounded-full bg-[#4a000b] opacity-40 blur-[130px] animate-[pulse_8s_infinite_1s]"></div>
+            <!-- Vignette shadow cover -->
+            <div class="absolute inset-0 bg-gradient-to-b from-[#050505]/40 via-transparent to-bgDark"></div>
+        </div>
+
+        <!-- Drifting Particle Dust Stars -->
+        <div class="absolute inset-0 z-10 pointer-events-none select-none">
+            <div class="particle absolute top-[20%] left-[10%] w-1.5 h-1.5 rounded-full bg-white/20" style="animation-delay: 0s; animation-duration: 6s;"></div>
+            <div class="particle absolute top-[40%] left-[30%] w-1 h-1 rounded-full bg-brand/30" style="animation-delay: 1.5s; animation-duration: 8s;"></div>
+            <div class="particle absolute top-[15%] left-[80%] w-2 h-2 rounded-full bg-white/15" style="animation-delay: 0.5s; animation-duration: 9s;"></div>
+            <div class="particle absolute top-[70%] left-[15%] w-1.5 h-1.5 rounded-full bg-brand/20" style="animation-delay: 2.2s; animation-duration: 7s;"></div>
+            <div class="particle absolute top-[80%] left-[75%] w-1 h-1 rounded-full bg-white/30" style="animation-delay: 1.1s; animation-duration: 10s;"></div>
+            <div class="particle absolute top-[50%] left-[85%] w-1.5 h-1.5 rounded-full bg-brand/35" style="animation-delay: 3s; animation-duration: 6.5s;"></div>
+        </div>
+
+        <!-- Splash Header -->
+        <div class="w-full px-8 md:px-16 flex justify-between items-center relative z-20">
+            <span class="text-2xl font-bold tracking-tighter font-serif">Anivoid.</span>
+            <span class="text-xs border border-white/10 px-4 py-1.5 rounded-full font-mono text-white/45">v1.0.0</span>
+        </div>
+
+        <!-- Central Entry Content (Ultra Clean: Name only with tracking expand) -->
+        <div class="relative z-20 text-center flex flex-col items-center my-auto">
+            <h1 id="splash-logo" class="text-6xl md:text-8xl font-medium tracking-tight text-[#ffe0e0] font-serif glow-accent animate-title-in" 
+                style="text-shadow: 0 0 25px rgba(255, 69, 0, 0.45);">
+                Anivoid.
+            </h1>
+        </div>
+
+        <!-- Splash Footer -->
+        <div class="w-full text-center relative z-20 flex flex-col items-center gap-2">
+            <div class="flex items-center gap-4 text-xs text-white/30 uppercase tracking-widest font-mono">
+                <span id="current-time">11:11 PM</span>
+                <span class="w-px h-3 bg-white/20"></span>
+                <span>ANIME WORLD</span>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- REGISTRATION GATE OVERLAY -->
+    <div id="registration-gate" class="fixed inset-0 bg-bgDark/98 backdrop-blur-xl z-[9998] hidden items-start justify-center p-4 md:p-10 overflow-y-auto">
+        <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl p-6 md:p-10 space-y-6 my-auto relative animate-[fadeIn_0.3s_ease-out]">
+            <!-- Ambient glow decorative circles -->
+            <div class="absolute -top-24 -left-24 w-48 h-48 rounded-full bg-brand/10 blur-[80px] pointer-events-none"></div>
+            <div class="absolute -bottom-24 -right-24 w-48 h-48 rounded-full bg-brand/10 blur-[80px] pointer-events-none"></div>
+            
+            <div class="text-center space-y-2">
+                <p class="text-xs font-mono uppercase tracking-[0.3em] text-brand">Bem-vindo ao Anivoid</p>
+                <h2 class="text-3xl md:text-4xl font-serif text-white/95">Crie seu <span class="italic text-brand font-light">Perfil de Otaku</span></h2>
+                <p class="text-xs text-gray-400 font-mono font-light leading-relaxed">Antes de entrar, precisamos de algumas informações para personalizar sua experiência.</p>
+            </div>
+
+            <!-- Step Indicators -->
+            <div class="flex items-center justify-between text-[9px] font-mono uppercase tracking-widest text-gray-500 border-b border-white/5 pb-4 mb-4 select-none">
+                <div class="step-indicator active flex items-center gap-1.5" data-step="1">
+                    <span class="w-5 h-5 rounded-full bg-brand text-white flex items-center justify-center font-bold text-[10px]">1</span>
+                    <span class="hidden sm:inline text-white/90">Conta</span>
+                </div>
+                <div class="w-8 h-px bg-white/10"></div>
+                <div class="step-indicator flex items-center gap-1.5" data-step="2">
+                    <span class="w-5 h-5 rounded-full bg-white/5 border border-white/10 flex items-center justify-center font-bold text-[10px]">2</span>
+                    <span class="hidden sm:inline">Gêneros</span>
+                </div>
+                <div class="w-8 h-px bg-white/10"></div>
+                <div class="step-indicator flex items-center gap-1.5" data-step="3">
+                    <span class="w-5 h-5 rounded-full bg-white/5 border border-white/10 flex items-center justify-center font-bold text-[10px]">3</span>
+                    <span class="hidden sm:inline">Estúdios</span>
+                </div>
+                <div class="w-8 h-px bg-white/10"></div>
+                <div class="step-indicator flex items-center gap-1.5" data-step="4">
+                    <span class="w-5 h-5 rounded-full bg-white/5 border border-white/10 flex items-center justify-center font-bold text-[10px]">4</span>
+                    <span class="hidden sm:inline">Animes</span>
+                </div>
+            </div>
+            
+            <form id="registration-form" class="space-y-6 text-xs font-mono">
+                <!-- Step 1: Conta -->
+                <div class="reg-step space-y-6" data-step="1">
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+                        <div class="md:col-span-12 space-y-2">
+                            <label class="text-gray-400 uppercase tracking-wider block font-semibold">Nome de Usuário / Apelido</label>
+                            <input type="text" id="reg-name" required placeholder="Ex: Otaku Supremo" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 transition-colors">
+                        </div>
+                        
+                        <div class="md:col-span-6 space-y-2">
+                            <label class="text-gray-400 uppercase tracking-wider block font-semibold">E-mail</label>
+                            <input type="email" id="reg-email" required placeholder="exemplo@email.com" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 transition-colors">
+                        </div>
+                        
+                        <div class="md:col-span-6 space-y-2">
+                            <label class="text-gray-400 uppercase tracking-wider block font-semibold">Senha</label>
+                            <input type="password" id="reg-password" required placeholder="••••••••" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 transition-colors">
+                        </div>
+                        
+                        <div class="md:col-span-6 space-y-2">
+                            <label class="text-gray-400 uppercase tracking-wider block font-semibold">Cor do Tema</label>
+                            <div class="relative h-12 w-full">
+                                <input type="color" id="reg-color" value="#FF4500" class="absolute inset-0 w-full h-full border-0 bg-transparent cursor-pointer rounded-xl p-0.5">
+                            </div>
+                        </div>
+    
+                        <div class="md:col-span-6 space-y-2">
+                            <label class="text-gray-400 uppercase tracking-wider block font-semibold text-center md:text-left">Avatar (Emoji)</label>
+                            <input type="hidden" id="reg-avatar" value="😎">
+                            <div class="relative">
+                                <button type="button" id="reg-avatar-trigger" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-center text-lg focus:outline-none hover:bg-white/10 transition-colors">
+                                    😎
+                                </button>
+                                <div id="reg-avatar-dropdown" class="absolute left-1/2 -translate-x-1/2 mt-2 w-44 bg-[#0f0f0f] border border-white/10 rounded-xl p-2 hidden grid grid-cols-4 gap-1 shadow-2xl z-[10000]">
+                                    <!-- Clickable emoji list populated in JS -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Gêneros -->
+                <div class="reg-step hidden space-y-4" data-step="2">
+                    <div class="flex justify-between items-center">
+                        <label class="text-gray-400 uppercase tracking-wider block font-semibold">Selecione seus Gêneros Favoritos</label>
+                        <span class="text-[9px] text-gray-500 font-mono">SELECIONE MÚLTIPLOS</span>
+                    </div>
+                    <p class="text-[11px] text-gray-400 font-light italic">Passe o mouse sobre um gênero para espiar alguns animes do catálogo.</p>
+                    <div id="reg-genres-list" class="flex flex-wrap gap-2 pt-2">
+                        <!-- Populated in JS -->
+                    </div>
+                </div>
+
+                <!-- Step 3: Estúdios -->
+                <div class="reg-step hidden space-y-4" data-step="3">
+                    <div class="flex justify-between items-center">
+                        <label class="text-gray-400 uppercase tracking-wider block font-semibold">Selecione seus Estúdios Favoritos</label>
+                        <span class="text-[9px] text-gray-500 font-mono">SELECIONE MÚLTIPLOS</span>
+                    </div>
+                    <p class="text-[11px] text-gray-400 font-light italic">Passe o mouse sobre um estúdio para espiar as suas produções no catálogo.</p>
+                    <div id="reg-studios-list" class="flex flex-wrap gap-2 pt-2">
+                        <!-- Populated in JS -->
+                    </div>
+                </div>
+
+                <!-- Step 4: Animes -->
+                <div class="reg-step hidden space-y-4" data-step="4">
+                    <div class="flex justify-between items-center">
+                        <label class="text-gray-400 uppercase tracking-wider block font-semibold">Escolha seus Animes Favoritos</label>
+                        <span class="text-[9px] text-gray-500 font-mono">SELECIONE MÚLTIPLOS</span>
+                    </div>
+                    
+                    <!-- Search inside modal -->
+                    <div class="relative">
+                        <iconify-icon icon="lucide:search" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></iconify-icon>
+                        <input type="text" id="reg-anime-search" placeholder="Pesquise para adicionar aos seus favoritos..." class="w-full bg-white/5 border border-white/10 rounded-full py-2.5 pl-11 pr-4 text-xs font-light tracking-wide focus:outline-none focus:border-brand/40 transition-colors">
+                    </div>
+                    
+                    <!-- Selection and search results container -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                        <!-- Selected list -->
+                        <div class="space-y-2">
+                            <span class="text-[10px] text-gray-500 uppercase tracking-wider font-mono">Selecionados:</span>
+                            <div id="reg-selected-animes" class="space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
+                                <!-- JS Populated -->
+                                <p class="text-[11px] text-gray-500 italic py-2">Nenhum anime selecionado.</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Search results/recommendations list -->
+                        <div class="space-y-2">
+                            <span id="reg-recommend-label" class="text-[10px] text-gray-500 uppercase tracking-wider font-mono">Sugestões Populares:</span>
+                            <div id="reg-anime-results" class="space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
+                                <!-- JS Populated -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step Navigation Controls -->
+                <div class="flex items-center justify-between pt-4 border-t border-white/5 gap-4 select-none">
+                    <button type="button" id="reg-prev-btn" class="px-6 py-3 rounded-full border border-white/10 text-white/70 hover:text-white hover:bg-white/5 transition-all uppercase tracking-widest font-semibold text-[10px] hidden">
+                        Anterior
+                    </button>
+                    <button type="button" id="reg-next-btn" class="ml-auto px-8 py-3 rounded-full bg-brand text-white hover:bg-brand/80 hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-widest font-semibold text-[10px] border border-brand/40 shadow-[0_4px_20px_rgba(255,69,0,0.3)]">
+                        Próximo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- HOVER TOOLTIP FOR GENRES/STUDIOS -->
+    <div id="reg-hover-tooltip" class="fixed bg-[#0c0c0c]/98 backdrop-blur-md border border-brand/35 rounded-2xl p-4 shadow-2xl z-[9999] pointer-events-none hidden max-w-xs transition-opacity duration-200 opacity-0 text-[10px] font-mono text-white/90">
+        <div class="space-y-2.5">
+            <p id="tooltip-title" class="font-bold text-brand uppercase tracking-widest text-[9px] border-b border-white/5 pb-1.5"></p>
+            <div id="tooltip-animes-list" class="space-y-2">
+                <!-- Filled in JS on hover -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. MAIN NAV NAVIGATION -->
+    <nav id="main-nav" class="fixed top-0 left-0 right-0 z-40 bg-bgDark/80 backdrop-blur-md border-b border-white/5 py-4 transition-all duration-300">
+        <div class="container mx-auto px-6 flex items-center justify-between">
+            <a href="#" class="text-xl md:text-2xl font-bold tracking-tighter font-serif flex items-center gap-2 hover:scale-95 transition-transform">
+                Anivoid
+            </a>
+            
+            <!-- Mid navigation link scroll tags -->
+            <div class="hidden lg:flex items-center space-x-8 text-xs font-mono uppercase tracking-widest text-gray-400">
+                <a href="#featured-banner-wrapper" onclick="switchTabToFeatured()" class="hover:text-white transition-colors duration-300">Em Destaque</a>
+                <a href="#anime-grid-section" onclick="switchTabToAll()" class="hover:text-white transition-colors duration-300">Temporada</a>
+                <a href="#anime-grid-section" onclick="resetFilters()" class="hover:text-white transition-colors duration-300">Resetar Filtros</a>
+            </div>
+
+            <!-- Top Right Profile Selector -->
+            <div class="relative">
+                <button id="profile-indicator" class="relative flex items-center gap-3 px-4 py-2 border rounded-full bg-white/5 hover:bg-white/10 transition-all duration-300">
+                    <span id="active-avatar" class="text-lg">😎</span>
+                    <span id="active-name" class="text-xs uppercase tracking-widest font-mono text-white/80 hidden sm:inline">Você</span>
+                    <span id="friend-requests-badge" class="absolute -top-1.5 -right-1.5 bg-brand text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center hidden border border-black shadow-lg">0</span>
+                    <iconify-icon icon="lucide:chevron-down" class="text-gray-400 text-xs"></iconify-icon>
+                </button>
+                
+                <!-- Dropdown -->
+                <div id="friends-dropdown" class="absolute right-0 mt-3 w-64 glass-panel rounded-2xl p-2 hidden flex-col shadow-2xl z-50 border border-white/10 animate-[fadeIn_0.2s_ease-out]">
+                    <span class="text-[10px] text-gray-500 uppercase tracking-widest font-mono p-3 block">Trocar Avaliador</span>
+                    <div id="friends-dropdown-list" class="space-y-1">
+                        <!-- Filled in JS -->
+                    </div>
+                    <div class="w-full h-px bg-white/5 my-2"></div>
+                    <button id="open-edit-profile" class="w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-white/80 hover:bg-white/5 transition-colors">
+                        <iconify-icon icon="lucide:user-cog" class="text-base text-brand"></iconify-icon>
+                        <span class="font-mono uppercase tracking-wider">Editar Perfil</span>
+                    </button>
+                    <div class="w-full h-px bg-white/5 my-2"></div>
+                    <button id="open-add-friend" class="w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-brand hover:bg-brand/10 hover:text-white transition-colors">
+                        <iconify-icon icon="lucide:plus" class="text-base"></iconify-icon>
+                        <span class="font-mono uppercase tracking-wider">Adicionar Amigo</span>
+                    </button>
+                    <div class="w-full h-px bg-white/5 my-2"></div>
+                    <button id="open-group-stats" class="w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-white/80 hover:bg-white/5 transition-colors">
+                        <iconify-icon icon="lucide:bar-chart-3" class="text-base text-brand"></iconify-icon>
+                        <span class="font-mono uppercase tracking-wider">Estatísticas do Grupo</span>
+                    </button>
+                    <div class="w-full h-px bg-white/5 my-2"></div>
+                    <button id="logout-btn" class="w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-red-500 hover:bg-red-500/10 transition-colors">
+                        <iconify-icon icon="lucide:log-out" class="text-base"></iconify-icon>
+                        <span class="font-mono uppercase tracking-wider text-red-400">Desconectar Conta</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+
+    <!-- 3. HERO / FEATURED BANNER SECTION -->
+    <header id="featured-banner-wrapper" class="relative min-h-[75vh] flex items-center pt-32 pb-20 overflow-hidden bg-bgDark border-b border-white/5">
+        <!-- Filled in JS -->
+    </header>
+
+
+    <!-- 4. MAIN ANIME GRID SECTION -->
+    <main id="anime-grid-section" class="py-20 relative">
+        <div class="container mx-auto px-6">
+            
+            <!-- Mural do Grupo Section (Top of Grid Section) -->
+            <div id="activities-section-wrapper" class="mb-12 border-b border-white/5 pb-10 space-y-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <iconify-icon icon="lucide:zap" class="text-brand text-lg animate-pulse"></iconify-icon>
+                        <h3 class="text-sm font-mono uppercase tracking-widest text-white/90">Mural de Atividades</h3>
+                    </div>
+                    <span class="text-[9px] text-gray-500 font-mono uppercase">Últimas ações do grupo</span>
+                </div>
+                <div id="activities-feed-list" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="col-span-full py-8 text-center glass-panel rounded-3xl p-6 border border-white/5">
+                        <p class="text-gray-500 font-light text-[11px] italic">Nenhuma atividade recente registrada.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filters Header & Add Anime Action -->
+            <div id="grid-header-section" class="flex flex-col gap-8 mb-16">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div>
+                        <h2 class="text-3xl md:text-5xl font-serif text-white/90 mb-2">
+                            Animes da <span class="italic text-brand font-light">Temporada</span>
+                        </h2>
+                        <p class="text-xs text-gray-500 font-mono tracking-widest uppercase">Grid de avaliações do grupo</p>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-4 w-full md:w-auto">
+                        <!-- Add Anime Button -->
+                        <button id="open-add-anime" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-mono uppercase tracking-widest bg-brand hover:bg-brand/80 text-white transition-all hover:scale-105">
+                            <iconify-icon icon="lucide:plus" class="text-sm"></iconify-icon>
+                            <span>Adicionar Anime</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- MAL-style Tab Filter Bar -->
+                <div class="flex border-b border-white/5 overflow-x-auto pb-px text-xs font-mono uppercase tracking-widest gap-2 sm:gap-6">
+                    <button id="mal-tab-All" class="mal-tab py-3 border-b-2 font-semibold transition-all px-2 whitespace-nowrap text-brand border-brand">Todos os Animes</button>
+                    <button id="mal-tab-Watching" class="mal-tab py-3 border-b-2 font-semibold transition-all px-2 whitespace-nowrap text-white/40 border-transparent hover:text-white">Assistindo</button>
+                    <button id="mal-tab-Completed" class="mal-tab py-3 border-b-2 font-semibold transition-all px-2 whitespace-nowrap text-white/40 border-transparent hover:text-white">Completados</button>
+                    <button id="mal-tab-OnHold" class="mal-tab py-3 border-b-2 font-semibold transition-all px-2 whitespace-nowrap text-white/40 border-transparent hover:text-white">Em Espera</button>
+                    <button id="mal-tab-Dropped" class="mal-tab py-3 border-b-2 font-semibold transition-all px-2 whitespace-nowrap text-white/40 border-transparent hover:text-white">Abandonados</button>
+                    <button id="mal-tab-PlanToWatch" class="mal-tab py-3 border-b-2 font-semibold transition-all px-2 whitespace-nowrap text-white/40 border-transparent hover:text-white">Planejo Assistir</button>
+                </div>
+ 
+                <!-- Filters Control Bar -->
+                <div class="glass-panel border border-white/5 rounded-3xl p-6 flex flex-col gap-4">
+                    <div class="flex flex-col lg:flex-row justify-between gap-4">
+                        <!-- Search, Sort and Toggle Filters -->
+                        <div class="flex flex-col sm:flex-row gap-4 flex-grow max-w-3xl">
+                            <div class="relative flex-grow">
+                                <iconify-icon icon="lucide:search" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></iconify-icon>
+                                <input type="text" id="search-anime" placeholder="Pesquisar por título, estúdio..." class="w-full bg-white/5 border border-white/10 rounded-full py-2.5 pl-11 pr-4 text-xs font-light tracking-wide focus:outline-none focus:border-brand/50 transition-colors">
+                            </div>
+                            <div class="relative min-w-[200px]" id="sort-select-container">
+                                <!-- Custom Sort Dropdown populated dynamically in JS -->
+                            </div>
+                            <button id="toggle-filters-btn" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 border border-white/10 hover:border-brand/30 hover:bg-brand/5 rounded-full text-xs font-mono uppercase tracking-widest text-gray-400 hover:text-white transition-all cursor-pointer select-none">
+                                <iconify-icon icon="lucide:sliders-horizontal" class="text-sm"></iconify-icon>
+                                <span>Filtros</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Collapsible Advanced Filters -->
+                    <div id="advanced-filters-panel" class="hidden overflow-hidden transition-all duration-300 ease-out space-y-4 pt-4 border-t border-white/5">
+                        <!-- Filters: Season pills -->
+                        <div class="flex flex-col gap-2">
+                            <span class="text-[9px] uppercase tracking-widest text-gray-500 font-mono">Temporadas:</span>
+                            <div id="seasons-filter" class="flex flex-wrap gap-2">
+                                <!-- JS populated -->
+                            </div>
+                        </div>
+     
+                        <!-- Filters: Genre pills -->
+                        <div class="flex flex-col gap-2">
+                            <span class="text-[9px] uppercase tracking-widest text-gray-500 font-mono">Gêneros:</span>
+                            <div id="genres-filter" class="flex flex-wrap gap-2">
+                                <!-- JS populated -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+ 
+            <!-- Full Width Content Layout: Grid/Studios -->
+            <div class="w-full space-y-8 animate-[fadeIn_0.3s_ease-out]">
+                <!-- Anime Grid Container -->
+                <div id="anime-grid-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+                    <!-- JS Populated -->
+                </div>
+     
+                <!-- Studios Directory Container -->
+                <div id="studios-directory-container" class="hidden w-full">
+                    <!-- JS Populated -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+
+    <!-- 5. ANIME DETAIL PAGE (DEDICATED VIEW) -->
+    <section id="anime-detail-page" class="hidden min-h-screen pb-20 relative bg-bgDark z-30 transition-all duration-500 opacity-0 transform translate-y-4">
+        <!-- Ambient Auroras just for detail page -->
+        <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none select-none">
+            <div class="absolute top-0 right-0 w-[50vw] h-[50vw] rounded-full bg-[#800000] opacity-20 blur-[160px]"></div>
+            <div class="absolute bottom-0 left-0 w-[45vw] h-[45vw] rounded-full bg-[#FF4500] opacity-10 blur-[140px]"></div>
+        </div>
+
+        <div class="container mx-auto px-6 relative z-10 pt-28">
+            <!-- Back navigation button -->
+            <button id="back-to-home-btn" class="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-gray-400 hover:text-white mb-8 group transition-colors">
+                <iconify-icon icon="lucide:arrow-left" class="text-base group-hover:-translate-x-1 transition-transform"></iconify-icon>
+                <span>Voltar ao início</span>
+            </button>
+
+            <div class="glass-panel border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col relative">
+                <!-- Banner cover -->
+                <div class="relative h-[20vh] md:h-[30vh] overflow-hidden">
+                    <img id="detail-banner" src="" alt="Anime Banner" class="w-full h-full object-cover object-center opacity-30 blur-md scale-105">
+                    <div class="absolute inset-0 bg-gradient-to-t from-bgDark via-transparent to-transparent"></div>
+                    
+                    <!-- Highlighted Studio Badge overlaying the banner -->
+                    <div class="absolute bottom-6 right-6 md:right-10 z-20">
+                        <span id="detail-studio" class="studio-glow px-4 py-2 rounded-full text-xs font-mono tracking-widest font-semibold uppercase bg-brand/20 border border-brand text-white inline-block">
+                            STUDIO
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Details Content Grid -->
+                <div class="p-6 md:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
+                    <!-- Left Column (General info & Reviews) -->
+                    <div class="lg:col-span-7 space-y-8">
+                        <!-- Title block with vertical poster -->
+                        <div class="flex flex-col sm:flex-row gap-6 items-start">
+                            <!-- Vertical Poster Thumbnail -->
+                            <div class="shrink-0 w-36 sm:w-48 rounded-xl overflow-hidden border border-white/10 shadow-2xl -mt-24 sm:-mt-32 relative z-20 bg-bgDark">
+                                <img id="detail-poster" src="" alt="Poster" class="w-full h-auto object-cover aspect-[3/4]">
+                            </div>
+                            <!-- Title Details -->
+                            <div class="flex-grow">
+                                <div class="flex flex-wrap items-center gap-3 mb-2">
+                                    <span id="detail-season" class="text-xs text-brand font-mono font-semibold uppercase tracking-wider"></span>
+                                    <span class="text-white/20">•</span>
+                                    <span id="detail-episodes" class="text-xs text-gray-400 font-mono"></span>
+                                </div>
+                                <h2 id="detail-title" class="text-2xl md:text-4xl font-semibold font-serif leading-tight text-white mb-2"></h2>
+                                <p id="detail-japanese-title" class="text-sm text-gray-500 font-mono tracking-wide"></p>
+                                <button id="detail-set-featured-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-brand/40 bg-brand/10 hover:bg-brand/20 text-brand text-[10px] font-mono uppercase tracking-widest rounded-full transition-all mt-3">
+                                    <iconify-icon icon="lucide:pin" class="text-xs"></iconify-icon>
+                                    <span>Fixar no Destaque</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Synopsis -->
+                        <div class="space-y-2">
+                            <h4 class="text-xs font-mono uppercase tracking-widest text-gray-500">Sinopse</h4>
+                            <p id="detail-synopsis" class="text-sm text-gray-300 font-light leading-relaxed"></p>
+                            <div id="detail-genres" class="flex flex-wrap gap-1.5 pt-3">
+                                <!-- JS populated -->
+                            </div>
+                        </div>
+
+                        <div class="w-full h-px bg-white/5"></div>
+
+                        <!-- REVIEWS / COMMENTS SECTION -->
+                        <div class="space-y-6">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-lg font-serif">Mural de Críticas</h3>
+                                <span class="text-[10px] text-gray-500 font-mono uppercase tracking-widest">Opinião do grupo</span>
+                            </div>
+                            
+                            <div id="comments-list" class="space-y-4 max-h-[350px] overflow-y-auto pr-2">
+                                <!-- Comments filled in JS -->
+                            </div>
+
+                            <!-- Write review box -->
+                            <div class="space-y-4 bg-white/5 border border-white/5 rounded-2xl p-6">
+                                <div class="flex items-center gap-3 mb-1" id="comment-input-author-container">
+                                    <!-- Recebe Avatar e Nome dinamicamente no JS -->
+                                </div>
+                                <textarea id="comment-textarea" placeholder="Deixe sua review curta sobre o anime..." rows="3" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-xs font-light focus:outline-none focus:border-brand/40 resize-none"></textarea>
+                                <button id="submit-comment-btn" class="w-full py-3 rounded-full text-xs font-mono uppercase tracking-widest bg-white text-black hover:bg-gray-150 transition-colors font-semibold">
+                                    Enviar Review
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column (Tracking, Episode Ratings & Group stats) -->
+                    <div class="lg:col-span-5 space-y-8">
+                        
+                        <!-- USER PERSONAL TRACKING (Overall & Status) -->
+                        <div class="border border-brand/20 bg-brand/5 rounded-2xl p-6 space-y-6">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="text-base font-serif">Seu Painel</h3>
+                                    <p class="text-[10px] text-gray-400 font-mono">Avaliador: <span id="active-friend-name-label" class="font-bold">Você</span></p>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <div class="flex flex-col items-end">
+                                        <span class="text-[9px] uppercase tracking-widest text-gray-400 font-mono">Sua Nota</span>
+                                        <span class="text-[9px] text-brand font-mono font-semibold">Geral</span>
+                                    </div>
+                                    <div id="my-rating-overall-container">
+                                        <!-- Will receive Circular SVG in JS -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="w-full h-px bg-white/10"></div>
+
+                            <!-- Watch Status dropdown -->
+                            <div class="space-y-2">
+                                <label class="text-xs font-mono uppercase tracking-widest text-gray-400 block">Status de Visualização</label>
+                                <div class="relative" id="status-select-container">
+                                    <!-- Will receive Custom Dropdown in JS -->
+                                </div>
+                            </div>
+
+                            <!-- Episode progress progress-bar -->
+                            <div id="detail-progress-container" class="space-y-2">
+                                <div class="flex justify-between text-xs font-mono">
+                                    <span class="text-gray-400">Progresso Geral</span>
+                                    <span class="text-white"><b id="detail-ep-watched-label">0</b> / <b id="detail-ep-total-label">?</b> eps</span>
+                                </div>
+                                <div class="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                                    <div id="detail-progress-bar" class="h-full bg-brand" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- EPISODES RATING LIST -->
+                        <div class="glass-panel border border-white/5 rounded-2xl p-6 space-y-4">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-sm font-mono uppercase tracking-widest text-gray-300">Avaliar Episódios</h3>
+                                <span class="text-[9px] font-mono text-gray-500">Média Geral</span>
+                            </div>
+                            
+                            <!-- Container for episodes list -->
+                            <div id="detail-episodes-rating-list" class="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                                <!-- JS Populated: Episode Rows -->
+                            </div>
+                        </div>
+
+                        <!-- GROUP AVERAGE & STATS -->
+                        <div class="glass-panel border border-white/5 rounded-2xl p-6 space-y-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-sm font-mono uppercase tracking-widest text-gray-300">Média do Grupo</h3>
+                                    <p class="text-[10px] text-gray-500 font-mono">Nota consolidada</p>
+                                </div>
+                                <div id="group-rating-avg-container">
+                                    <!-- Will receive Circular SVG in JS -->
+                                </div>
+                            </div>
+
+                            <!-- Group breakdown status statistics -->
+                            <div class="grid grid-cols-2 gap-2 text-[10px] font-mono">
+                                <div class="bg-bgDark/50 border border-white/5 rounded p-2 flex justify-between items-center">
+                                    <span class="text-[#2db039]">Assistindo:</span>
+                                    <b id="group-stat-watching" class="text-white">0</b>
+                                </div>
+                                <div class="bg-bgDark/50 border border-white/5 rounded p-2 flex justify-between items-center">
+                                    <span class="text-[#26448f]">Completo:</span>
+                                    <b id="group-stat-completed" class="text-white">0</b>
+                                </div>
+                                <div class="bg-bgDark/50 border border-white/5 rounded p-2 flex justify-between items-center">
+                                    <span class="text-[#f1c40f]">Em Espera:</span>
+                                    <b id="group-stat-onhold" class="text-white">0</b>
+                                </div>
+                                <div class="bg-bgDark/50 border border-white/5 rounded p-2 flex justify-between items-center">
+                                    <span class="text-[#a12f2f]">Abandonado:</span>
+                                    <b id="group-stat-dropped" class="text-white">0</b>
+                                </div>
+                                <div class="bg-bgDark/50 border border-white/5 rounded p-2 flex justify-between items-center col-span-2">
+                                    <span class="text-white/40">Planejam:</span>
+                                    <b id="group-stat-plantowatch" class="text-white">0</b>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- OTHER RELATED SEASONS -->
+                        <div id="detail-related-seasons-section" class="glass-panel border border-white/5 rounded-2xl p-6 space-y-4 hidden">
+                            <h3 class="text-xs font-mono uppercase tracking-widest text-gray-400">Outras Temporadas</h3>
+                            <div id="detail-related-seasons-list" class="space-y-3">
+                                <!-- JS Populated -->
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Tabela de detalhamento de progresso de todos os membros do grupo -->
+                <div class="border-t border-white/5 p-6 md:p-10 space-y-4">
+                    <h4 class="text-xs font-mono uppercase tracking-widest text-gray-500">Membros do Grupo</h4>
+                    <div id="detail-ratings-breakdown" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Filled in JS -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+
+    <!-- 6. MODAL: ADD ANIME FORM -->
+    <div id="add-anime-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-[50] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
+        <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl p-6 md:p-8 space-y-6">
+            <div class="flex justify-between items-center">
+                <h3 class="text-xl font-serif">Adicionar <span class="italic text-brand">Novo Anime</span></h3>
+                <button id="close-add-anime" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors">
+                    <iconify-icon icon="lucide:x" class="text-white text-sm"></iconify-icon>
+                </button>
+            </div>
+            
+            <form id="add-anime-form" class="space-y-4 text-xs font-mono">
+                <div class="space-y-1 relative">
+                    <label class="text-gray-500 uppercase tracking-wider block">Título em Inglês / Oficial</label>
+                    <input type="text" id="form-anime-title" required placeholder="Ex: Demon Slayer: Infinity Castle" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50" autocomplete="off">
+                    <!-- Suggestions Dropdown -->
+                    <div id="form-anime-suggestions" class="hidden absolute left-0 right-0 top-[102%] z-50 max-h-60 overflow-y-auto glass-panel rounded-xl border border-white/10 bg-[#0d0d0d]/95 backdrop-blur-md shadow-2xl divide-y divide-white/5"></div>
+                </div>
+                
+                <div class="space-y-1">
+                    <label class="text-gray-500 uppercase tracking-wider block">Título em Japonês (Opcional)</label>
+                    <input type="text" id="form-anime-jp-title" placeholder="Ex: Kimetsu no Yaiba: Mugejo" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="text-gray-500 uppercase tracking-wider block">Estúdio</label>
+                        <input type="text" id="form-anime-studio" placeholder="Ex: Ufotable" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-gray-500 uppercase tracking-wider block">Episódios</label>
+                        <input type="text" id="form-anime-episodes" placeholder="Ex: 12 episódios" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="text-gray-500 uppercase tracking-wider block">Temporada / Ano</label>
+                        <input type="text" id="form-anime-season" placeholder="Ex: Primavera 2026" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-gray-500 uppercase tracking-wider block">Gêneros (Separados por vírgula)</label>
+                        <input type="text" id="form-anime-genres" placeholder="Ação, Fantasia, Drama" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-gray-500 uppercase tracking-wider block">URL Imagem da Capa (Unsplash/Web)</label>
+                    <input type="url" id="form-anime-cover" placeholder="Link da imagem..." class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-gray-500 uppercase tracking-wider block">Sinopse</label>
+                    <textarea id="form-anime-synopsis" rows="3" placeholder="Insira o resumo da obra..." class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50 resize-none font-sans text-xs"></textarea>
+                </div>
+
+                <button type="submit" class="w-full py-3 rounded-full bg-white text-black hover:bg-gray-150 transition-colors uppercase tracking-widest font-semibold mt-4">
+                    Salvar Anime
+                </button>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- 7. MODAL: CENTRAL DE AMIGOS -->
+    <div id="add-friend-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-[50] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
+        <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl p-6 md:p-8 space-y-6">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-serif">Central de <span class="italic text-brand font-light">Amigos</span></h3>
+                <button id="close-add-friend" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors">
+                    <iconify-icon icon="lucide:x" class="text-white text-sm"></iconify-icon>
+                </button>
+            </div>
+            
+            <!-- Search for registered users -->
+            <div class="space-y-2 font-mono text-xs">
+                <label class="text-gray-400 uppercase tracking-wider block font-semibold">Adicionar Amigo</label>
+                <div class="relative">
+                    <iconify-icon icon="lucide:search" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></iconify-icon>
+                    <input type="text" id="form-friend-search" placeholder="Digite o nome de usuário ou e-mail..." class="w-full bg-white/5 border border-white/10 rounded-full py-2.5 pl-11 pr-4 text-xs font-light focus:outline-none focus:border-brand/50 transition-colors text-white">
+                </div>
+                <!-- Suggested users list -->
+                <div id="registered-users-list" class="space-y-1.5 max-h-44 overflow-y-auto pr-1 pt-1.5 hidden">
+                    <!-- Populated in JS -->
+                </div>
+            </div>
+
+            <!-- Incoming Requests Section -->
+            <div id="pending-requests-section" class="space-y-3 hidden">
+                <div class="h-px bg-white/10"></div>
+                <h4 class="text-xs uppercase tracking-wider font-semibold text-brand font-mono flex items-center gap-1.5">
+                    <iconify-icon icon="lucide:bell" class="animate-pulse"></iconify-icon>
+                    <span>Solicitações Recebidas</span>
+                </h4>
+                <div id="pending-requests-list" class="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    <!-- Dynamically populated in JS -->
+                </div>
+            </div>
+
+            <!-- Current Friends List Section -->
+            <div class="space-y-3">
+                <div class="h-px bg-white/10"></div>
+                <h4 class="text-xs uppercase tracking-wider font-semibold text-gray-400 font-mono">Seus Amigos</h4>
+                <div id="modal-friends-list" class="space-y-2 max-h-60 overflow-y-auto pr-1 text-gray-400 text-xs font-mono">
+                    <!-- Dynamically populated in JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- 8. FOOTER -->
+    <footer class="py-20 border-t border-white/5 bg-[#050505] relative overflow-hidden">
+        <div class="container mx-auto px-6 relative z-10">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-12">
+                <div class="w-full md:w-auto">
+                    <h2 class="text-[8vw] leading-[0.8] tracking-tighter text-white/5 font-bold select-none pointer-events-none font-serif">
+                        ANIVOID
+                    </h2>
+                </div>
+                
+                <div class="flex flex-col gap-6 text-left md:text-right font-mono text-xs text-gray-500">
+                    <div class="flex gap-4 justify-start md:justify-end text-gray-400">
+                        <span class="text-white/20">Inspirado por Superdesign.dev</span>
+                        <span>•</span>
+                        <a href="#" onclick="resetFilters()" class="hover:text-brand transition-colors">Resetar Filtros</a>
+                    </div>
+                    <p class="text-[10px] text-gray-600">© 2026 Anivoid. Custom ratings dashboard for close friends.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- EMAIL NOTIFICATION TOAST -->
+    <div id="email-toast" class="fixed top-6 right-6 z-[9999] hidden items-center gap-4 bg-[#0a0a0a]/95 backdrop-blur-xl border border-brand/40 rounded-2xl p-4 w-80 shadow-[0_20px_50px_rgba(0,0,0,0.8),0_0_20px_rgba(255,69,0,0.15)] cursor-pointer transform translate-x-12 opacity-0 transition-all duration-500 hover:scale-[1.02]">
+        <div class="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand text-lg shrink-0 animate-pulse">
+            <iconify-icon icon="lucide:mail"></iconify-icon>
+        </div>
+        <div class="min-w-0 flex-grow font-mono text-[11px]">
+            <p class="font-bold text-brand uppercase tracking-widest text-[9px] mb-0.5">E-mail Recebido! ✉️</p>
+            <p class="text-white font-serif font-bold text-[12px] truncate leading-tight mb-0.5" id="email-toast-subject">Bem-vindo ao Anivoid!</p>
+            <p class="text-gray-400 text-[9px] truncate">De: boasvindas@anivoid.com</p>
+        </div>
+        <div class="shrink-0 text-white/30 text-xs">
+            <iconify-icon icon="lucide:x" id="email-toast-close" class="hover:text-white transition-colors p-1"></iconify-icon>
+        </div>
+    </div>
+
+    <!-- EMAIL READER MODAL -->
+    <div id="email-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4">
+        <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl p-6 md:p-8 space-y-6 relative animate-[fadeIn_0.3s_ease-out]">
+            <!-- Top bar -->
+            <div class="flex items-center justify-between border-b border-white/5 pb-4 select-none">
+                <div class="flex items-center gap-2 text-xs font-mono text-gray-400">
+                    <iconify-icon icon="lucide:mail" class="text-brand text-base"></iconify-icon>
+                    <span class="tracking-widest uppercase text-[10px]">Caixa de Entrada (1)</span>
+                </div>
+                <button id="email-modal-close" class="text-gray-400 hover:text-white transition-colors">
+                    <iconify-icon icon="lucide:x" class="text-lg"></iconify-icon>
+                </button>
+            </div>
+
+            <!-- Email Content -->
+            <div class="space-y-4 font-mono text-[11px]">
+                <div class="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-2">
+                    <p class="text-gray-400"><strong>De:</strong> Anivoid Team &lt;boasvindas@anivoid.com&gt;</p>
+                    <p class="text-gray-400"><strong>Para:</strong> <span id="email-modal-to" class="text-white">usuario@email.com</span></p>
+                    <p class="text-gray-400"><strong>Assunto:</strong> <span id="email-modal-subject" class="text-brand font-bold text-xs uppercase tracking-wide">Confirme sua conta no Anivoid!</span></p>
+                    <p class="text-gray-500 text-[9px] text-right mt-1" id="email-modal-date">Hoje, 17:15</p>
+                </div>
+
+                <!-- Rich Email Body (Glassmorphic Letter) -->
+                <div class="bg-black/40 border border-white/5 rounded-2xl p-6 space-y-4 text-gray-300 font-sans text-xs leading-relaxed">
+                    <div class="flex justify-center mb-2">
+                        <span class="text-3xl animate-bounce">🌸</span>
+                    </div>
+                    <h3 class="text-center font-serif text-white font-bold text-base">Olá, <span id="email-modal-username" class="text-brand">Otaku</span>!</h3>
+                    <p class="text-center text-[11px] text-gray-400">O seu portal de anime personalizado está pronto! Estamos muito felizes por você se juntar ao Anivoid.</p>
+                    
+                    <div class="bg-white/5 border border-white/5 rounded-xl p-3 space-y-1.5 text-[10.5px]">
+                        <p class="font-mono text-[9px] uppercase tracking-wider text-brand font-bold mb-1 border-b border-white/5 pb-1">Preferências Salvas:</p>
+                        <p class="truncate"><strong class="text-gray-400 font-mono">Gêneros:</strong> <span id="email-modal-genres" class="text-white/80">Ação, Aventura</span></p>
+                        <p class="truncate"><strong class="text-gray-400 font-mono">Estúdios:</strong> <span id="email-modal-studios" class="text-white/80">Ufotable, MAPPA</span></p>
+                    </div>
+                    
+                    <p class="text-[11px] text-gray-400 text-center">Clique abaixo para confirmar a inscrição e receber sua insígnia oficial de membro fundador no seu perfil!</p>
+                    
+                    <div class="flex justify-center pt-2">
+                        <button id="email-confirm-btn" class="px-6 py-2.5 rounded-full bg-brand text-white hover:bg-brand/80 hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-widest font-semibold text-[9px] border border-brand/40 shadow-[0_4px_15px_rgba(255,69,0,0.3)] flex items-center gap-2">
+                            <iconify-icon icon="lucide:check-circle" class="text-xs"></iconify-icon>
+                            <span>Confirmar Inscrição</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT PROFILE MODAL -->
+    <div id="edit-profile-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4">
+        <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl p-6 md:p-8 space-y-6 my-auto relative animate-[fadeIn_0.3s_ease-out]">
+            <!-- Ambient glow decorative circles -->
+            <div class="absolute -top-24 -left-24 w-48 h-48 rounded-full bg-brand/10 blur-[80px] pointer-events-none"></div>
+            
+            <!-- Top bar -->
+            <div class="flex items-center justify-between border-b border-white/5 pb-4 select-none">
+                <div class="flex items-center gap-2 text-xs font-mono text-gray-400">
+                    <iconify-icon icon="lucide:user-cog" class="text-brand text-base"></iconify-icon>
+                    <span class="tracking-widest uppercase text-[10px]">Editar Perfil</span>
+                </div>
+                <button id="close-edit-profile" class="text-gray-400 hover:text-white transition-colors">
+                    <iconify-icon icon="lucide:x" class="text-lg"></iconify-icon>
+                </button>
+            </div>
+
+            <!-- Content Form -->
+            <form id="edit-profile-form" class="space-y-4 text-xs font-mono">
+                <div class="space-y-1.5">
+                    <label class="text-gray-400 uppercase tracking-wider block font-semibold">Nome de Usuário</label>
+                    <input type="text" id="edit-profile-name" required class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50">
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="text-gray-400 uppercase tracking-wider block font-semibold">E-mail</label>
+                    <input type="email" id="edit-profile-email" required class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1.5">
+                        <label class="text-gray-400 uppercase tracking-wider block font-semibold">Cor do Tema</label>
+                        <div class="relative h-12 w-full">
+                            <input type="color" id="edit-profile-color" class="absolute inset-0 w-full h-full border-0 bg-transparent cursor-pointer rounded-xl p-0.5">
+                        </div>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="text-gray-400 uppercase tracking-wider block font-semibold">Avatar (Foto)</label>
+                        <input type="hidden" id="edit-profile-avatar">
+                        <input type="file" id="edit-profile-avatar-file" accept="image/*" class="hidden">
+                        <div class="flex gap-1.5">
+                            <button type="button" id="edit-profile-avatar-trigger" title="Clique para escolher uma foto" class="flex-grow bg-white/5 border border-white/10 rounded-xl py-2 px-3 text-white flex items-center justify-center focus:outline-none hover:bg-white/10 transition-colors h-11">
+                                <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjI1KSI+PHBhdGggZD0iTTEyIDEyYTUgNSAwIDEgMCAwLTEwIDUgNSAwIDAgMCAwIDEwek0xMiAxNGMtMy43MyAwLTExIDEuODYtMTEgNS41VjIwSDIzdi0xYy0xLjEtMy42NC03LjI3LTUuNS0xMS01LjV6Ii8+PC9zdmc+" class="w-6 h-6 rounded-full object-cover" alt="avatar placeholder">
+                            </button>
+                            <button type="button" id="edit-profile-avatar-upload-btn" class="px-3 bg-white/5 border border-white/10 rounded-xl text-white hover:bg-white/10 transition-colors flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider h-11 shrink-0">
+                                <iconify-icon icon="lucide:upload" class="text-xs"></iconify-icon>
+                                <span>Foto</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-4 flex gap-3">
+                    <button type="button" id="cancel-edit-profile" class="flex-1 py-3 rounded-full border border-white/10 text-white/70 hover:text-white hover:bg-white/5 transition-all uppercase tracking-widest font-semibold text-[9.5px]">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="flex-grow py-3 rounded-full bg-brand text-white hover:bg-brand/80 hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-widest font-semibold text-[9.5px] border border-brand/40 shadow-[0_4px_15px_rgba(255,69,0,0.3)]">
+                        Salvar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- GROUP STATISTICS MODAL -->
+    <div id="group-stats-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
+        <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl p-6 md:p-8 space-y-6 my-auto relative animate-[scaleUp_0.3s_ease-out]">
+            <!-- Ambient decor -->
+            <div class="absolute -top-40 -left-40 w-80 h-80 rounded-full bg-brand/10 blur-[100px] pointer-events-none"></div>
+            <div class="absolute -bottom-40 -right-40 w-80 h-80 rounded-full bg-brand/5 blur-[100px] pointer-events-none"></div>
+
+            <!-- Header -->
+            <div class="flex items-center justify-between border-b border-white/5 pb-4 select-none">
+                <div class="flex items-center gap-2 text-xs font-mono text-gray-400">
+                    <iconify-icon icon="lucide:bar-chart-3" class="text-brand text-base"></iconify-icon>
+                    <span class="tracking-widest uppercase text-[10px]">Métricas & Insights do Grupo</span>
+                </div>
+                <button id="close-group-stats" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors text-gray-400 hover:text-white cursor-pointer border-0">
+                    <iconify-icon icon="lucide:x" class="text-lg"></iconify-icon>
+                </button>
+            </div>
+
+            <!-- Stats Dashboard Content -->
+            <div class="space-y-8 overflow-y-auto max-h-[70vh] pr-2">
+                
+                <!-- ROW 1: MEDALHAS / CONQUISTAS -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Maratonista -->
+                    <div class="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center text-xl shrink-0">🏃‍♂️</div>
+                        <div>
+                            <h4 class="text-[9px] font-mono uppercase tracking-wider text-gray-500">O Maratonista</h4>
+                            <p class="text-xs font-bold text-white mt-0.5 truncate" id="stat-maratonista-name">-</p>
+                            <span class="text-[9px] text-yellow-400 font-mono" id="stat-maratonista-val">0 eps</span>
+                        </div>
+                    </div>
+                    <!-- Crítico Rigoroso -->
+                    <div class="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-xl shrink-0">🧐</div>
+                        <div>
+                            <h4 class="text-[9px] font-mono uppercase tracking-wider text-gray-500">Crítico Rigoroso</h4>
+                            <p class="text-xs font-bold text-white mt-0.5 truncate" id="stat-rigoroso-name">-</p>
+                            <span class="text-[9px] text-purple-400 font-mono" id="stat-rigoroso-val">Média -</span>
+                        </div>
+                    </div>
+                    <!-- Mais Empolgado -->
+                    <div class="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center text-xl shrink-0">💖</div>
+                        <div>
+                            <h4 class="text-[9px] font-mono uppercase tracking-wider text-gray-500">Mais Empolgado</h4>
+                            <p class="text-xs font-bold text-white mt-0.5 truncate" id="stat-empolgado-name">-</p>
+                            <span class="text-[9px] text-green-400 font-mono" id="stat-empolgado-val">Média -</span>
+                        </div>
+                    </div>
+                    <!-- O Escritor -->
+                    <div class="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-xl shrink-0">✍️</div>
+                        <div>
+                            <h4 class="text-[9px] font-mono uppercase tracking-wider text-gray-500">Líder de Reviews</h4>
+                            <p class="text-xs font-bold text-white mt-0.5 truncate" id="stat-escritor-name">-</p>
+                            <span class="text-[9px] text-blue-400 font-mono" id="stat-escritor-val">0 reviews</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ROW 2: RANKINGS & GÊNEROS -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Ranking Médias -->
+                    <div class="bg-white/5 border border-white/5 rounded-2xl p-5 space-y-4">
+                        <h3 class="text-xs font-mono uppercase tracking-wider text-gray-400 border-b border-white/5 pb-2 select-none">
+                            Ranking de Avaliações (Média Geral)
+                        </h3>
+                        <div id="stats-ranking-container" class="space-y-3">
+                            <!-- JS Populated -->
+                        </div>
+                    </div>
+
+                    <!-- Gêneros Favoritos -->
+                    <div class="bg-white/5 border border-white/5 rounded-2xl p-5 space-y-4">
+                        <h3 class="text-xs font-mono uppercase tracking-wider text-gray-400 border-b border-white/5 pb-2 select-none">
+                            Distribuição de Gêneros Assistidos
+                        </h3>
+                        <div id="stats-genres-container" class="space-y-3">
+                            <!-- JS Populated -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ROW 3: RECOMENDAÇÕES DO GRUPO -->
+                <div class="space-y-4">
+                    <h3 class="text-xs font-mono uppercase tracking-wider text-gray-400 border-b border-white/5 pb-2 select-none">
+                        Sugestões & Recomendações da Galera
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- Consenso do Grupo -->
+                        <div class="bg-brand/5 border border-brand/20 rounded-2xl p-5 flex flex-col justify-between">
+                            <div>
+                                <span class="text-[9px] font-mono uppercase tracking-widest text-brand font-bold block">Consenso do Grupo 🌟</span>
+                                <h4 class="text-sm font-bold text-white mt-1.5" id="rec-consenso-title">Carregando...</h4>
+                                <p class="text-[10px] text-gray-400 mt-1 font-light" id="rec-consenso-desc">O anime mais aclamado pelo grupo com melhor nota média consolidada.</p>
+                            </div>
+                            <span class="text-xs font-bold text-brand mt-4 font-mono text-right" id="rec-consenso-val">- / 10</span>
+                        </div>
+                        <!-- Recomendado para Você -->
+                        <div class="bg-white/5 border border-white/5 rounded-2xl p-5 md:col-span-2 space-y-3">
+                            <span class="text-[9px] font-mono uppercase tracking-widest text-gray-400 font-semibold block">Recomendado para Você 💡</span>
+                            <div id="rec-personalized-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1.5">
+                                <!-- JS Populated -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts Integration -->
+    <script src="app.js?v=7"></script>
+    <script>
+        // Custom simple trigger for profile menu opening
+        const profileBtn = document.getElementById('profile-indicator');
+        const dropdown = document.getElementById('friends-dropdown');
+
+        if (profileBtn && dropdown) {
+            profileBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdown.classList.toggle('hidden');
+                dropdown.classList.toggle('flex');
+            });
+            
+            // Close when clicking outside
+            document.addEventListener('click', () => {
+                dropdown.classList.add('hidden');
+                dropdown.classList.remove('flex');
+            });
+        }
+    </script>
+</body>
+</html>
