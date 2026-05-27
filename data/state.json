@@ -34,6 +34,38 @@
           "timestamp": "2026-05-26T19:41:03.267Z"
         }
       ]
+    },
+    {
+      "id": "sample-anime-special-sync",
+      "title": "Test Anime",
+      "ratings": {
+        "testuser": {
+          "status": "Completed",
+          "overall": "8.8"
+        }
+      },
+      "comments": []
+    },
+    {
+      "id": "steins-gate-debug-1779888822110",
+      "title": "Steins;Gate",
+      "episodes": "24",
+      "ratings": {
+        "matheus": {
+          "status": "Watching",
+          "episodesWatched": 1,
+          "overall": "10"
+        }
+      },
+      "comments": [
+        {
+          "id": "c_matheus_review",
+          "friendId": "matheus",
+          "friendName": "Matheus",
+          "comment": "Uma verdadeira obra-prima sci-fi.",
+          "timestamp": "2026-05-27T13:33:42.121Z"
+        }
+      ]
     }
   ],
   "registeredUsers": [
@@ -63,13 +95,98 @@
       "password": "Olokinho3@",
       "color": "#FF4500",
       "avatar": "👤",
-      "friends": [],
+      "friends": ["vanitas"],
       "friendRequests": [],
       "isVirtual": false
+    },
+    {
+      "username": "vanitas",
+      "email": "vanitas@example.com",
+      "password": "password123",
+      "color": "#9B59B6",
+      "avatar": "🌙",
+      "friends": ["Felipe!"],
+      "friendRequests": [],
+      "isVirtual": false
+    },
+    {
+      "username": "Test-User!",
+      "email": "testuser@example.com",
+      "password": "password123",
+      "color": "#FF4500",
+      "avatar": "👤",
+      "friends": [],
+      "friendRequests": []
     }
   ],
   "featuredAnimeId": null,
   "activities": [
+    {
+      "id": "act_1779888822123_jitzuicdi",
+      "username": "Matheus",
+      "userColor": "#FF4500",
+      "userAvatar": "😎",
+      "type": "comment_add",
+      "animeId": "steins-gate-debug-1779888822110",
+      "animeTitle": "Steins;Gate",
+      "details": "escreveu uma nova crítica 💬",
+      "timestamp": "2026-05-27T13:33:42.123Z"
+    },
+    {
+      "id": "act_1779888822120_my0mf326e",
+      "username": "Matheus",
+      "userColor": "#FF4500",
+      "userAvatar": "😎",
+      "type": "progress",
+      "animeId": "steins-gate-debug-1779888822110",
+      "animeTitle": "Steins;Gate",
+      "details": "assistiu ao episódio 1 🍿",
+      "timestamp": "2026-05-27T13:33:42.120Z"
+    },
+    {
+      "id": "act_1779888822118_bnbnv6xxr",
+      "username": "Matheus",
+      "userColor": "#FF4500",
+      "userAvatar": "😎",
+      "type": "rating",
+      "animeId": "steins-gate-debug-1779888822110",
+      "animeTitle": "Steins;Gate",
+      "details": "avaliou esta obra com nota 10 ⭐",
+      "timestamp": "2026-05-27T13:33:42.118Z"
+    },
+    {
+      "id": "act_1779888822115_ymgpn5qiw",
+      "username": "Matheus",
+      "userColor": "#FF4500",
+      "userAvatar": "😎",
+      "type": "status",
+      "animeId": "steins-gate-debug-1779888822110",
+      "animeTitle": "Steins;Gate",
+      "details": "começou a assistir 📺",
+      "timestamp": "2026-05-27T13:33:42.115Z"
+    },
+    {
+      "id": "act_1779888822111_00pbq2u35",
+      "username": "Matheus",
+      "userColor": "#FF4500",
+      "userAvatar": "😎",
+      "type": "catalog",
+      "animeId": "steins-gate-debug-1779888822110",
+      "animeTitle": "Steins;Gate",
+      "details": "adicionou esta obra ao catálogo 🆕",
+      "timestamp": "2026-05-27T13:33:42.111Z"
+    },
+    {
+      "id": "act_1779888813980_psmdinwgj",
+      "username": "Test-User!",
+      "userColor": "#FF4500",
+      "userAvatar": "👤",
+      "type": "catalog",
+      "animeId": "sample-anime-special-sync",
+      "animeTitle": "Test Anime",
+      "details": "adicionou esta obra ao catálogo 🆕",
+      "timestamp": "2026-05-27T13:33:33.980Z"
+    },
     {
       "id": "act_1779824548441_hjy6cp6qp",
       "username": "Matheus",
