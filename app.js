@@ -1628,6 +1628,29 @@ class AppState {
         }
     }
 
+    setGeneralRating(animeId, friendId, generalScore) {
+        const anime = this.animes.find(a => a.id === animeId);
+        if (!anime) return;
+        this.initFriendRatingIfMissing(anime, friendId);
+        const r = anime.ratings[friendId];
+        const score = parseFloat(generalScore);
+        if (isNaN(score) || score < 1 || score > 10) return;
+        const maxEps = parseInt(anime.episodes) || 0;
+        const epsWatched = r.episodesWatched || 0;
+        if (!r.episodeRatings) r.episodeRatings = {};
+        if (maxEps <= 1) {
+            r.episodeRatings[1] = score;
+            r.overall = score;
+        } else {
+            for (let i = 1; i <= epsWatched; i++) {
+                r.episodeRatings[i] = score;
+            }
+            const epOverall = this.calculateUserOverallFromEpisodes(anime, friendId);
+            r.overall = epOverall > 0 ? epOverall : score;
+        }
+        this.save();
+    }
+
     toggleEpisodeWatched(animeId, friendId, epNum, isWatched) {
         const anime = this.animes.find(a => a.id === animeId);
         if (anime) {
@@ -4083,7 +4106,65 @@ function openAnimeDetail(animeId) {
         if (epHeader) {
             epHeader.textContent = maxEps === 1 ? 'Avaliar Filme' : 'Avaliar Episódios';
         }
-        const mediaGeralSpan = epListContainer.previousElementSibling?.querySelector('span');
+
+        // Dynamic "Média Geral" display + quick-fill input in header
+        const epSectionHeader = epListContainer.previousElementSibling;
+        if (epSectionHeader) {
+            const existingQuickFill = epSectionHeader.querySelector('.quick-fill-area');
+            if (existingQuickFill) existingQuickFill.remove();
+
+            if (maxEps > 1 && !isReadOnly) {
+                const currentAvg = state.calculateUserOverallFromEpisodes(anime, myRating);
+                // Compute avg from episodeRatings directly
+                const epVals = Object.values(myRating.episodeRatings || {}).map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
+                const computedAvg = epVals.length > 0 ? parseFloat((epVals.reduce((a,b)=>a+b,0)/epVals.length).toFixed(1)) : null;
+
+                const quickFill = document.createElement('div');
+                quickFill.className = 'quick-fill-area flex items-center gap-2 w-full mt-3 p-3 bg-brand/8 border border-brand/20 rounded-xl';
+                quickFill.innerHTML = `
+                    <iconify-icon icon="lucide:wand-2" class="text-brand text-sm shrink-0"></iconify-icon>
+                    <div class="flex-grow min-w-0">
+                        <p class="text-[9px] font-mono text-brand/80 uppercase tracking-widest">Nota Geral Rápida</p>
+                        <p class="text-[8px] text-gray-500 font-mono">Preenche todos os eps assistidos com essa nota base</p>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        ${computedAvg !== null ? `<span class="text-[9px] text-gray-400 font-mono">Média atual: <b class="text-white">${computedAvg}</b></span>` : ''}
+                        <div id="quick-fill-rating-container" class="relative"></div>
+                    </div>
+                `;
+                epSectionHeader.appendChild(quickFill);
+
+                const qfOptions = [
+                    { value: '', label: '-' },
+                    ...[1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10].map(n => ({ value: n, label: String(n) }))
+                ];
+                const qfContainer = quickFill.querySelector('#quick-fill-rating-container');
+                renderCustomDropdown(
+                    qfContainer,
+                    qfOptions,
+                    '', // no pre-selected
+                    (newVal) => {
+                        if (!newVal) return;
+                        state.setGeneralRating(anime.id, state.currentFriendId, newVal);
+                        openAnimeDetail(anime.id);
+                        renderAnimeGrid();
+                    },
+                    true, // compact
+                    false
+                );
+            } else if (maxEps > 1 && isReadOnly) {
+                const epVals = Object.values(myRating.episodeRatings || {}).map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
+                const computedAvg = epVals.length > 0 ? parseFloat((epVals.reduce((a,b)=>a+b,0)/epVals.length).toFixed(1)) : null;
+                if (computedAvg !== null) {
+                    const avgBadge = document.createElement('div');
+                    avgBadge.className = 'quick-fill-area mt-2 text-[9px] font-mono text-gray-400';
+                    avgBadge.textContent = `Média dos eps: ${computedAvg}`;
+                    epSectionHeader.appendChild(avgBadge);
+                }
+            }
+        }
+
+        const mediaGeralSpan = epListContainer.previousElementSibling?.querySelector('span.media-geral-span');
         if (mediaGeralSpan) {
             mediaGeralSpan.style.display = maxEps === 1 ? 'none' : 'inline';
         }
