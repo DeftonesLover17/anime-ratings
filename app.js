@@ -3046,10 +3046,11 @@ function renderStudiosDirectory() {
 
     container.innerHTML = '';
 
-    // Group anime by studio
+    // Group anime by studio (skip animes without a known studio)
     const studiosMap = {};
     state.animes.forEach(anime => {
-        const studio = anime.studio || 'Desconhecido';
+        const studio = anime.studio && anime.studio.trim() ? anime.studio.trim() : null;
+        if (!studio || studio.toLowerCase() === 'desconhecido') return;
         if (!studiosMap[studio]) studiosMap[studio] = [];
         studiosMap[studio].push(anime);
     });
