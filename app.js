@@ -917,7 +917,12 @@ class AppState {
         try {
             this.animes = JSON.parse(localStorage.getItem('anivoid_list_v2'));
             if (Array.isArray(this.animes)) {
-                this.animes = this.animes.filter(a => a && a.id && a.id !== 'sample-anime-test' && !a.id.includes('-test-') && !a.id.startsWith('test-'));
+                this.animes = this.animes.filter(a => a && a.id && 
+                    !a.id.includes('debug') &&
+                    !a.id.startsWith('sample-anime') &&
+                    a.id !== 'sample-anime-test' && 
+                    !a.id.includes('-test-') && 
+                    !a.id.startsWith('test-'));
             }
             if (!Array.isArray(this.animes) || this.animes.length === 0) {
                 this.animes = DEFAULT_ANIMES;

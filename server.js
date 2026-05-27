@@ -94,9 +94,18 @@ function mergeStates(localState, serverState, loggedInUser) {
     }
 
     // 3. Merge animes ratings and comments
-    const mergedAnimes = [...serverState.animes].filter(a => a && a.id && a.id !== 'sample-anime-test' && !a.id.includes('-test-') && !a.id.startsWith('test-'));
+    function isBogusAnime(a) {
+        if (!a || !a.id) return true;
+        if (a.id.includes('debug')) return true;
+        if (a.id.startsWith('sample-anime')) return true;
+        if (a.id === 'sample-anime-test') return true;
+        if (a.id.includes('-test-')) return true;
+        if (a.id.startsWith('test-')) return true;
+        return false;
+    }
+    const mergedAnimes = [...serverState.animes].filter(a => !isBogusAnime(a));
     if (localState.animes && Array.isArray(localState.animes)) {
-        const cleanLocalAnimes = localState.animes.filter(a => a && a.id && a.id !== 'sample-anime-test' && !a.id.includes('-test-') && !a.id.startsWith('test-'));
+        const cleanLocalAnimes = localState.animes.filter(a => !isBogusAnime(a));
         cleanLocalAnimes.forEach(localAnime => {
             let serverAnime = mergedAnimes.find(sa => sa.id === localAnime.id);
             if (!serverAnime) {
