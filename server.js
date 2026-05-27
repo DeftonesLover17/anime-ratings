@@ -69,6 +69,7 @@ function mergeStates(localState, serverState, loggedInUser) {
                         favoriteGenres: u.favoriteGenres || mergedUsers[index].favoriteGenres,
                         favoriteStudios: u.favoriteStudios || mergedUsers[index].favoriteStudios,
                         favoriteAnimes: u.favoriteAnimes || mergedUsers[index].favoriteAnimes,
+                        activeTitle: u.activeTitle || mergedUsers[index].activeTitle,
                         isVirtual: false
                     };
                 }
@@ -103,18 +104,30 @@ function mergeStates(localState, serverState, loggedInUser) {
                 mergedAnimes.push(serverAnime);
                 
                 // Activity: added new anime to catalog
+                // Only credit the logged-in user if they actually have ratings on this anime
+                // (otherwise it might be an anime added by another user that we're just syncing)
                 if (loggedInUser) {
-                    mergedActivities.push({
-                        id: generateActivityId(),
-                        username: authorUser.username,
-                        userColor: authorUser.color,
-                        userAvatar: authorUser.avatar,
-                        type: 'catalog',
-                        animeId: localAnime.id,
-                        animeTitle: localAnime.title,
-                        details: 'adicionou esta obra ao catálogo 🆕',
-                        timestamp: new Date().toISOString()
-                    });
+                    const loggedInId = loggedInUser.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const hasOwnRating = localAnime.ratings && localAnime.ratings[loggedInId];
+                    const hasOwnComment = (localAnime.comments || []).some(c => 
+                        c.friendId && c.friendId.toLowerCase() === loggedInId
+                    );
+                    // Only create catalog activity if the user has own ratings or is the first to add it
+                    // Check if another user already has ratings on this anime
+                    const hasOtherUserRating = localAnime.ratings && Object.keys(localAnime.ratings).some(k => k !== loggedInId);
+                    if (hasOwnRating || (!hasOtherUserRating && !hasOwnComment)) {
+                        mergedActivities.push({
+                            id: generateActivityId(),
+                            username: authorUser.username,
+                            userColor: authorUser.color,
+                            userAvatar: authorUser.avatar,
+                            type: 'catalog',
+                            animeId: localAnime.id,
+                            animeTitle: localAnime.title,
+                            details: 'adicionou esta obra ao catálogo 🆕',
+                            timestamp: new Date().toISOString()
+                        });
+                    }
                 }
             } else {
                 // Populate/Update metadata fields from localAnime if missing or rich
