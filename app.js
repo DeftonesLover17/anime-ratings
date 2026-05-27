@@ -1706,10 +1706,39 @@ class AppState {
                 friendId: friendId,
                 friendName: friend.name.replace(' (Você)', ''),
                 comment: text.trim(),
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                replies: []
             });
             this.save();
         }
+    }
+
+    addReply(animeId, commentId, friendId, text) {
+        if (!friendId || !text.trim()) return;
+        const anime = this.animes.find(a => a.id === animeId);
+        if (!anime) return;
+        const comment = (anime.comments || []).find(c => c.id === commentId);
+        if (!comment) return;
+        if (!comment.replies) comment.replies = [];
+
+        let friend = this.friends.find(f => f.id === friendId);
+        if (!friend) {
+            try {
+                const reg = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+                const found = reg.find(u => u && u.username && u.username.toLowerCase() === friendId.toLowerCase());
+                if (found) friend = { id: friendId, name: found.username, color: found.color, avatar: found.avatar };
+            } catch(e) {}
+        }
+        if (!friend) friend = { id: friendId, name: friendId, color: '#FF4500', avatar: '👤' };
+
+        comment.replies.push({
+            id: 'r_' + Date.now(),
+            friendId: friendId,
+            friendName: friend.name.replace(' (Você)', ''),
+            reply: text.trim(),
+            timestamp: new Date().toISOString()
+        });
+        this.save();
     }
 
     addNewAnime(title, japaneseTitle, synopsis, genres, studio, season, episodes, coverUrl) {
@@ -4173,31 +4202,31 @@ function renderComments(anime) {
         try {
             const date = new Date(comment.timestamp);
             dateText = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' às ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        } catch (e) {
-            dateText = '';
-        }
+        } catch (e) { dateText = ''; }
 
         const div = document.createElement('div');
         const isAdminComment = comment.friendId && comment.friendId.toLowerCase() === 'felipe';
         div.className = `glass-panel border rounded-2xl p-4 space-y-2.5 animate-[fadeIn_0.3s_ease-out] ${isAdminComment ? 'border-brand/35 shadow-[0_0_15px_rgba(255,69,0,0.12)] bg-brand/[0.03]' : 'border-white/5'}`;
+
         const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
             ? `<img src="${friend.avatar}" class="w-11 h-11 rounded-full object-cover shrink-0" alt="">`
             : `<div class="w-11 h-11 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-2xl shrink-0">${friend.avatar || '👤'}</div>`;
-            
+
         const isMyComment = loggedInUsername && comment.friendId && comment.friendId.toLowerCase() === loggedInUsername.toLowerCase().replace(/[^a-z0-9]/g, '');
-        const actionsHtml = isMyComment ? `
-            <div class="flex items-center gap-2.5 text-[10px] font-mono text-gray-500 mr-2">
-                <button class="edit-comment-btn hover:text-brand transition-colors flex items-center gap-0.5 cursor-pointer bg-transparent border-none p-0">
-                    <iconify-icon icon="lucide:edit-3" class="text-[10px]"></iconify-icon> Editar
-                </button>
-                <span class="text-white/10">|</span>
-                <button class="delete-comment-btn hover:text-red-500 transition-colors flex items-center gap-0.5 cursor-pointer bg-transparent border-none p-0">
-                    <iconify-icon icon="lucide:trash-2" class="text-[10px]"></iconify-icon> Apagar
-                </button>
-            </div>
+        const myActionsHtml = isMyComment ? `
+            <button class="edit-comment-btn hover:text-brand transition-colors flex items-center gap-0.5 cursor-pointer bg-transparent border-none p-0 text-gray-500">
+                <iconify-icon icon="lucide:edit-3" class="text-[10px]"></iconify-icon><span class="text-[10px] font-mono"> Editar</span>
+            </button>
+            <span class="text-white/10 text-[10px]">|</span>
+            <button class="delete-comment-btn hover:text-red-500 transition-colors flex items-center gap-0.5 cursor-pointer bg-transparent border-none p-0 text-gray-500">
+                <iconify-icon icon="lucide:trash-2" class="text-[10px]"></iconify-icon><span class="text-[10px] font-mono"> Apagar</span>
+            </button>
+            <span class="text-white/10 text-[10px]">|</span>
         ` : '';
 
         const adminBadgeHtml = getUserBadgesHtml(friend);
+        const repliesCount = (comment.replies || []).length;
+        const repliesLabel = repliesCount > 0 ? `${repliesCount} resposta${repliesCount > 1 ? 's' : ''}` : 'Responder';
 
         div.innerHTML = `
             <div class="flex items-center justify-between">
@@ -4206,25 +4235,113 @@ function renderComments(anime) {
                     <span class="font-mono text-sm font-bold" style="color: ${friend.color}">${friend.name}${adminBadgeHtml}</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    ${actionsHtml}
+                    <div class="flex items-center gap-2 text-[10px] mr-1">
+                        ${myActionsHtml}
+                        <button class="reply-toggle-btn flex items-center gap-1 text-gray-500 hover:text-brand transition-colors cursor-pointer bg-transparent border-none p-0 font-mono">
+                            <iconify-icon icon="lucide:message-circle" class="text-[11px]"></iconify-icon>
+                            <span class="reply-btn-label">${repliesLabel}</span>
+                        </button>
+                    </div>
                     <span class="text-[9px] text-gray-500 font-mono">${dateText}</span>
                 </div>
             </div>
             <div class="comment-content-container">
                 <p class="text-xs text-gray-300 font-light leading-relaxed whitespace-pre-wrap comment-text">${comment.comment}</p>
             </div>
+
+            <!-- Replies section -->
+            <div class="replies-section hidden mt-1">
+                <!-- Existing replies -->
+                <div class="replies-list space-y-2 mb-3 pl-4 border-l-2 border-white/8">
+                    ${(comment.replies || []).map(reply => {
+                        const rf = state.friends.find(f => f.id === reply.friendId) || { avatar: '👤', name: reply.friendName || '?', color: '#7f8c8d' };
+                        let rDate = '';
+                        try { const d = new Date(reply.timestamp); rDate = d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}) + ' às ' + d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); } catch(e){}
+                        const rAvatar = rf.avatar && (rf.avatar.startsWith('data:') || rf.avatar.startsWith('http'))
+                            ? `<img src="${rf.avatar}" class="w-7 h-7 rounded-full object-cover shrink-0" alt="">`
+                            : `<div class="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-base shrink-0">${rf.avatar || '👤'}</div>`;
+                        const rBadge = getUserBadgesHtml(rf);
+                        return `
+                            <div class="flex gap-2.5 py-2" data-reply-id="${reply.id}">
+                                ${rAvatar}
+                                <div class="flex-grow min-w-0">
+                                    <div class="flex items-center justify-between gap-2 mb-0.5">
+                                        <span class="font-mono text-[11px] font-bold" style="color:${rf.color}">${rf.name}${rBadge}</span>
+                                        <span class="text-[9px] text-gray-600 font-mono shrink-0">${rDate}</span>
+                                    </div>
+                                    <p class="text-[11px] text-gray-300 font-light leading-relaxed">${reply.reply}</p>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <!-- Reply input -->
+                <div class="reply-input-area flex gap-2.5 items-start">
+                    <div class="reply-user-avatar-slot w-7 h-7 shrink-0"></div>
+                    <div class="flex-grow relative">
+                        <textarea class="reply-textarea w-full bg-white/5 border border-white/8 rounded-xl px-3 py-2 text-[11px] text-white placeholder-gray-600 focus:outline-none focus:border-brand/40 focus:bg-white/8 resize-none font-sans transition-all duration-200" rows="2" placeholder="Escreva uma resposta..."></textarea>
+                        <div class="flex justify-end mt-1.5 gap-2">
+                            <button class="cancel-reply-btn px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[9px] font-mono text-white/60 hover:text-white hover:bg-white/10 transition-all cursor-pointer uppercase tracking-wide">Cancelar</button>
+                            <button class="submit-reply-btn px-3 py-1 rounded-lg bg-brand text-white text-[9px] font-mono font-semibold hover:bg-brand/80 hover:scale-105 active:scale-95 transition-all cursor-pointer uppercase tracking-wide shadow-[0_2px_8px_rgba(255,69,0,0.3)]">Enviar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         `;
 
+        // ── Reply toggle logic ─────────────────────────────────────────────────
+        const replyToggleBtn = div.querySelector('.reply-toggle-btn');
+        const repliesSection = div.querySelector('.replies-section');
+        const replyTextarea = div.querySelector('.reply-textarea');
+        const cancelReplyBtn = div.querySelector('.cancel-reply-btn');
+        const submitReplyBtn = div.querySelector('.submit-reply-btn');
+        const replyBtnLabel = div.querySelector('.reply-btn-label');
+        const replyAvatarSlot = div.querySelector('.reply-user-avatar-slot');
+
+        // Fill current user avatar in reply box
+        const cuAvatar = currentUser.avatar;
+        if (replyAvatarSlot) {
+            replyAvatarSlot.innerHTML = cuAvatar && (cuAvatar.startsWith('data:') || cuAvatar.startsWith('http'))
+                ? `<img src="${cuAvatar}" class="w-7 h-7 rounded-full object-cover" alt="">`
+                : `<div class="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-base">${cuAvatar || '👤'}</div>`;
+        }
+
+        replyToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = !repliesSection.classList.contains('hidden');
+            if (isOpen) {
+                repliesSection.classList.add('hidden');
+            } else {
+                repliesSection.classList.remove('hidden');
+                replyTextarea.focus();
+            }
+        });
+
+        cancelReplyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            replyTextarea.value = '';
+            repliesSection.classList.add('hidden');
+        });
+
+        submitReplyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const replyText = replyTextarea.value.trim();
+            if (!replyText) return;
+            const authorId = loggedInUsername ? loggedInUsername.toLowerCase().replace(/[^a-z0-9]/g, '') : state.currentFriendId;
+            state.addReply(anime.id, comment.id, authorId, replyText);
+            renderComments(anime);
+        });
+
+        // ── Edit & Delete (my comment) ─────────────────────────────────────────
         if (isMyComment) {
             const editBtn = div.querySelector('.edit-comment-btn');
             const deleteBtn = div.querySelector('.delete-comment-btn');
             const contentContainer = div.querySelector('.comment-content-container');
             const originalText = comment.comment;
-            
+
             if (editBtn && contentContainer) {
                 editBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    
                     contentContainer.innerHTML = `
                         <textarea class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-brand/40 resize-none font-sans font-light mt-1" rows="3">${originalText}</textarea>
                         <div class="flex justify-end gap-2 mt-2">
@@ -4232,28 +4349,18 @@ function renderComments(anime) {
                             <button class="save-edit-btn px-2.5 py-1 bg-brand text-white text-[9px] font-mono rounded-lg hover:bg-brand/80 transition-colors uppercase font-semibold cursor-pointer">Salvar</button>
                         </div>
                     `;
-                    
                     const cancelBtn = contentContainer.querySelector('.cancel-edit-btn');
                     const saveBtn = contentContainer.querySelector('.save-edit-btn');
                     const textarea = contentContainer.querySelector('textarea');
-                    
-                    cancelBtn.addEventListener('click', (ev) => {
-                        ev.stopPropagation();
-                        renderComments(anime);
-                    });
-                    
+                    cancelBtn.addEventListener('click', (ev) => { ev.stopPropagation(); renderComments(anime); });
                     saveBtn.addEventListener('click', (ev) => {
                         ev.stopPropagation();
                         const updatedText = textarea.value.trim();
-                        if (updatedText) {
-                            comment.comment = updatedText;
-                            state.save();
-                            renderComments(anime);
-                        }
+                        if (updatedText) { comment.comment = updatedText; state.save(); renderComments(anime); }
                     });
                 });
             }
-            
+
             if (deleteBtn) {
                 deleteBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
