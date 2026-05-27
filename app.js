@@ -1356,7 +1356,11 @@ class AppState {
 
     getGenres() {
         const genresSet = new Set();
-        this.animes.forEach(anime => anime.genres.forEach(g => genresSet.add(g)));
+        this.animes.forEach(anime => {
+            if (anime.genres && Array.isArray(anime.genres)) {
+                anime.genres.forEach(g => genresSet.add(g));
+            }
+        });
         return Array.from(genresSet);
     }
 
@@ -1747,15 +1751,18 @@ class AppState {
             if (anime.id === 'a20' || anime.id === 'a20_s2') return false;
 
             // Search match
-            const matchesSearch = anime.title.toLowerCase().includes(this.searchQuery.toLowerCase()) || 
-                                 anime.japaneseTitle.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-                                 anime.studio.toLowerCase().includes(this.searchQuery.toLowerCase());
+            const animeTitleLower = (anime.title || '').toLowerCase();
+            const animeJpTitleLower = (anime.japaneseTitle || '').toLowerCase();
+            const animeStudioLower = (anime.studio || '').toLowerCase();
+            const matchesSearch = animeTitleLower.includes(this.searchQuery.toLowerCase()) || 
+                                 animeJpTitleLower.includes(this.searchQuery.toLowerCase()) ||
+                                 animeStudioLower.includes(this.searchQuery.toLowerCase());
             
             // Season match
             const matchesSeason = this.filterSeason === 'All' || anime.season === this.filterSeason;
             
             // Genre match
-            const matchesGenre = this.filterGenre === 'All' || anime.genres.includes(this.filterGenre);
+            const matchesGenre = this.filterGenre === 'All' || (anime.genres && Array.isArray(anime.genres) && anime.genres.includes(this.filterGenre));
 
             // MAL Status match
             const friendRating = anime.ratings?.[this.currentFriendId];
@@ -2367,7 +2374,7 @@ function renderFeaturedBanner() {
                     ${featuredAnime.synopsis}
                 </p>
                 <div class="flex flex-wrap gap-2 mb-6">
-                    ${featuredAnime.genres.map(g => `<span class="text-[10px] bg-white/5 border border-white/10 px-2 py-0.5 rounded text-white/60 font-mono">${g}</span>`).join('')}
+                    ${featuredAnime.genres && Array.isArray(featuredAnime.genres) ? featuredAnime.genres.map(g => `<span class="text-[10px] bg-white/5 border border-white/10 px-2 py-0.5 rounded text-white/60 font-mono">${g}</span>`).join('') : ''}
                 </div>
                 
                 <!-- Progress bar in hero -->
@@ -2528,7 +2535,7 @@ function renderAnimeGrid() {
                     </div>
 
                     <div class="flex flex-wrap gap-1 mb-3">
-                        ${anime.genres.slice(0, 3).map(g => `<span class="text-[8px] bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-white/50 font-mono">${g}</span>`).join('')}
+                        ${anime.genres && Array.isArray(anime.genres) ? anime.genres.slice(0, 3).map(g => `<span class="text-[8px] bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-white/50 font-mono">${g}</span>`).join('') : ''}
                     </div>
                     
                     <div class="w-full h-px bg-white/5 mb-3"></div>
@@ -3105,9 +3112,11 @@ function renderStudiosDirectory() {
     // Calculate dynamic genre counts
     const genreCounts = {};
     activeAnimes.forEach(anime => {
-        anime.genres.forEach(g => {
-            genreCounts[g] = (genreCounts[g] || 0) + 1;
-        });
+        if (anime.genres && Array.isArray(anime.genres)) {
+            anime.genres.forEach(g => {
+                genreCounts[g] = (genreCounts[g] || 0) + 1;
+            });
+        }
     });
     const topGenres = Object.keys(genreCounts)
         .sort((a, b) => genreCounts[b] - genreCounts[a])
@@ -3759,7 +3768,7 @@ function openAnimeDetail(animeId) {
 
     // Genres Tags
     const genresContainer = document.getElementById('detail-genres');
-    genresContainer.innerHTML = anime.genres.map(g => `<span class="text-xs bg-white/5 border border-white/10 px-3 py-1 rounded-full text-white/70 font-mono">${g}</span>`).join('');
+    genresContainer.innerHTML = (anime.genres && Array.isArray(anime.genres)) ? anime.genres.map(g => `<span class="text-xs bg-white/5 border border-white/10 px-3 py-1 rounded-full text-white/70 font-mono">${g}</span>`).join('') : '';
 
     // Active Friend info and Read-Only badge check
     const currentFriend = state.getCurrentFriend();
@@ -4590,7 +4599,7 @@ function initRegistrationOptions() {
             });
             
             // Set up hover preview tooltips for genres
-            setupTooltipHover(btn, `Gênero: ${genre}`, (anime) => anime.genres.includes(genre));
+            setupTooltipHover(btn, `Gênero: ${genre}`, (anime) => anime.genres && Array.isArray(anime.genres) && anime.genres.includes(genre));
             
             genresList.appendChild(btn);
         });
@@ -6161,7 +6170,7 @@ function renderGroupStats() {
                     }
                 });
             }
-            if (activeGroupCount > 0) {
+            if (activeGroupCount > 0 && anime.genres && Array.isArray(anime.genres)) {
                 anime.genres.forEach(g => {
                     genreCounts[g] = (genreCounts[g] || 0) + activeGroupCount;
                 });
