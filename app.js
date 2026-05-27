@@ -2177,10 +2177,11 @@ function updateProfileIndicator() {
         }
     }
     if (activeName) {
+        const adminBadge = friend.id === 'felipe' ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
         if (friend.emailVerified) {
-            activeName.innerHTML = `${friend.name} <span class="text-[8px] bg-amber-500 text-black font-sans px-1.5 py-0.5 rounded-full ml-1 tracking-normal font-bold shadow-[0_0_8px_rgba(245,158,11,0.5)]">🏅 FUNDADOR</span>`;
+            activeName.innerHTML = `${friend.name}${adminBadge} <span class="text-[8px] bg-amber-500 text-black font-sans px-1.5 py-0.5 rounded-full ml-1 tracking-normal font-bold shadow-[0_0_8px_rgba(245,158,11,0.5)]">🏅 FUNDADOR</span>`;
         } else {
-            activeName.textContent = friend.name;
+            activeName.innerHTML = `${friend.name}${adminBadge}`;
         }
     }
     
@@ -2221,9 +2222,10 @@ function renderFriendsDropdown() {
         const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
             ? `<img src="${friend.avatar}" class="w-6 h-6 rounded-full object-cover shrink-0" alt="">`
             : `<span class="text-lg">${friend.avatar || '👤'}</span>`;
+        const adminBadge = friend.id === 'felipe' ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
         item.innerHTML = `
             ${avatarHtml}
-            <span class="flex-grow">${friend.name}</span>
+            <span class="flex-grow">${friend.name}${adminBadge}</span>
             <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${friend.color}; box-shadow: 0 0 8px ${friend.color}"></span>
         `;
 
@@ -4105,11 +4107,13 @@ function renderComments(anime) {
             ? `<img src="${currentUser.avatar}" class="w-12 h-12 rounded-full object-cover shrink-0" alt="">`
             : `<div class="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-2xl shrink-0">${currentUser.avatar || '👤'}</div>`;
             
+        const isCurUserAdmin = currentUser.id === 'felipe' || (loggedInUsername && loggedInUsername.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe');
+        const curUserAdminBadge = isCurUserAdmin ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
         commentAuthorContainer.innerHTML = `
             ${authorAvatarHtml}
             <div class="space-y-0.5">
                 <h4 class="text-[9px] font-mono uppercase tracking-[0.15em] text-gray-400">Escreva sua Review</h4>
-                <p class="text-[15px] font-bold font-mono leading-tight" style="color: ${currentUser.color}">${currentUser.name} <span class="text-[10px] text-gray-500 font-normal font-sans">(Você)</span></p>
+                <p class="text-[15px] font-bold font-mono leading-tight" style="color: ${currentUser.color}">${currentUser.name}${curUserAdminBadge} <span class="text-[10px] text-gray-500 font-normal font-sans">(Você)</span></p>
             </div>
         `;
     }
@@ -4139,7 +4143,8 @@ function renderComments(anime) {
         }
 
         const div = document.createElement('div');
-        div.className = 'glass-panel border border-white/5 rounded-2xl p-4 space-y-2.5 animate-[fadeIn_0.3s_ease-out]';
+        const isAdminComment = comment.friendId && comment.friendId.toLowerCase() === 'felipe';
+        div.className = `glass-panel border rounded-2xl p-4 space-y-2.5 animate-[fadeIn_0.3s_ease-out] ${isAdminComment ? 'border-brand/35 shadow-[0_0_15px_rgba(255,69,0,0.12)] bg-brand/[0.03]' : 'border-white/5'}`;
         const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
             ? `<img src="${friend.avatar}" class="w-11 h-11 rounded-full object-cover shrink-0" alt="">`
             : `<div class="w-11 h-11 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-2xl shrink-0">${friend.avatar || '👤'}</div>`;
@@ -4157,11 +4162,13 @@ function renderComments(anime) {
             </div>
         ` : '';
 
+        const adminBadgeHtml = isAdminComment ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1.5 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
+
         div.innerHTML = `
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     ${avatarHtml}
-                    <span class="font-mono text-sm font-bold" style="color: ${friend.color}">${friend.name}</span>
+                    <span class="font-mono text-sm font-bold" style="color: ${friend.color}">${friend.name}${adminBadgeHtml}</span>
                 </div>
                 <div class="flex items-center gap-2">
                     ${actionsHtml}
@@ -5951,7 +5958,8 @@ function renderActivitiesFeed() {
     list.innerHTML = '';
     activities.forEach(act => {
         const item = document.createElement('div');
-        item.className = 'flex gap-3.5 p-4 bg-white/[0.02] border border-white/5 rounded-2xl text-[11px] hover:bg-white/[0.04] transition-all duration-300 animate-[fadeIn_0.3s_ease-out]';
+        const isAdminAct = act.username && act.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
+        item.className = `flex gap-3.5 p-4 rounded-2xl text-[11px] transition-all duration-300 animate-[fadeIn_0.3s_ease-out] ${isAdminAct ? 'bg-brand/[0.03] border border-brand/35 hover:bg-brand/[0.06] shadow-[0_0_12px_rgba(255,69,0,0.08)]' : 'bg-white/[0.02] border border-white/5 hover:bg-white/[0.04]'}`;
         
         const avatarHtml = act.userAvatar && (act.userAvatar.startsWith('data:') || act.userAvatar.startsWith('http'))
             ? `<img src="${act.userAvatar}" class="w-8 h-8 rounded-full object-cover shrink-0 mt-0.5" alt="">`
@@ -5974,11 +5982,13 @@ function renderActivitiesFeed() {
             timeText = '';
         }
 
+        const adminBadgeHtml = isAdminAct ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1.5 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
+
         item.innerHTML = `
             ${avatarHtml}
             <div class="flex-grow min-w-0">
                 <div class="flex justify-between items-baseline gap-1.5">
-                    <span class="font-bold truncate" style="color: ${act.userColor}">${act.username}</span>
+                    <span class="font-bold truncate" style="color: ${act.userColor}">${act.username}${adminBadgeHtml}</span>
                     <span class="text-[8px] text-gray-500 font-mono shrink-0">${timeText}</span>
                 </div>
                 <p class="text-gray-400 font-light mt-0.5 leading-relaxed">
@@ -6170,12 +6180,14 @@ function renderGroupStats() {
                 
             const pct = u.avgScore * 10; // Out of 100 for width
 
+            const isUAdmin = u.username && u.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
+            const adminBadgeHtml = isUAdmin ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
             row.innerHTML = `
                 <div class="flex justify-between items-center text-[10.5px]">
                     <div class="flex items-center gap-2 min-w-0">
                         <span class="text-[9px] font-mono text-gray-500 w-3">${i + 1}.</span>
                         ${avatarHtml}
-                        <span class="font-bold truncate" style="color: ${u.color}">${u.username}</span>
+                        <span class="font-bold truncate" style="color: ${u.color}">${u.username}${adminBadgeHtml}</span>
                     </div>
                     <span class="font-mono font-bold text-white">${u.avgScore > 0 ? u.avgScore.toFixed(1) : '-'} / 10</span>
                 </div>
