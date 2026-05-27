@@ -1132,25 +1132,50 @@ class AppState {
                     serverAnimesMap[sa.id] = sa;
                 });
 
-                // Merge server ratings and comments into local rich animes to prevent loss of metadata fields
+                // Merge server ratings and comments into local rich animes
+                // IMPORTANT: preserve local replies when merging comments from server
                 this.animes = this.animes.map(localAnime => {
                     const sa = serverAnimesMap[localAnime.id];
                     if (sa) {
+                        // Merge comments: use server as base, but restore local replies
+                        const localCommentsMap = {};
+                        (localAnime.comments || []).forEach(lc => {
+                            if (lc.id) localCommentsMap[lc.id] = lc;
+                        });
+                        const mergedComments = (sa.comments || []).map(sc => {
+                            const localComment = localCommentsMap[sc.id];
+                            return {
+                                ...sc,
+                                // Preserve local replies (server doesn't know about them yet)
+                                replies: (localComment && localComment.replies && localComment.replies.length > 0)
+                                    ? localComment.replies
+                                    : (sc.replies || [])
+                            };
+                        });
                         return {
                             ...localAnime,
                             ratings: sa.ratings || {},
-                            comments: sa.comments || []
+                            comments: mergedComments
                         };
                     }
                     return localAnime;
                 });
 
-                // Also check if there are new custom animes from the server that are not in our local list
+                // Add new animes from server not in local (deduplicate by id)
                 const localIds = new Set(this.animes.map(a => a.id));
                 serverState.animes.forEach(sa => {
                     if (sa && sa.id && !localIds.has(sa.id)) {
                         this.animes.push(sa);
+                        localIds.add(sa.id);
                     }
+                });
+
+                // Final deduplication safeguard
+                const seen = new Set();
+                this.animes = this.animes.filter(a => {
+                    if (seen.has(a.id)) return false;
+                    seen.add(a.id);
+                    return true;
                 });
 
                 localStorage.setItem('anivoid_list_v2', JSON.stringify(this.animes));
@@ -1206,7 +1231,35 @@ class AppState {
             }
 
             if (serverState.registeredUsers && Array.isArray(serverState.registeredUsers)) {
-                localStorage.setItem('anivoid_registered_users', JSON.stringify(serverState.registeredUsers));
+                // Preserve local friend connections: the server may have a stale version
+                // of the logged-in user's friends list. Merge to keep local additions.
+                let localRegisteredUsers = [];
+                try {
+                    localRegisteredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+                } catch(e) {}
+
+                const mergedUsers = serverState.registeredUsers.map(serverUser => {
+                    const localUser = localRegisteredUsers.find(u => u && u.username &&
+                        u.username.toLowerCase() === (serverUser.username || '').toLowerCase());
+                    if (localUser && this.loggedInUser &&
+                        serverUser.username && serverUser.username.toLowerCase() === this.loggedInUser.toLowerCase()) {
+                        // For the logged-in user: keep local friends/requests if server is behind
+                        const localFriends = localUser.friends || [];
+                        const serverFriends = serverUser.friends || [];
+                        // Union of friends from both
+                        const allFriends = [...new Set([...localFriends.map(f => f.toLowerCase()), ...serverFriends.map(f => f.toLowerCase())])];
+                        return {
+                            ...serverUser,
+                            friends: allFriends,
+                            activeTitle: localUser.activeTitle || serverUser.activeTitle,
+                            avatar: localUser.avatar || serverUser.avatar,
+                            color: localUser.color || serverUser.color
+                        };
+                    }
+                    return serverUser;
+                });
+
+                localStorage.setItem('anivoid_registered_users', JSON.stringify(mergedUsers));
             }
             if (serverState.featuredAnimeId !== undefined) {
                 this.featuredAnimeId = serverState.featuredAnimeId;
@@ -4329,7 +4382,40 @@ function renderComments(anime) {
             if (!replyText) return;
             const authorId = loggedInUsername ? loggedInUsername.toLowerCase().replace(/[^a-z0-9]/g, '') : state.currentFriendId;
             state.addReply(anime.id, comment.id, authorId, replyText);
-            renderComments(anime);
+
+            // Inject the new reply directly into the DOM (avoid full re-render that collapses replies)
+            const newReply = comment.replies[comment.replies.length - 1];
+            const rf = currentUser;
+            const rAvatar = rf.avatar && (rf.avatar.startsWith('data:') || rf.avatar.startsWith('http'))
+                ? `<img src="${rf.avatar}" class="w-7 h-7 rounded-full object-cover shrink-0" alt="">`
+                : `<div class="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-base shrink-0">${rf.avatar || '👤'}</div>`;
+            const rBadge = getUserBadgesHtml(rf);
+            const now = new Date();
+            const rDate = now.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}) + ' às ' + now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+
+            const replyEl = document.createElement('div');
+            replyEl.className = 'flex gap-2.5 py-2 animate-[fadeIn_0.25s_ease-out]';
+            replyEl.dataset.replyId = newReply.id;
+            replyEl.innerHTML = `
+                ${rAvatar}
+                <div class="flex-grow min-w-0">
+                    <div class="flex items-center justify-between gap-2 mb-0.5">
+                        <span class="font-mono text-[11px] font-bold" style="color:${rf.color}">${rf.name}${rBadge}</span>
+                        <span class="text-[9px] text-gray-600 font-mono shrink-0">${rDate}</span>
+                    </div>
+                    <p class="text-[11px] text-gray-300 font-light leading-relaxed">${newReply.reply}</p>
+                </div>
+            `;
+
+            const repliesList = div.querySelector('.replies-list');
+            if (repliesList) repliesList.appendChild(replyEl);
+
+            // Update button label count
+            const count = comment.replies.length;
+            if (replyBtnLabel) replyBtnLabel.textContent = `${count} resposta${count > 1 ? 's' : ''}`;
+
+            replyTextarea.value = '';
+            replyTextarea.focus();
         });
 
         // ── Edit & Delete (my comment) ─────────────────────────────────────────
