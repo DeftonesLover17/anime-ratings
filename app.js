@@ -1011,6 +1011,8 @@ class AppState {
         }
 
         try {
+            // featuredAnimeId is now per-user, stored in registeredUsers
+            // We keep a legacy local key as fallback for migration
             this.featuredAnimeId = localStorage.getItem('anivoid_featured_anime_id') || null;
         } catch (e) {
             this.featuredAnimeId = null;
@@ -1108,6 +1110,15 @@ class AppState {
                 friends: [],
                 featuredAnimeId: this.featuredAnimeId
             };
+
+            // Also embed featuredAnimeId in the logged-in user's profile before syncing
+            if (this.loggedInUser && this.featuredAnimeId !== undefined) {
+                const meIdx = registeredUsers.findIndex(u => u && u.username && u.username.toLowerCase() === this.loggedInUser.toLowerCase());
+                if (meIdx >= 0) {
+                    registeredUsers[meIdx] = { ...registeredUsers[meIdx], featuredAnimeId: this.featuredAnimeId };
+                    localState.registeredUsers = registeredUsers;
+                }
+            }
 
             // Capture state before request
             const prevAnimesStr = deterministicStringify(this.animes);
@@ -1268,7 +1279,23 @@ class AppState {
 
                 localStorage.setItem('anivoid_registered_users', JSON.stringify(mergedUsers));
             }
-            if (serverState.featuredAnimeId !== undefined) {
+            // After updating registeredUsers in localStorage, also read current user's featuredAnimeId
+            // (so when we switch friend tabs the banner shows the right anime)
+            if (this.loggedInUser) {
+                try {
+                    const updatedUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+                    const me = updatedUsers.find(u => u && u.username && u.username.toLowerCase() === this.loggedInUser.toLowerCase());
+                    if (me && me.featuredAnimeId !== undefined) {
+                        this.featuredAnimeId = me.featuredAnimeId;
+                        if (this.featuredAnimeId) {
+                            localStorage.setItem('anivoid_featured_anime_id', this.featuredAnimeId);
+                        } else {
+                            localStorage.removeItem('anivoid_featured_anime_id');
+                        }
+                    }
+                } catch(e) {}
+            }
+            if (serverState.featuredAnimeId !== undefined && !this.loggedInUser) {
                 this.featuredAnimeId = serverState.featuredAnimeId;
                 if (this.featuredAnimeId) {
                     localStorage.setItem('anivoid_featured_anime_id', this.featuredAnimeId);
@@ -1308,6 +1335,17 @@ class AppState {
             localStorage.setItem('anivoid_featured_anime_id', this.featuredAnimeId);
         } else {
             localStorage.removeItem('anivoid_featured_anime_id');
+        }
+        // Also persist featuredAnimeId into the logged-in user's profile
+        if (this.loggedInUser) {
+            try {
+                const users = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+                const meIdx = users.findIndex(u => u && u.username && u.username.toLowerCase() === this.loggedInUser.toLowerCase());
+                if (meIdx >= 0) {
+                    users[meIdx] = { ...users[meIdx], featuredAnimeId: this.featuredAnimeId || null };
+                    localStorage.setItem('anivoid_registered_users', JSON.stringify(users));
+                }
+            } catch(e) {}
         }
         
         // Trigger server sync in background and silently reload parts of UI when it returns
@@ -2467,10 +2505,27 @@ function renderFeaturedBanner() {
     const bannerContainer = document.getElementById('featured-banner-wrapper');
     if (!bannerContainer || state.animes.length === 0) return;
 
+    // Get the featured anime for the currently viewed user (currentFriendId)
+    let viewedFeaturedId = null;
+    try {
+        const regUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+        const viewedUser = regUsers.find(u => u && u.username &&
+            u.username.toLowerCase().replace(/[^a-z0-9]/g, '') === state.currentFriendId);
+        if (viewedUser && viewedUser.featuredAnimeId) {
+            viewedFeaturedId = viewedUser.featuredAnimeId;
+        }
+    } catch(e) {}
+
+    // Fallback: if viewing ourselves, use our own state.featuredAnimeId
+    const isViewingMe = state.friends.length > 0 && state.friends[0]?.id === state.currentFriendId;
+    if (!viewedFeaturedId && isViewingMe) {
+        viewedFeaturedId = state.featuredAnimeId;
+    }
+
     // Get custom featured anime or top anime by group score
     let featuredAnime = null;
-    if (state.featuredAnimeId) {
-        featuredAnime = state.animes.find(a => a.id === state.featuredAnimeId);
+    if (viewedFeaturedId) {
+        featuredAnime = state.animes.find(a => a.id === viewedFeaturedId);
     }
     
     if (!featuredAnime) {
@@ -2498,7 +2553,7 @@ function renderFeaturedBanner() {
     const boxStyle = myScore !== '-' ? `border-color: ${scoreColorInfo.text}35; box-shadow: 0 0 15px ${scoreColorInfo.glow}` : '';
     const textStyle = myScore !== '-' ? `color: ${scoreColorInfo.text}; text-shadow: 0 0 8px ${scoreColorInfo.glow}` : 'color: #7f8c8d';
 
-    const isPinned = state.featuredAnimeId === featuredAnime.id;
+    const isPinned = viewedFeaturedId === featuredAnime.id;
     const highlightColor = avgColorInfo.text !== '#7f8c8d' ? avgColorInfo.text : '#FF4500';
     const highlightGlow = avgColorInfo.glow !== 'rgba(127, 140, 141, 0)' ? avgColorInfo.glow : 'rgba(255, 69, 0, 0.4)';
 

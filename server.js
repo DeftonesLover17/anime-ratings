@@ -70,6 +70,8 @@ function mergeStates(localState, serverState, loggedInUser) {
                         favoriteStudios: u.favoriteStudios || mergedUsers[index].favoriteStudios,
                         favoriteAnimes: u.favoriteAnimes || mergedUsers[index].favoriteAnimes,
                         activeTitle: u.activeTitle || mergedUsers[index].activeTitle,
+                        // Preserve per-user featuredAnimeId (client wins for their own profile)
+                        featuredAnimeId: u.featuredAnimeId !== undefined ? u.featuredAnimeId : mergedUsers[index].featuredAnimeId,
                         isVirtual: false
                     };
                 }
