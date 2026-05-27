@@ -4343,8 +4343,8 @@ function renderComments(anime) {
                 <p class="text-xs text-gray-300 font-light leading-relaxed whitespace-pre-wrap comment-text">${comment.comment}</p>
             </div>
 
-            <!-- Replies section -->
-            <div class="replies-section hidden mt-1">
+            <!-- Replies section: auto-visible when there are replies -->
+            <div class="replies-section mt-1${repliesCount > 0 ? '' : ' hidden'}">
                 <!-- Existing replies -->
                 <div class="replies-list space-y-2 mb-3 pl-4 border-l-2 border-white/8">
                     ${(comment.replies || []).map(reply => {
@@ -4402,19 +4402,18 @@ function renderComments(anime) {
 
         replyToggleBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const isOpen = !repliesSection.classList.contains('hidden');
-            if (isOpen) {
-                repliesSection.classList.add('hidden');
-            } else {
-                repliesSection.classList.remove('hidden');
-                replyTextarea.focus();
-            }
+            // Always open the section (never close it if it has replies)
+            repliesSection.classList.remove('hidden');
+            replyTextarea.focus();
         });
 
         cancelReplyBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             replyTextarea.value = '';
-            repliesSection.classList.add('hidden');
+            // Only hide section if there are no existing replies
+            if ((comment.replies || []).length === 0) {
+                repliesSection.classList.add('hidden');
+            }
         });
 
         submitReplyBtn.addEventListener('click', (e) => {

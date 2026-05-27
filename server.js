@@ -286,7 +286,14 @@ function mergeStates(localState, serverState, loggedInUser) {
                                             timestamp: new Date().toISOString()
                                         });
                                     }
-                                    serverAnime.comments[index] = { ...serverAnime.comments[index], ...lc };
+                                    // Merge replies: union by reply id so no reply is ever lost
+                                    const serverReplies = serverAnime.comments[index].replies || [];
+                                    const localReplies = lc.replies || [];
+                                    const repliesMap = {};
+                                    serverReplies.forEach(r => { if (r && r.id) repliesMap[r.id] = r; });
+                                    localReplies.forEach(r => { if (r && r.id) repliesMap[r.id] = r; });
+                                    const mergedReplies = Object.values(repliesMap).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                                    serverAnime.comments[index] = { ...serverAnime.comments[index], ...lc, replies: mergedReplies };
                                 } else {
                                     mergedActivities.push({
                                         id: generateActivityId(),
@@ -299,7 +306,8 @@ function mergeStates(localState, serverState, loggedInUser) {
                                         details: 'escreveu uma nova crítica 💬',
                                         timestamp: new Date().toISOString()
                                     });
-                                    serverAnime.comments.push(lc);
+                                    // Ensure replies array exists on new comment
+                                    serverAnime.comments.push({ ...lc, replies: lc.replies || [] });
                                 }
                             }
                         });
