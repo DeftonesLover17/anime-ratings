@@ -5293,7 +5293,41 @@ function applyUserThemeColor(color) {
     document.documentElement.style.setProperty('--accent-glow', `${color}40`);
 }
 
+// ── TITLE PICKER: visual card selector for Felipe's active title ──────────
+window.selectAdminTitle = function(title) {
+    const hiddenInput = document.getElementById('edit-profile-active-title');
+    if (hiddenInput) hiddenInput.value = title;
+
+    const cards = document.querySelectorAll('.title-picker-card');
+    cards.forEach(card => {
+        const isActive = card.dataset.title === title;
+        const checkMark = card.querySelector('.check-mark');
+        const checkCircle = card.querySelector('.title-check-icon');
+
+        if (isActive) {
+            card.style.transform = 'scale(1.02)';
+            card.style.boxShadow = '0 0 20px rgba(255,100,0,0.15), 0 4px 16px rgba(0,0,0,0.4)';
+            card.style.opacity = '1';
+            if (checkMark) checkMark.classList.remove('hidden');
+            if (checkCircle) {
+                checkCircle.style.background = 'rgba(255,100,0,0.15)';
+                checkCircle.style.borderColor = 'rgba(255,100,0,0.7)';
+            }
+        } else {
+            card.style.transform = 'scale(1)';
+            card.style.boxShadow = 'none';
+            card.style.opacity = '0.55';
+            if (checkMark) checkMark.classList.add('hidden');
+            if (checkCircle) {
+                checkCircle.style.background = 'transparent';
+                checkCircle.style.borderColor = '';
+            }
+        }
+    });
+};
+
 function setupEditProfileModal() {
+
     const openBtn = document.getElementById('open-edit-profile');
     const closeBtn = document.getElementById('close-edit-profile');
     const cancelBtn = document.getElementById('cancel-edit-profile');
@@ -5375,13 +5409,11 @@ function setupEditProfileModal() {
             if (avatarInput) avatarInput.value = user.avatar || '😎';
 
             const editTitleContainer = document.getElementById('edit-profile-title-container');
-            const editTitleSelect = document.getElementById('edit-profile-active-title');
             const isFelipe = user.username && user.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
             if (isFelipe && editTitleContainer) {
                 editTitleContainer.classList.remove('hidden');
-                if (editTitleSelect) {
-                    editTitleSelect.value = user.activeTitle || 'admin';
-                }
+                // Sync the visual card picker to the saved title
+                selectAdminTitle(user.activeTitle || 'admin');
             } else if (editTitleContainer) {
                 editTitleContainer.classList.add('hidden');
             }

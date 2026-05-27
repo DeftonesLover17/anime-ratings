@@ -877,13 +877,61 @@
                 </div>
 
                 <!-- Custom Title Selector for Admin (Felipe only) -->
-                <div id="edit-profile-title-container" class="space-y-1.5 hidden">
-                    <label class="text-gray-400 uppercase tracking-wider block font-semibold">Título de Destaque</label>
-                    <select id="edit-profile-active-title" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 font-mono">
-                        <option value="admin" class="bg-bgDark text-white">ADMIN</option>
-                        <option value="founder" class="bg-bgDark text-white">FUNDADOR</option>
-                        <option value="both" class="bg-bgDark text-white">ADMIN & FUNDADOR</option>
-                    </select>
+                <div id="edit-profile-title-container" class="space-y-3 hidden">
+                    <label class="text-gray-400 uppercase tracking-wider block font-semibold text-[10px]">Título de Destaque</label>
+                    <!-- Hidden real input for form value -->
+                    <input type="hidden" id="edit-profile-active-title" value="admin">
+                    <div class="grid grid-cols-1 gap-2" id="title-picker-grid">
+
+                        <!-- ADMIN card -->
+                        <button type="button" data-title="admin" onclick="selectAdminTitle('admin')"
+                            class="title-picker-card group relative flex items-center gap-3 w-full px-4 py-3 rounded-2xl border transition-all duration-300 cursor-pointer text-left"
+                            style="background: rgba(255,69,0,0.06); border-color: rgba(255,69,0,0.3);">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all duration-300" style="background: rgba(255,69,0,0.15); border: 1px solid rgba(255,69,0,0.4);">
+                                <iconify-icon icon="lucide:shield-check" class="text-sm" style="color:#FF4500"></iconify-icon>
+                            </div>
+                            <div class="flex-grow min-w-0">
+                                <p class="text-[11px] font-mono font-bold tracking-widest uppercase" style="color:#FF4500">Admin</p>
+                                <p class="text-[9px] text-white/40 font-mono mt-0.5">Moderação e controlo do site</p>
+                            </div>
+                            <div class="title-check-icon w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-300" style="border-color: rgba(255,69,0,0.5);">
+                                <iconify-icon icon="lucide:check" class="text-[10px] hidden check-mark" style="color:#FF4500"></iconify-icon>
+                            </div>
+                        </button>
+
+                        <!-- FUNDADOR card -->
+                        <button type="button" data-title="founder" onclick="selectAdminTitle('founder')"
+                            class="title-picker-card group relative flex items-center gap-3 w-full px-4 py-3 rounded-2xl border transition-all duration-300 cursor-pointer text-left"
+                            style="background: rgba(255,200,0,0.04); border-color: rgba(255,200,0,0.15);">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all duration-300" style="background: rgba(255,200,0,0.08); border: 1px solid rgba(255,200,0,0.2);">
+                                <iconify-icon icon="lucide:crown" class="text-sm" style="color:#FFC800"></iconify-icon>
+                            </div>
+                            <div class="flex-grow min-w-0">
+                                <p class="text-[11px] font-mono font-bold tracking-widest uppercase" style="color:#FFC800">Fundador</p>
+                                <p class="text-[9px] text-white/40 font-mono mt-0.5">Criador e visionário do projeto</p>
+                            </div>
+                            <div class="title-check-icon w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-300" style="border-color: rgba(255,200,0,0.3);">
+                                <iconify-icon icon="lucide:check" class="text-[10px] hidden check-mark" style="color:#FFC800"></iconify-icon>
+                            </div>
+                        </button>
+
+                        <!-- ADMIN & FUNDADOR card -->
+                        <button type="button" data-title="both" onclick="selectAdminTitle('both')"
+                            class="title-picker-card group relative flex items-center gap-3 w-full px-4 py-3 rounded-2xl border transition-all duration-300 cursor-pointer text-left"
+                            style="background: linear-gradient(135deg, rgba(255,69,0,0.05), rgba(255,200,0,0.05)); border-color: rgba(255,100,0,0.2);">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all duration-300" style="background: linear-gradient(135deg,rgba(255,69,0,0.15),rgba(255,200,0,0.1)); border: 1px solid rgba(255,100,0,0.3);">
+                                <iconify-icon icon="lucide:sparkles" class="text-sm" style="color:#FFB347"></iconify-icon>
+                            </div>
+                            <div class="flex-grow min-w-0">
+                                <p class="text-[11px] font-mono font-bold tracking-widest uppercase" style="background: linear-gradient(90deg,#FF4500,#FFC800); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">Admin & Fundador</p>
+                                <p class="text-[9px] text-white/40 font-mono mt-0.5">Ambos os títulos simultâneos</p>
+                            </div>
+                            <div class="title-check-icon w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-300" style="border-color: rgba(255,150,0,0.3);">
+                                <iconify-icon icon="lucide:check" class="text-[10px] hidden check-mark" style="color:#FFB347"></iconify-icon>
+                            </div>
+                        </button>
+
+                    </div>
                 </div>
 
                 <div class="pt-4 flex gap-3">
