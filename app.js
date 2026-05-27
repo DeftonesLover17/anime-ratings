@@ -1870,7 +1870,26 @@ class AppState {
     }
 
     getFilteredAnimeList() {
-        return this.animes.filter(anime => {
+        // ── Deduplicate by normalized title (keep entry with most ratings) ──
+        const titleMap = new Map();
+        this.animes.forEach(anime => {
+            const key = (anime.title || '').toLowerCase().trim().replace(/\s+/g, ' ');
+            if (!titleMap.has(key)) {
+                titleMap.set(key, anime);
+            } else {
+                const existing = titleMap.get(key);
+                const existingScore = Object.keys(existing.ratings || {}).length;
+                const newScore = Object.keys(anime.ratings || {}).length;
+                // Keep the one with more ratings; on tie keep the one with more comments
+                if (newScore > existingScore ||
+                   (newScore === existingScore && (anime.comments || []).length > (existing.comments || []).length)) {
+                    titleMap.set(key, anime);
+                }
+            }
+        });
+        const dedupedAnimes = Array.from(titleMap.values());
+
+        return dedupedAnimes.filter(anime => {
             // Hide older Jujutsu Kaisen seasons from the main dashboard
             if (anime.id === 'a20' || anime.id === 'a20_s2') return false;
 
@@ -3129,8 +3148,23 @@ function renderStudiosDirectory() {
     container.innerHTML = '';
 
     // Group anime by studio (skip animes without a known studio)
+    // First deduplicate by normalized title globally
+    const _titleDedup = new Map();
+    state.animes.forEach(a => {
+        const key = (a.title || '').toLowerCase().trim().replace(/\s+/g, ' ');
+        if (!_titleDedup.has(key)) {
+            _titleDedup.set(key, a);
+        } else {
+            const ex = _titleDedup.get(key);
+            if (Object.keys(a.ratings || {}).length > Object.keys(ex.ratings || {}).length) {
+                _titleDedup.set(key, a);
+            }
+        }
+    });
+    const dedupedForStudios = Array.from(_titleDedup.values());
+
     const studiosMap = {};
-    state.animes.forEach(anime => {
+    dedupedForStudios.forEach(anime => {
         const studio = anime.studio && anime.studio.trim() ? anime.studio.trim() : null;
         if (!studio || studio.toLowerCase() === 'desconhecido') return;
         if (!studiosMap[studio]) studiosMap[studio] = [];
