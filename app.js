@@ -1993,7 +1993,7 @@ function setupSplashScreen() {
                 document.body.classList.remove('overflow-hidden');
             }
             if (window.initObserver) window.initObserver();
-        }, 1300);
+        }, 1500);
     };
 
     // After 2.5 seconds, auto-transition to main dashboard
