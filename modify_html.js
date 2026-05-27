@@ -23,13 +23,19 @@ const newRegGateHtml = `<!-- REGISTRATION GATE OVERLAY -->
             <div class="absolute -bottom-24 -right-24 w-48 h-48 rounded-full bg-brand/10 blur-[80px] pointer-events-none"></div>
             
             <div class="text-center space-y-2">
-                <p class="text-xs font-mono uppercase tracking-[0.3em] text-brand">Bem-vindo ao Anivoid</p>
-                <h2 class="text-3xl md:text-4xl font-serif text-white/95">Crie seu <span class="italic text-brand font-light">Perfil de Otaku</span></h2>
-                <p class="text-xs text-gray-400 font-mono font-light leading-relaxed">Antes de entrar, precisamos de algumas informações para personalizar sua experiência.</p>
+                <p id="reg-header-tag" class="text-xs font-mono uppercase tracking-[0.3em] text-brand">Bem-vindo ao Anivoid</p>
+                <h2 id="reg-header-title" class="text-3xl md:text-4xl font-serif text-white/95">Crie seu <span class="italic text-brand font-light">Perfil de Otaku</span></h2>
+                <p id="reg-header-desc" class="text-xs text-gray-400 font-mono font-light leading-relaxed">Antes de entrar, precisamos de algumas informações para personalizar sua experiência.</p>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="flex bg-white/5 border border-white/10 rounded-full p-1 select-none font-mono text-[9px] w-full max-w-xs mx-auto mb-4">
+                <button type="button" id="tab-register" class="flex-grow py-1.5 rounded-full text-white bg-brand font-bold transition-all uppercase tracking-wider text-center">Criar Conta</button>
+                <button type="button" id="tab-login" class="flex-grow py-1.5 rounded-full text-white/50 hover:text-white transition-all uppercase tracking-wider text-center">Entrar</button>
             </div>
 
             <!-- Step Indicators -->
-            <div class="flex items-center justify-between text-[9px] font-mono uppercase tracking-widest text-gray-500 border-b border-white/5 pb-4 mb-4 select-none">
+            <div id="reg-indicators" class="flex items-center justify-between text-[9px] font-mono uppercase tracking-widest text-gray-500 border-b border-white/5 pb-4 mb-4 select-none">
                 <div class="step-indicator active flex items-center gap-1.5" data-step="1">
                     <span class="w-5 h-5 rounded-full bg-brand text-white flex items-center justify-center font-bold text-[10px]">1</span>
                     <span class="hidden sm:inline text-white/90">Conta</span>
@@ -90,6 +96,7 @@ const newRegGateHtml = `<!-- REGISTRATION GATE OVERLAY -->
                             </div>
                         </div>
                     </div>
+                    <p class="text-[10px] text-gray-500 font-mono mt-4 text-center">Já tem uma conta? <button type="button" id="toggle-to-login" class="text-brand hover:underline font-bold">Entrar</button></p>
                 </div>
 
                 <!-- Step 2: Gêneros -->
@@ -160,6 +167,27 @@ const newRegGateHtml = `<!-- REGISTRATION GATE OVERLAY -->
                     </button>
                 </div>
             </form>
+
+            <!-- Login Form (Toggled via JS) -->
+            <form id="login-form" class="space-y-6 text-xs font-mono hidden animate-[fadeIn_0.3s_ease-out]">
+                <div class="space-y-4">
+                    <div class="space-y-2">
+                        <label class="text-gray-400 uppercase tracking-wider block font-semibold">E-mail</label>
+                        <input type="email" id="login-email" required placeholder="exemplo@email.com" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 transition-colors">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-gray-400 uppercase tracking-wider block font-semibold">Senha</label>
+                        <input type="password" id="login-password" required placeholder="••••••••" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 transition-colors">
+                    </div>
+                </div>
+                
+                <div class="pt-4 border-t border-white/5 flex items-center justify-between gap-4 select-none">
+                    <p class="text-[10px] text-gray-500 font-mono">Não tem conta? <button type="button" id="toggle-to-register" class="text-brand hover:underline font-bold">Criar conta</button></p>
+                    <button type="submit" class="ml-auto px-8 py-3 rounded-full bg-brand text-white hover:bg-brand/80 hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-widest font-semibold text-[10px] border border-brand/40 shadow-[0_4px_20px_rgba(255,69,0,0.3)]">
+                        Entrar
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -171,9 +199,7 @@ const newRegGateHtml = `<!-- REGISTRATION GATE OVERLAY -->
                 <!-- Filled in JS on hover -->
             </div>
         </div>
-    </div>
-
-    `;
+    </div>`;
 
 const updatedHtml = htmlContent.substring(0, startIndex) + newRegGateHtml + htmlContent.substring(endIndex);
 fs.writeFileSync(htmlPath, updatedHtml, 'utf8');
