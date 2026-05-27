@@ -1282,7 +1282,9 @@ class AppState {
                             const overallTextStyle = overall !== '-' ? `color: ${overallColorInfo.text}; text-shadow: 0 0 6px ${overallColorInfo.glow}` : 'color: #7f8c8d';
                             
                             const card = document.createElement('div');
-                            card.className = 'glass-panel border border-white/5 rounded-2xl p-4 flex justify-between items-center text-sm';
+                            const isFriendAdmin = friend.id === 'felipe' || (friend.name && friend.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe');
+                            const adminBadge = isFriendAdmin ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
+                            card.className = `glass-panel border rounded-2xl p-4 flex justify-between items-center text-sm ${isFriendAdmin ? 'border-brand/35 shadow-[0_0_15px_rgba(255,69,0,0.12)] bg-brand/[0.03]' : 'border-white/5'}`;
                             const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
                                 ? `<img src="${friend.avatar}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">`
                                 : `<span class="text-2xl">${friend.avatar || '👤'}</span>`;
@@ -1290,7 +1292,7 @@ class AppState {
                                 <div class="flex items-center gap-3">
                                     ${avatarHtml}
                                     <div>
-                                        <p class="font-semibold text-white" style="color: ${friend.color}">${friend.name}</p>
+                                        <p class="font-semibold text-white" style="color: ${friend.color}">${friend.name}${adminBadge}</p>
                                         <div class="flex items-center gap-2 mt-1">
                                             <span class="text-[8px] uppercase tracking-wider font-mono px-2 py-0.5 border ${statusObj.border} ${statusObj.bg} ${statusObj.text} rounded-full">
                                                 ${statusObj.label} (${epsWatched}/${totalEps > 0 ? totalEps : '?'})
@@ -1925,7 +1927,9 @@ function startApp() {
                             const overallTextStyle = overall !== '-' ? `color: ${overallColorInfo.text}; text-shadow: 0 0 6px ${overallColorInfo.glow}` : 'color: #7f8c8d';
                             
                             const card = document.createElement('div');
-                            card.className = 'glass-panel border border-white/5 rounded-2xl p-4 flex justify-between items-center text-sm';
+                            const isFriendAdmin = friend.id === 'felipe' || (friend.name && friend.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe');
+                            const adminBadge = isFriendAdmin ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
+                            card.className = `glass-panel border rounded-2xl p-4 flex justify-between items-center text-sm ${isFriendAdmin ? 'border-brand/35 shadow-[0_0_15px_rgba(255,69,0,0.12)] bg-brand/[0.03]' : 'border-white/5'}`;
                             const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
                                 ? `<img src="${friend.avatar}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">`
                                 : `<span class="text-2xl">${friend.avatar || '👤'}</span>`;
@@ -1933,7 +1937,7 @@ function startApp() {
                                 <div class="flex items-center gap-3">
                                     ${avatarHtml}
                                     <div>
-                                        <p class="font-semibold text-white" style="color: ${friend.color}">${friend.name}</p>
+                                        <p class="font-semibold text-white" style="color: ${friend.color}">${friend.name}${adminBadge}</p>
                                         <div class="flex items-center gap-2 mt-1">
                                             <span class="text-[8px] uppercase tracking-wider font-mono px-2 py-0.5 border ${statusObj.border} ${statusObj.bg} ${statusObj.text} rounded-full">
                                                 ${statusObj.label} (${epsWatched}/${totalEps > 0 ? totalEps : '?'})
@@ -3814,10 +3818,12 @@ function openAnimeDetail(animeId) {
     const activeFriendLabel = document.getElementById('active-friend-name-label');
     if (activeFriendLabel) {
         activeFriendLabel.style.color = currentFriend.color;
+        const currentFriendIsAdmin = currentFriend.id === 'felipe' || (currentFriend.name && currentFriend.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe');
+        const adminBadge = currentFriendIsAdmin ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
         if (isReadOnly) {
-            activeFriendLabel.innerHTML = `${currentFriend.name} <span class="text-[9px] bg-white/10 text-white/50 border border-white/5 px-2 py-0.5 rounded-md ml-1 font-mono tracking-normal font-normal">Apenas Leitura</span>`;
+            activeFriendLabel.innerHTML = `${currentFriend.name}${adminBadge} <span class="text-[9px] bg-white/10 text-white/50 border border-white/5 px-2 py-0.5 rounded-md ml-1 font-mono tracking-normal font-normal">Apenas Leitura</span>`;
         } else {
-            activeFriendLabel.textContent = currentFriend.name;
+            activeFriendLabel.innerHTML = `${currentFriend.name}${adminBadge}`;
         }
     }
 
@@ -4063,7 +4069,9 @@ function openAnimeDetail(animeId) {
             const overallTextStyle = overall !== '-' ? `color: ${overallColorInfo.text}; text-shadow: 0 0 6px ${overallColorInfo.glow}` : 'color: #7f8c8d';
 
             const card = document.createElement('div');
-            card.className = 'glass-panel border border-white/5 rounded-2xl p-4 flex justify-between items-center text-sm';
+            const isFriendAdmin = friend.id === 'felipe' || (friend.name && friend.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe');
+            const adminBadge = isFriendAdmin ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
+            card.className = `glass-panel border rounded-2xl p-4 flex justify-between items-center text-sm ${isFriendAdmin ? 'border-brand/35 shadow-[0_0_15px_rgba(255,69,0,0.12)] bg-brand/[0.03]' : 'border-white/5'}`;
             const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
                 ? `<img src="${friend.avatar}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">`
                 : `<span class="text-2xl">${friend.avatar || '👤'}</span>`;
@@ -4071,7 +4079,7 @@ function openAnimeDetail(animeId) {
                 <div class="flex items-center gap-3">
                     ${avatarHtml}
                     <div>
-                        <p class="font-semibold text-white" style="color: ${friend.color}">${friend.name}</p>
+                        <p class="font-semibold text-white" style="color: ${friend.color}">${friend.name}${adminBadge}</p>
                         <div class="flex items-center gap-2 mt-1">
                             <span class="text-[8px] uppercase tracking-wider font-mono px-2 py-0.5 border ${statusObj.border} ${statusObj.bg} ${statusObj.text} rounded-full">
                                 ${statusObj.label} (${epsWatched}/${totalEps > 0 ? totalEps : '?'})
@@ -5652,7 +5660,9 @@ function renderRegisteredUsersSuggestions() {
 
     matched.forEach(user => {
         const item = document.createElement('div');
-        item.className = 'flex items-center justify-between p-2 bg-white/5 border border-white/10 rounded-xl gap-3 animate-[fadeIn_0.2s_ease-out]';
+        const isUserAdmin = user.username && user.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
+        const adminBadge = isUserAdmin ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
+        item.className = `flex items-center justify-between p-2 rounded-xl gap-3 animate-[fadeIn_0.2s_ease-out] ${isUserAdmin ? 'bg-brand/[0.03] border border-brand/35 shadow-[0_0_12px_rgba(255,69,0,0.08)]' : 'bg-white/5 border border-white/10'}`;
         
         const avatarHtml = user.avatar && (user.avatar.startsWith('data:') || user.avatar.startsWith('http'))
             ? `<img src="${user.avatar}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">`
@@ -5687,7 +5697,7 @@ function renderRegisteredUsersSuggestions() {
             <div class="flex items-center gap-2 min-w-0">
                 ${avatarHtml}
                 <div class="min-w-0 flex-grow">
-                    <p class="font-bold text-white text-[11.5px] truncate leading-tight">${user.username}</p>
+                    <p class="font-bold text-white text-[11.5px] truncate leading-tight">${user.username}${adminBadge}</p>
                     <p class="text-[9px] text-gray-500 font-mono truncate">${user.email || 'Sem e-mail'}</p>
                 </div>
             </div>
@@ -5844,7 +5854,9 @@ function renderModalFriendsList() {
         if (!friend) return;
 
         const item = document.createElement('div');
-        item.className = 'flex items-center justify-between p-2.5 bg-white/5 border border-white/10 rounded-2xl gap-3 animate-[fadeIn_0.2s_ease-out]';
+        const isFriendAdmin = friend.username && friend.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
+        const adminBadge = isFriendAdmin ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
+        item.className = `flex items-center justify-between p-2.5 rounded-2xl gap-3 animate-[fadeIn_0.2s_ease-out] ${isFriendAdmin ? 'bg-brand/[0.03] border border-brand/35 shadow-[0_0_12px_rgba(255,69,0,0.08)]' : 'bg-white/5 border border-white/10'}`;
         
         const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
             ? `<img src="${friend.avatar}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">`
