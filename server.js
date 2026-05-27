@@ -94,11 +94,13 @@ function mergeStates(localState, serverState, loggedInUser) {
     }
 
     // 3. Merge animes ratings and comments
+    // IDs legados/stub que não devem existir no servidor (dados de teste)
+    const BOGUS_IDS = new Set(['steins-gate', 'sample-anime', 'sample-anime-test', 'sample-anime-special-sync']);
     function isBogusAnime(a) {
         if (!a || !a.id) return true;
+        if (BOGUS_IDS.has(a.id)) return true;
         if (a.id.includes('debug')) return true;
         if (a.id.startsWith('sample-anime')) return true;
-        if (a.id === 'sample-anime-test') return true;
         if (a.id.includes('-test-')) return true;
         if (a.id.startsWith('test-')) return true;
         return false;

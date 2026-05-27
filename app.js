@@ -917,7 +917,9 @@ class AppState {
         try {
             this.animes = JSON.parse(localStorage.getItem('anivoid_list_v2'));
             if (Array.isArray(this.animes)) {
+                const BOGUS_IDS = new Set(['steins-gate', 'sample-anime', 'sample-anime-test', 'sample-anime-special-sync']);
                 this.animes = this.animes.filter(a => a && a.id && 
+                    !BOGUS_IDS.has(a.id) &&
                     !a.id.includes('debug') &&
                     !a.id.startsWith('sample-anime') &&
                     a.id !== 'sample-anime-test' && 
