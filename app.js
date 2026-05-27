@@ -1045,6 +1045,7 @@ class AppState {
                         favoriteGenres: curUser.favoriteGenres || [],
                         favoriteStudios: curUser.favoriteStudios || [],
                         favoriteAnimes: curUser.favoriteAnimes || [],
+                        activeTitle: curUser.activeTitle || 'admin',
                         isMe: true
                     });
                     
@@ -1062,7 +1063,8 @@ class AppState {
                                         emailVerified: fUser.emailVerified || false,
                                         favoriteGenres: fUser.favoriteGenres || [],
                                         favoriteStudios: fUser.favoriteStudios || [],
-                                        favoriteAnimes: fUser.favoriteAnimes || []
+                                        favoriteAnimes: fUser.favoriteAnimes || [],
+                                        activeTitle: fUser.activeTitle || 'admin'
                                     });
                                 }
                             }
@@ -1283,7 +1285,7 @@ class AppState {
                             
                             const card = document.createElement('div');
                             const isFriendAdmin = friend.id === 'felipe' || (friend.name && friend.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe');
-                            const adminBadge = isFriendAdmin ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
+                            const adminBadge = getUserBadgesHtml(friend);
                             card.className = `glass-panel border rounded-2xl p-4 flex justify-between items-center text-sm ${isFriendAdmin ? 'border-brand/35 shadow-[0_0_15px_rgba(255,69,0,0.12)] bg-brand/[0.03]' : 'border-white/5'}`;
                             const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
                                 ? `<img src="${friend.avatar}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">`
@@ -1928,7 +1930,7 @@ function startApp() {
                             
                             const card = document.createElement('div');
                             const isFriendAdmin = friend.id === 'felipe' || (friend.name && friend.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe');
-                            const adminBadge = isFriendAdmin ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
+                            const adminBadge = getUserBadgesHtml(friend);
                             card.className = `glass-panel border rounded-2xl p-4 flex justify-between items-center text-sm ${isFriendAdmin ? 'border-brand/35 shadow-[0_0_15px_rgba(255,69,0,0.12)] bg-brand/[0.03]' : 'border-white/5'}`;
                             const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
                                 ? `<img src="${friend.avatar}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">`
@@ -2181,12 +2183,8 @@ function updateProfileIndicator() {
         }
     }
     if (activeName) {
-        const adminBadge = friend.id === 'felipe' ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
-        if (friend.emailVerified) {
-            activeName.innerHTML = `${friend.name}${adminBadge} <span class="text-[8px] bg-amber-500 text-black font-sans px-1.5 py-0.5 rounded-full ml-1 tracking-normal font-bold shadow-[0_0_8px_rgba(245,158,11,0.5)]">🏅 FUNDADOR</span>`;
-        } else {
-            activeName.innerHTML = `${friend.name}${adminBadge}`;
-        }
+        const badgesHtml = getUserBadgesHtml(friend);
+        activeName.innerHTML = `${friend.name}${badgesHtml}`;
     }
     
     // Style borders and text with user theme
@@ -2226,7 +2224,7 @@ function renderFriendsDropdown() {
         const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
             ? `<img src="${friend.avatar}" class="w-6 h-6 rounded-full object-cover shrink-0" alt="">`
             : `<span class="text-lg">${friend.avatar || '👤'}</span>`;
-        const adminBadge = friend.id === 'felipe' ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
+        const adminBadge = getUserBadgesHtml(friend);
         item.innerHTML = `
             ${avatarHtml}
             <span class="flex-grow">${friend.name}${adminBadge}</span>
@@ -2313,6 +2311,35 @@ function createFilterButton(text, isActive, onClick) {
     btn.textContent = text;
     btn.addEventListener('click', onClick);
     return btn;
+}
+
+// Helper to get HTML badges for Felipe dynamically based on active title choice (admin, founder, or both)
+function getUserBadgesHtml(user) {
+    if (!user) return '';
+    const username = user.username || user.name || '';
+    const usernameLower = username.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const isFelipe = user.id === 'felipe' || usernameLower === 'felipe';
+    if (!isFelipe) return '';
+
+    let activeTitle = user.activeTitle;
+    if (!activeTitle) {
+        try {
+            const registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+            const realUser = registeredUsers.find(u => u && u.username && u.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe');
+            if (realUser) {
+                activeTitle = realUser.activeTitle;
+            }
+        } catch (e) {}
+    }
+    if (!activeTitle) activeTitle = 'admin';
+
+    const adminHtml = `<span class="premium-badge premium-badge-admin ml-1"><iconify-icon icon="lucide:shield-check"></iconify-icon>ADMIN</span>`;
+    const founderHtml = `<span class="premium-badge premium-badge-founder ml-1"><iconify-icon icon="lucide:crown"></iconify-icon>FUNDADOR</span>`;
+
+    if (activeTitle === 'admin') return adminHtml;
+    if (activeTitle === 'founder') return founderHtml;
+    if (activeTitle === 'both') return adminHtml + founderHtml;
+    return adminHtml;
 }
 
 // Helper to calculate dynamic colors based on score (red to yellow to green)
@@ -3818,8 +3845,7 @@ function openAnimeDetail(animeId) {
     const activeFriendLabel = document.getElementById('active-friend-name-label');
     if (activeFriendLabel) {
         activeFriendLabel.style.color = currentFriend.color;
-        const currentFriendIsAdmin = currentFriend.id === 'felipe' || (currentFriend.name && currentFriend.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe');
-        const adminBadge = currentFriendIsAdmin ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
+        const adminBadge = getUserBadgesHtml(currentFriend);
         if (isReadOnly) {
             activeFriendLabel.innerHTML = `${currentFriend.name}${adminBadge} <span class="text-[9px] bg-white/10 text-white/50 border border-white/5 px-2 py-0.5 rounded-md ml-1 font-mono tracking-normal font-normal">Apenas Leitura</span>`;
         } else {
@@ -4070,7 +4096,7 @@ function openAnimeDetail(animeId) {
 
             const card = document.createElement('div');
             const isFriendAdmin = friend.id === 'felipe' || (friend.name && friend.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe');
-            const adminBadge = isFriendAdmin ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
+            const adminBadge = getUserBadgesHtml(friend);
             card.className = `glass-panel border rounded-2xl p-4 flex justify-between items-center text-sm ${isFriendAdmin ? 'border-brand/35 shadow-[0_0_15px_rgba(255,69,0,0.12)] bg-brand/[0.03]' : 'border-white/5'}`;
             const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
                 ? `<img src="${friend.avatar}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">`
@@ -4115,8 +4141,7 @@ function renderComments(anime) {
             ? `<img src="${currentUser.avatar}" class="w-12 h-12 rounded-full object-cover shrink-0" alt="">`
             : `<div class="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-2xl shrink-0">${currentUser.avatar || '👤'}</div>`;
             
-        const isCurUserAdmin = currentUser.id === 'felipe' || (loggedInUsername && loggedInUsername.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe');
-        const curUserAdminBadge = isCurUserAdmin ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
+        const curUserAdminBadge = getUserBadgesHtml(currentUser);
         commentAuthorContainer.innerHTML = `
             ${authorAvatarHtml}
             <div class="space-y-0.5">
@@ -4170,7 +4195,7 @@ function renderComments(anime) {
             </div>
         ` : '';
 
-        const adminBadgeHtml = isAdminComment ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1.5 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
+        const adminBadgeHtml = getUserBadgesHtml(friend);
 
         div.innerHTML = `
             <div class="flex items-center justify-between">
@@ -5347,6 +5372,18 @@ function setupEditProfileModal() {
             if (colorInput) colorInput.value = user.color || '#FF4500';
             if (avatarInput) avatarInput.value = user.avatar || '😎';
 
+            const editTitleContainer = document.getElementById('edit-profile-title-container');
+            const editTitleSelect = document.getElementById('edit-profile-active-title');
+            const isFelipe = user.username && user.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
+            if (isFelipe && editTitleContainer) {
+                editTitleContainer.classList.remove('hidden');
+                if (editTitleSelect) {
+                    editTitleSelect.value = user.activeTitle || 'admin';
+                }
+            } else if (editTitleContainer) {
+                editTitleContainer.classList.add('hidden');
+            }
+
             // Show current avatar in trigger
             if (avatarTrigger) {
                 if (user.avatar && (user.avatar.startsWith('data:') || user.avatar.startsWith('http'))) {
@@ -5390,6 +5427,13 @@ function setupEditProfileModal() {
             userRecord.email = newEmail;
             userRecord.color = newColor;
             userRecord.avatar = newAvatar;
+            
+            const editTitleSelect = document.getElementById('edit-profile-active-title');
+            const isFelipe = userRecord.username && userRecord.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
+            if (isFelipe && editTitleSelect) {
+                userRecord.activeTitle = editTitleSelect.value;
+            }
+            
             localStorage.setItem('anivoid_registered_users', JSON.stringify(registeredUsers));
         }
 
@@ -5661,7 +5705,7 @@ function renderRegisteredUsersSuggestions() {
     matched.forEach(user => {
         const item = document.createElement('div');
         const isUserAdmin = user.username && user.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
-        const adminBadge = isUserAdmin ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
+        const adminBadge = getUserBadgesHtml(user);
         item.className = `flex items-center justify-between p-2 rounded-xl gap-3 animate-[fadeIn_0.2s_ease-out] ${isUserAdmin ? 'bg-brand/[0.03] border border-brand/35 shadow-[0_0_12px_rgba(255,69,0,0.08)]' : 'bg-white/5 border border-white/10'}`;
         
         const avatarHtml = user.avatar && (user.avatar.startsWith('data:') || user.avatar.startsWith('http'))
@@ -5855,7 +5899,7 @@ function renderModalFriendsList() {
 
         const item = document.createElement('div');
         const isFriendAdmin = friend.username && friend.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
-        const adminBadge = isFriendAdmin ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
+        const adminBadge = getUserBadgesHtml(friend);
         item.className = `flex items-center justify-between p-2.5 rounded-2xl gap-3 animate-[fadeIn_0.2s_ease-out] ${isFriendAdmin ? 'bg-brand/[0.03] border border-brand/35 shadow-[0_0_12px_rgba(255,69,0,0.08)]' : 'bg-white/5 border border-white/10'}`;
         
         const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
@@ -5957,7 +6001,15 @@ function renderActivitiesFeed() {
     const list = document.getElementById('activities-feed-list');
     if (!list) return;
 
-    const activities = (state.activities || []).slice(0, 3);
+    // Filter activities to show only those from user themselves or their added friends
+    const activeFriendsIds = state.friends.map(f => f.id);
+    const filteredActivities = (state.activities || []).filter(act => {
+        if (!act.username) return false;
+        const actUserId = act.username.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return activeFriendsIds.includes(actUserId);
+    });
+
+    const activities = filteredActivities.slice(0, 3);
     if (activities.length === 0) {
         list.innerHTML = `
             <div class="py-8 text-center text-gray-500 font-light text-[10px] italic col-span-full">
@@ -5994,7 +6046,7 @@ function renderActivitiesFeed() {
             timeText = '';
         }
 
-        const adminBadgeHtml = isAdminAct ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1.5 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
+        const adminBadgeHtml = getUserBadgesHtml({ username: act.username });
 
         item.innerHTML = `
             ${avatarHtml}
@@ -6192,8 +6244,7 @@ function renderGroupStats() {
                 
             const pct = u.avgScore * 10; // Out of 100 for width
 
-            const isUAdmin = u.username && u.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
-            const adminBadgeHtml = isUAdmin ? ` <span class="px-1.5 py-0.5 text-[8px] font-sans font-bold bg-[#FF2B2B] text-black rounded-md ml-1 uppercase tracking-wide inline-flex items-center gap-0.5 shadow-sm shadow-[#FF2B2B]/20"><iconify-icon icon="lucide:shield-check" class="text-[9px]"></iconify-icon>ADMIN</span>` : '';
+            const adminBadgeHtml = getUserBadgesHtml({ username: u.username });
             row.innerHTML = `
                 <div class="flex justify-between items-center text-[10.5px]">
                     <div class="flex items-center gap-2 min-w-0">

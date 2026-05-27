@@ -712,4 +712,77 @@ input[type="range"]::-webkit-slider-thumb:hover {
     transition: transform 0.9s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.8s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
+/* ==========================================================================
+   PREMIUM DYNAMIC BADGES & ANIMATIONS (ADMIN / FOUNDER)
+   ========================================================================== */
+
+@keyframes badge-glow {
+    0%, 100% {
+        box-shadow: 0 0 6px var(--badge-glow-color, rgba(255, 43, 43, 0.25)), inset 0 0 4px rgba(255, 255, 255, 0.15);
+    }
+    50% {
+        box-shadow: 0 0 12px var(--badge-glow-color, rgba(255, 43, 43, 0.5)), inset 0 0 6px rgba(255, 255, 255, 0.25);
+    }
+}
+
+@keyframes badge-shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.premium-badge {
+    position: relative;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3.5px;
+    padding: 2.5px 6.5px;
+    font-size: 8px;
+    font-weight: 800;
+    font-family: 'Unbounded', 'Syne', sans-serif;
+    letter-spacing: 0.08em;
+    border-radius: 5px;
+    text-transform: uppercase;
+    animation: badge-glow 2.5s infinite ease-in-out, badge-shimmer 4s infinite linear;
+    background-size: 200% auto;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    line-height: 1;
+    height: 17px;
+    vertical-align: middle;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.premium-badge:hover {
+    transform: translateY(-1px) scale(1.05);
+    border-color: rgba(255, 255, 255, 0.45);
+}
+
+.premium-badge iconify-icon {
+    font-size: 9.5px;
+}
+
+.premium-badge-admin {
+    --badge-glow-color: rgba(255, 43, 43, 0.5);
+    background: linear-gradient(135deg, #FF1E1E 0%, #FF5252 25%, #FF1E1E 50%, #FF5252 75%, #FF1E1E 100%);
+    background-size: 200% auto;
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.premium-badge-founder {
+    --badge-glow-color: rgba(245, 158, 11, 0.55);
+    background: linear-gradient(135deg, #D97706 0%, #FBBF24 25%, #D97706 50%, #FBBF24 75%, #D97706 100%);
+    background-size: 200% auto;
+    color: black !important;
+    font-weight: 900;
+    text-shadow: 0 0.5px 1px rgba(255, 255, 255, 0.25);
+}
+
+
 
