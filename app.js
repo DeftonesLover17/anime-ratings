@@ -2811,7 +2811,7 @@ function renderAnimeGrid() {
                         <span class="${avgScore > 0 ? '' : 'text-yellow-400'}">★</span>
                         <span>${avgScore > 0 ? avgScore : 'S/N'}</span>
                     </div>
-                    <span class="text-[7px] font-mono uppercase tracking-widest text-white/70 group-hover:text-white transition-colors font-bold">Nota Geral</span>
+                    <span class="text-[7px] font-mono uppercase tracking-widest text-white font-bold px-1.5 py-0.5 rounded" style="background:rgba(0,0,0,0.75); letter-spacing:0.12em;">Nota Geral</span>
                 </div>
 
                 <!-- Personal Status Badge (top-left) -->
