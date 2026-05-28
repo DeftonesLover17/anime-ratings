@@ -9,6 +9,23 @@ const EMAILJS_CONFIG = {
 
 const DEFAULT_AVATAR_SVG = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjI1KSI+PHBhdGggZD0iTTEyIDEyYTUgNSAwIDEgMCAwLTEwIDUgNSAwIDAgMCAwIDEwek0xMiAxNGMtMy43MyAwLTExIDEuODYtMTEgNS41VjIwSDIzdi0xYy0xLjEtMy42NC03LjI3LTUuNS0xMS01LjV6Ii8+PC9zdmc+';
 
+(function installAvatarImageFallback() {
+    if (typeof document === 'undefined' || window.__anivoidAvatarFallbackInstalled) return;
+    window.__anivoidAvatarFallbackInstalled = true;
+    document.addEventListener('error', (event) => {
+        const img = event.target;
+        if (!(img instanceof HTMLImageElement)) return;
+        if (!String(img.className || '').includes('rounded-full')) return;
+        const fallback = document.createElement('span');
+        fallback.textContent = img.dataset.fallbackAvatar || '👤';
+        fallback.className = String(img.className || '')
+            .replace(/\bobject-cover\b/g, '')
+            .replace(/\bobject-center\b/g, '') + ' inline-flex items-center justify-center bg-white/5 border border-white/10';
+        fallback.setAttribute('aria-label', img.alt || 'avatar');
+        img.replaceWith(fallback);
+    }, true);
+})();
+
 function deterministicStringify(obj) {
     if (obj === null || typeof obj !== 'object') {
         return JSON.stringify(obj);

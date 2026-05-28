@@ -10,6 +10,8 @@ const DATABASE_URL = process.env.DATABASE_URL || '';
 const PASSWORD_ITERATIONS = 310000;
 const PASSWORD_KEY_LENGTH = 32;
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+const MAX_EXTERNAL_IMAGE_URL_LENGTH = 4096;
+const MAX_DATA_IMAGE_LENGTH = 2 * 1024 * 1024;
 const sessions = new Map();
 const DEFAULT_STATE = {
     friends: [],
@@ -68,12 +70,29 @@ function sanitizeColor(color) {
 }
 
 function sanitizeImageUrl(url) {
-    const value = String(url || '').trim().slice(0, 4096);
+    const value = String(url || '').trim();
     if (!value) return '';
+
+    if (/^data:image\/(png|jpe?g|gif|webp);base64,/i.test(value)) {
+        const compactValue = value.replace(/\s+/g, '');
+        if (compactValue.length <= MAX_DATA_IMAGE_LENGTH && /^data:image\/(png|jpe?g|gif|webp);base64,[a-z0-9+/=]+$/i.test(compactValue)) {
+            return compactValue;
+        }
+        return '';
+    }
+
+    if (value.length > MAX_EXTERNAL_IMAGE_URL_LENGTH) return '';
     if (/^https?:\/\//i.test(value)) return value;
-    if (/^data:image\/(png|jpe?g|gif|webp);base64,[a-z0-9+/=]+$/i.test(value)) return value;
     if (/^(covers|logos)\/[a-z0-9._/-]+\.(png|jpe?g|webp|gif)$/i.test(value)) return value;
     return '';
+}
+
+function sanitizeAvatar(avatar) {
+    const value = String(avatar || '').trim();
+    const safeImage = sanitizeImageUrl(value);
+    if (safeImage) return safeImage;
+    if (!value || /^data:/i.test(value) || /^https?:\/\//i.test(value) || value.length > 16) return '👤';
+    return escapeHtml(value, 16);
 }
 
 function sanitizeTextArray(values, maxItems = 20, maxLength = 80) {
@@ -89,7 +108,7 @@ function sanitizeUserRecord(user) {
         username: escapeHtml(user.username || '', 40),
         email: escapeHtml(String(user.email || '').trim(), 254),
         color: sanitizeColor(user.color),
-        avatar: sanitizeImageUrl(user.avatar) || escapeHtml(user.avatar || '👤', 80),
+        avatar: sanitizeAvatar(user.avatar),
         favoriteGenres: sanitizeTextArray(user.favoriteGenres),
         favoriteStudios: sanitizeTextArray(user.favoriteStudios),
         favoriteAnimes: sanitizeTextArray(user.favoriteAnimes, 50, 120),
@@ -181,7 +200,7 @@ function sanitizeStateForStorage(state) {
         friends: Array.isArray(safeState.friends) ? safeState.friends.slice(0, 500).map(friend => ({
             ...friend,
             name: escapeHtml(friend && friend.name || '', 80),
-            avatar: sanitizeImageUrl(friend && friend.avatar) || escapeHtml(friend && friend.avatar || '👤', 80),
+            avatar: sanitizeAvatar(friend && friend.avatar),
             color: sanitizeColor(friend && friend.color)
         })) : [],
         animes: Array.isArray(safeState.animes) ? safeState.animes.map(sanitizeAnimeRecord).filter(Boolean) : [],
@@ -191,7 +210,7 @@ function sanitizeStateForStorage(state) {
             id: escapeHtml(activity && activity.id || '', 120),
             username: escapeHtml(activity && activity.username || '', 80),
             userColor: sanitizeColor(activity && activity.userColor),
-            userAvatar: sanitizeImageUrl(activity && activity.userAvatar) || escapeHtml(activity && activity.userAvatar || '👤', 80),
+            userAvatar: sanitizeAvatar(activity && activity.userAvatar),
             type: escapeHtml(activity && activity.type || '', 60),
             animeId: escapeHtml(activity && activity.animeId || '', 120),
             animeTitle: escapeHtml(activity && activity.animeTitle || '', 180),
