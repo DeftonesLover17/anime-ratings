@@ -315,6 +315,13 @@ function isAdminUser(user) {
 
 let pgPool = null;
 let pgReadyPromise = null;
+let pgSslMode = process.env.PGSSLMODE === 'disable' ? 'disable' : 'require';
+
+function formatPostgresError(err) {
+    const message = String((err && err.message) || err || 'Unknown Postgres error')
+        .replace(/postgres(?:ql)?:\/\/[^\s'"]+/gi, '[redacted-postgres-url]');
+    return [err && err.code, message].filter(Boolean).join(' ');
+}
 
 function getPgPool() {
     if (!DATABASE_URL) return null;
@@ -323,11 +330,53 @@ function getPgPool() {
         const { Pool } = require('pg');
         pgPool = new Pool({
             connectionString: DATABASE_URL,
-            ssl: process.env.PGSSLMODE === 'disable' ? false : { rejectUnauthorized: false }
+            ssl: pgSslMode === 'disable' ? false : { rejectUnauthorized: false },
+            max: 5,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 10000
         });
         return pgPool;
     } catch (err) {
         throw new Error('Postgres storage requires the "pg" package. Run npm install or deploy with package.json dependencies.');
+    }
+}
+
+function switchPgSslMode(nextMode) {
+    const oldPool = pgPool;
+    pgPool = null;
+    pgSslMode = nextMode;
+    if (oldPool) {
+        oldPool.end().catch(() => {});
+    }
+}
+
+function getPgSslRetryMode(err) {
+    const message = String((err && err.message) || '').toLowerCase();
+    if (pgSslMode !== 'disable' && (
+        message.includes('server does not support ssl') ||
+        message.includes('ssl was required') ||
+        message.includes('wrong version number')
+    )) {
+        return 'disable';
+    }
+    if (pgSslMode === 'disable' && (
+        (message.includes('no pg_hba.conf') && message.includes('no encryption')) ||
+        (message.includes('ssl') && message.includes('required'))
+    )) {
+        return 'require';
+    }
+    return null;
+}
+
+async function queryPostgres(sql, params = []) {
+    try {
+        return await getPgPool().query(sql, params);
+    } catch (err) {
+        const retryMode = getPgSslRetryMode(err);
+        if (!retryMode) throw err;
+        console.warn(`Postgres query failed with ssl=${pgSslMode}; retrying with ssl=${retryMode}. ${formatPostgresError(err)}`);
+        switchPgSslMode(retryMode);
+        return getPgPool().query(sql, params);
     }
 }
 
@@ -336,8 +385,7 @@ async function ensurePostgresState() {
     if (pgReadyPromise) return pgReadyPromise;
 
     pgReadyPromise = (async () => {
-        const pool = getPgPool();
-        await pool.query(`
+        await queryPostgres(`
             CREATE TABLE IF NOT EXISTS app_state (
                 id text PRIMARY KEY,
                 state jsonb NOT NULL,
@@ -354,13 +402,16 @@ async function ensurePostgresState() {
             }
         }
 
-        await pool.query(
+        await queryPostgres(
             `INSERT INTO app_state (id, state)
              VALUES ($1, $2::jsonb)
              ON CONFLICT (id) DO NOTHING`,
             ['main', JSON.stringify(sanitizeStateForStorage(initialState))]
         );
-    })();
+    })().catch(err => {
+        pgReadyPromise = null;
+        throw err;
+    });
 
     return pgReadyPromise;
 }
@@ -372,12 +423,15 @@ function readState(callback) {
     }
 
     ensurePostgresState()
-        .then(() => getPgPool().query('SELECT state FROM app_state WHERE id = $1', ['main']))
+        .then(() => queryPostgres('SELECT state FROM app_state WHERE id = $1', ['main']))
         .then(result => {
             const state = result.rows[0] ? result.rows[0].state : DEFAULT_STATE;
             callback(null, JSON.stringify(state));
         })
-        .catch(err => callback(err));
+        .catch(err => {
+            console.error(`Failed to read state from Postgres. ${formatPostgresError(err)}`);
+            callback(err);
+        });
 }
 
 function writeState(state, callback) {
@@ -388,7 +442,7 @@ function writeState(state, callback) {
     }
 
     ensurePostgresState()
-        .then(() => getPgPool().query(
+        .then(() => queryPostgres(
             `INSERT INTO app_state (id, state, updated_at)
              VALUES ($1, $2::jsonb, now())
              ON CONFLICT (id)
@@ -396,7 +450,10 @@ function writeState(state, callback) {
             ['main', JSON.stringify(safeState)]
         ))
         .then(() => callback(null))
-        .catch(err => callback(err));
+        .catch(err => {
+            console.error(`Failed to write state to Postgres. ${formatPostgresError(err)}`);
+            callback(err);
+        });
 }
 
 // Helper to merge state databases on the server
@@ -772,6 +829,21 @@ const server = http.createServer((req, res) => {
     if (req.method === 'OPTIONS') {
         res.statusCode = 204;
         res.end();
+        return;
+    }
+
+    if (req.url === '/api/health' && req.method === 'GET') {
+        if (!DATABASE_URL) {
+            sendJson(res, 200, { ok: true, storage: 'file' });
+            return;
+        }
+        ensurePostgresState()
+            .then(() => queryPostgres('SELECT 1'))
+            .then(() => sendJson(res, 200, { ok: true, storage: 'postgres' }))
+            .catch(err => {
+                console.error(`Health check failed. ${formatPostgresError(err)}`);
+                sendJson(res, 503, { ok: false, storage: 'postgres', error: 'storage_unavailable' });
+            });
         return;
     }
 
