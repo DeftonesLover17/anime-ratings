@@ -1965,13 +1965,18 @@ class AppState {
             const activeStatus = friendRating?.status || 'Plan to Watch';
             const matchesMALStatus = this.filterMALStatus === 'All' || activeStatus === this.filterMALStatus;
             
-            return matchesSearch && matchesSeason && matchesGenre && matchesMALStatus;
+            // When sorting by personal score, only show animes the user actually rated
+            const friendRatingForSort = anime.ratings?.[this.currentFriendId];
+            const hasPersonalScore = friendRatingForSort && parseFloat(friendRatingForSort.overall) > 0;
+            const matchesMyScore = this.sortBy !== 'my-score' || hasPersonalScore;
+
+            return matchesSearch && matchesSeason && matchesGenre && matchesMALStatus && matchesMyScore;
         }).sort((a, b) => {
             if (this.sortBy === 'group-score') {
                 return this.calculateAverageScore(b.id) - this.calculateAverageScore(a.id);
             } else if (this.sortBy === 'my-score') {
-                const scoreA = a.ratings?.[this.currentFriendId]?.overall || 0;
-                const scoreB = b.ratings?.[this.currentFriendId]?.overall || 0;
+                const scoreA = parseFloat(a.ratings?.[this.currentFriendId]?.overall) || 0;
+                const scoreB = parseFloat(b.ratings?.[this.currentFriendId]?.overall) || 0;
                 return scoreB - scoreA;
             } else {
                 return a.title.localeCompare(b.title);
