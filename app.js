@@ -3344,7 +3344,7 @@ function renderStudiosDirectory() {
         container.appendChild(landingHeader);
 
         const grid = document.createElement('div');
-        grid.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-6';
+        grid.className = 'grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6';
 
         studiosList.forEach((studioName, i) => {
             const animes = studiosMap[studioName];
@@ -4144,7 +4144,7 @@ function openAnimeDetail(animeId) {
         if (isReadOnly) {
             activeFriendLabel.innerHTML = `${currentFriend.name}${adminBadge} <span class="text-[9px] bg-white/10 text-white/50 border border-white/5 px-2 py-0.5 rounded-md ml-1 font-mono tracking-normal font-normal">Apenas Leitura</span>`;
         } else {
-            activeFriendLabel.innerHTML = `${currentFriend.name}${adminBadge}`;
+            activeFriendLabel.innerHTML = `<span class="block leading-tight">${currentFriend.name}</span><span class="flex flex-wrap gap-1 mt-1">${adminBadge}</span>`;
         }
     }
 
@@ -4226,24 +4226,33 @@ function openAnimeDetail(animeId) {
                 `;
                 epSectionHeader.appendChild(quickFill);
 
-                const qfOptions = [
-                    { value: '', label: '-' },
-                    ...[1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10].map(n => ({ value: n, label: String(n) }))
-                ];
                 const qfContainer = quickFill.querySelector('#quick-fill-rating-container');
-                renderCustomDropdown(
-                    qfContainer,
-                    qfOptions,
-                    '', // no pre-selected
-                    (newVal) => {
-                        if (!newVal) return;
-                        state.setGeneralRating(anime.id, state.currentFriendId, newVal);
-                        openAnimeDetail(anime.id);
-                        renderAnimeGrid();
-                    },
-                    true, // compact
-                    false
-                );
+                qfContainer.innerHTML = `
+                    <div class="flex items-center gap-1.5">
+                        <input
+                            id="quick-fill-input"
+                            type="number" min="0" max="10" step="0.5"
+                            placeholder="0–10"
+                            class="w-16 bg-white/5 border border-brand/30 rounded-lg px-2 py-1.5 text-xs font-mono text-white text-center focus:outline-none focus:border-brand/70 transition-colors"
+                        >
+                        <button id="quick-fill-btn" class="px-3 py-1.5 rounded-lg bg-brand text-white text-[10px] font-mono uppercase tracking-widest hover:bg-brand/80 transition-colors font-bold">
+                            Ok
+                        </button>
+                    </div>
+                `;
+                const qfInput = qfContainer.querySelector('#quick-fill-input');
+                const qfBtn = qfContainer.querySelector('#quick-fill-btn');
+                const applyQuickFill = () => {
+                    let val = parseFloat(qfInput.value);
+                    if (isNaN(val) || val < 0) return;
+                    if (val > 10) val = 10;
+                    val = Math.round(val * 2) / 2; // round to nearest 0.5
+                    state.setGeneralRating(anime.id, state.currentFriendId, val);
+                    openAnimeDetail(anime.id);
+                    renderAnimeGrid();
+                };
+                qfBtn.addEventListener('click', applyQuickFill);
+                qfInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyQuickFill(); });
             } else if (maxEps > 1 && isReadOnly) {
                 const epVals = Object.values(myRating.episodeRatings || {}).map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
                 const computedAvg = epVals.length > 0 ? parseFloat((epVals.reduce((a,b)=>a+b,0)/epVals.length).toFixed(1)) : null;
@@ -4300,21 +4309,31 @@ function openAnimeDetail(animeId) {
                 });
             }
             
-            const epRatingOptions = [
-                { value: '', label: '-' },
-                ...[1,2,3,4,5,6,7,8,9,10].map(n => ({ value: n, label: String(n) }))
-            ];
-            renderCustomDropdown(
-                row.querySelector('#ep-rating-container-1'),
-                epRatingOptions,
-                epRating,
-                (newVal) => {
-                    state.setEpisodeRating(anime.id, state.currentFriendId, 1, newVal);
-                    openAnimeDetail(anime.id);
-                },
-                true, // isCompact
-                isReadOnly // disabled
-            );
+            const epRatingContainer1 = row.querySelector('#ep-rating-container-1');
+            const currentVal1 = epRating ? String(epRating) : '';
+            epRatingContainer1.innerHTML = `
+                <input
+                    type="number" min="0" max="10" step="0.5"
+                    value="${currentVal1}"
+                    placeholder="-"
+                    ${isReadOnly ? 'disabled' : ''}
+                    class="ep-rating-input w-14 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs font-mono text-white text-center focus:outline-none focus:border-brand/60 transition-colors ${isReadOnly ? 'opacity-50 cursor-not-allowed' : 'hover:border-white/30'}"
+                    style="appearance:textfield;"
+                >
+            `;
+            if (!isReadOnly) {
+                const inp1 = epRatingContainer1.querySelector('input');
+                const save1 = () => {
+                    let v = parseFloat(inp1.value);
+                    if (isNaN(v)) { state.setEpisodeRating(anime.id, state.currentFriendId, 1, ''); return; }
+                    v = Math.min(10, Math.max(0, Math.round(v * 2) / 2));
+                    inp1.value = v;
+                    state.setEpisodeRating(anime.id, state.currentFriendId, 1, v);
+                    renderAnimeGrid();
+                };
+                inp1.addEventListener('change', save1);
+                inp1.addEventListener('keydown', (e) => { if (e.key === 'Enter') { inp1.blur(); } });
+            }
             
             epListContainer.appendChild(row);
         } else {
@@ -4352,21 +4371,32 @@ function openAnimeDetail(animeId) {
                     });
                 }
                 
-                const epRatingOptions = [
-                    { value: '', label: '-' },
-                    ...[1,2,3,4,5,6,7,8,9,10].map(n => ({ value: n, label: String(n) }))
-                ];
-                renderCustomDropdown(
-                    row.querySelector(`#ep-rating-container-${i}`),
-                    epRatingOptions,
-                    epRating,
-                    (newVal) => {
-                        state.setEpisodeRating(anime.id, state.currentFriendId, i, newVal);
-                        openAnimeDetail(anime.id);
-                    },
-                    true, // isCompact
-                    isReadOnly // disabled
-                );
+                const epRatingContainerI = row.querySelector(`#ep-rating-container-${i}`);
+                const currentValI = epRating ? String(epRating) : '';
+                epRatingContainerI.innerHTML = `
+                    <input
+                        type="number" min="0" max="10" step="0.5"
+                        value="${currentValI}"
+                        placeholder="-"
+                        ${isReadOnly ? 'disabled' : ''}
+                        class="ep-rating-input w-14 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs font-mono text-white text-center focus:outline-none focus:border-brand/60 transition-colors ${isReadOnly ? 'opacity-50 cursor-not-allowed' : 'hover:border-white/30'}"
+                        style="appearance:textfield;"
+                    >
+                `;
+                if (!isReadOnly) {
+                    const inpI = epRatingContainerI.querySelector('input');
+                    const epIndex = i;
+                    const saveI = () => {
+                        let v = parseFloat(inpI.value);
+                        if (isNaN(v)) { state.setEpisodeRating(anime.id, state.currentFriendId, epIndex, ''); return; }
+                        v = Math.min(10, Math.max(0, Math.round(v * 2) / 2));
+                        inpI.value = v;
+                        state.setEpisodeRating(anime.id, state.currentFriendId, epIndex, v);
+                        renderAnimeGrid();
+                    };
+                    inpI.addEventListener('change', saveI);
+                    inpI.addEventListener('keydown', (e) => { if (e.key === 'Enter') { inpI.blur(); } });
+                }
                 
                 epListContainer.appendChild(row);
             }
