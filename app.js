@@ -1261,14 +1261,11 @@ class AppState {
                         u.username.toLowerCase() === (serverUser.username || '').toLowerCase());
                     if (localUser && this.loggedInUser &&
                         serverUser.username && serverUser.username.toLowerCase() === this.loggedInUser.toLowerCase()) {
-                        // For the logged-in user: keep local friends/requests if server is behind
-                        const localFriends = localUser.friends || [];
-                        const serverFriends = serverUser.friends || [];
-                        // Union of friends from both
-                        const allFriends = [...new Set([...localFriends.map(f => f.toLowerCase()), ...serverFriends.map(f => f.toLowerCase())])];
+                        // For the logged-in user: server friends list is authoritative.
+                        // Local profile fields (avatar, color, title) are preserved if server doesn't have them yet.
                         return {
                             ...serverUser,
-                            friends: allFriends,
+                            friends: serverUser.friends || [], // server is source of truth for social graph
                             activeTitle: localUser.activeTitle || serverUser.activeTitle,
                             avatar: localUser.avatar || serverUser.avatar,
                             color: localUser.color || serverUser.color
@@ -1350,6 +1347,8 @@ class AppState {
         
         // Trigger server sync in background and silently reload parts of UI when it returns
         this.syncWithServer().then(() => {
+            // Reload session so state.friends reflects the server's authoritative friends list
+            this.loadLocalSession();
             updateProfileIndicator();
             renderFriendsDropdown();
             renderAnimeGrid();
