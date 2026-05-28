@@ -271,8 +271,9 @@ function mergeStates(localState, serverState, loggedInUser) {
                     if (localAnime.comments && Array.isArray(localAnime.comments)) {
                         localAnime.comments.forEach(lc => {
                             const isAuthor = lc.friendId && lc.friendId.toLowerCase() === loggedInId;
+                            const index = serverAnime.comments.findIndex(sc => sc.id === lc.id);
+
                             if (isAuthor) {
-                                const index = serverAnime.comments.findIndex(sc => sc.id === lc.id);
                                 if (index >= 0) {
                                     const prevText = serverAnime.comments[index].comment;
                                     if (prevText !== lc.comment) {
@@ -311,6 +312,25 @@ function mergeStates(localState, serverState, loggedInUser) {
                                     // Ensure replies array exists on new comment
                                     serverAnime.comments.push({ ...lc, replies: lc.replies || [] });
                                 }
+                            } else if (index >= 0) {
+                                // Not the comment author, but may have added a reply.
+                                // Merge ONLY the replies array — never overwrite the comment text.
+                                const serverReplies = serverAnime.comments[index].replies || [];
+                                const localReplies = lc.replies || [];
+                                const repliesMap = {};
+                                serverReplies.forEach(r => { if (r && r.id) repliesMap[r.id] = r; });
+                                // Only accept replies authored by the logged-in user
+                                localReplies.forEach(r => {
+                                    if (r && r.id) {
+                                        if (r.friendId && r.friendId.toLowerCase() === loggedInId) {
+                                            repliesMap[r.id] = r; // accept new reply from this user
+                                        } else if (!repliesMap[r.id]) {
+                                            repliesMap[r.id] = r; // keep existing replies from others
+                                        }
+                                    }
+                                });
+                                const mergedReplies = Object.values(repliesMap).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                                serverAnime.comments[index] = { ...serverAnime.comments[index], replies: mergedReplies };
                             }
                         });
                     }
