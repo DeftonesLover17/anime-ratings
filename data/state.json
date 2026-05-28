@@ -37,14 +37,40 @@
     {
       "username": "vanitas",
       "email": "vanitas@example.com",
-      "password": "password123",
+      "password": "vanitas00",
       "color": "#9B59B6",
       "avatar": "🌙",
       "friends": [
         "Felipe!"
       ],
       "friendRequests": [],
-      "isVirtual": false
+      "isVirtual": false,
+      "memberNumber": 1,
+      "memberDesc": "Você é o 1º membro a fazer parte do AniVoid. Seu nome está gravado na história desta comunidade."
+    },
+    {
+      "username": "yamazx",
+      "email": "yagomatthews9@gmail.com",
+      "password": "93694955",
+      "color": "#00FF7F",
+      "avatar": "⚡",
+      "friends": [],
+      "friendRequests": [],
+      "isVirtual": false,
+      "memberNumber": 2,
+      "memberDesc": "Você é o 2º membro a fazer parte do AniVoid. Um dos primeiros a descobrir este portal."
+    },
+    {
+      "username": "Júlio Gabriel",
+      "email": "ninjazokobr@gmail.com",
+      "password": "Julio4558.",
+      "color": "#a78bfa",
+      "avatar": "👤",
+      "friends": [],
+      "friendRequests": [],
+      "isVirtual": false,
+      "memberNumber": 3,
+      "memberDesc": "Você é o 3º membro a fazer parte do AniVoid. Bem-vindo ao grupo fundador."
     },
     {
       "username": "Test-User!",
