@@ -2502,7 +2502,7 @@ function getMemberBadgeHtml(user, compact = false) {
         icon = '👑'; label = compact ? `N°${num}` : `MEMBRO OURO  N°${num}`;
     } else if (num <= 5) {
         style = 'background: linear-gradient(135deg, #7B2FBE, #4a1080); color: #e8d5ff; border-color: #a855f7;';
-        icon = '⚡'; label = compact ? `N°${num}` : `MEMBRO ÉLITE  N°${num}`;
+        icon = '⚡'; label = compact ? `N°${num}` : `MEMBRO ELITE  N°${num}`;
     } else if (num <= 20) {
         style = 'background: linear-gradient(135deg, #0ea5e9, #0369a1); color: #e0f2fe; border-color: #38bdf8;';
         icon = '🌟'; label = compact ? `N°${num}` : `MEMBRO ANTIGO  N°${num}`;
@@ -5382,6 +5382,16 @@ function initRegistrationOptions() {
 
                 // Show a welcome toast!
                 showWelcomeToast(matchedUser.username);
+
+                // Show member badge modal once (first login after badge system launch)
+                const badgeSeenKey = `anivoid_badge_seen_${userId}`;
+                if (!localStorage.getItem(badgeSeenKey)) {
+                    localStorage.setItem(badgeSeenKey, '1');
+                    const memberNumber = matchedUser.memberNumber || null;
+                    if (memberNumber) {
+                        setTimeout(() => showMemberWelcomeModal(matchedUser.username, memberNumber), 800);
+                    }
+                }
             } else {
                 alert('E-mail ou senha incorretos! Por favor, tente novamente.');
             }
@@ -5556,104 +5566,188 @@ function initRegistrationOptions() {
 
 // --- EMAIL AND TOAST NOTIFICATION HELPERS ---
 
-// Member welcome modal shown right after registration
+// Member welcome modal — shown after registration OR first login with a member badge
 function showMemberWelcomeModal(username, memberNumber) {
-    // Tier config
     const num = parseInt(memberNumber) || 0;
-    let tierIcon, tierLabel, tierStyle, tierDesc, particleColor;
+    let tierIcon, tierLabel, tierStyle, tierBorder, tierDesc, particleColor, glowColor;
+
     if (num === 1) {
-        tierIcon = '👑'; tierLabel = 'MEMBRO OURO'; tierStyle = 'from-yellow-400 via-amber-500 to-yellow-600'; particleColor = '#ffd700';
-        tierDesc = 'Você é o <b>1º membro</b> a chegar aqui. Um lugar na história foi reservado para você.';
+        tierIcon = '👑';
+        tierLabel = 'MEMBRO OURO';
+        tierStyle = 'linear-gradient(135deg, #f59e0b, #d97706, #b45309)';
+        tierBorder = '#fbbf24';
+        particleColor = '#fcd34d';
+        glowColor = 'rgba(251, 191, 36, 0.4)';
+        tierDesc = `Você é o <strong style="color:#fcd34d">1º membro</strong> a fazer parte do AniVoid.<br>Seu nome está gravado na história desta comunidade.`;
     } else if (num <= 5) {
-        tierIcon = '⚡'; tierLabel = 'MEMBRO ÉLITE'; tierStyle = 'from-violet-500 via-purple-600 to-indigo-700'; particleColor = '#a855f7';
-        tierDesc = `Você é o <b>${num}º membro</b> a chegar aqui. Um dos primeiros a descobrir o AniVoid.`;
+        tierIcon = '⚡';
+        tierLabel = 'MEMBRO ELITE';
+        tierStyle = 'linear-gradient(135deg, #7c3aed, #6d28d9, #4c1d95)';
+        tierBorder = '#a78bfa';
+        particleColor = '#c4b5fd';
+        glowColor = 'rgba(167, 139, 250, 0.4)';
+        tierDesc = `Você é o <strong style="color:#c4b5fd">${num}º membro</strong> a fazer parte do AniVoid.<br>Um dos primeiros a descobrir este portal.`;
     } else if (num <= 20) {
-        tierIcon = '🌟'; tierLabel = 'MEMBRO ANTIGO'; tierStyle = 'from-sky-400 via-blue-500 to-cyan-600'; particleColor = '#38bdf8';
-        tierDesc = `Você é o <b>${num}º membro</b> a chegar aqui. Parte da geração que moldou esta comunidade.`;
+        tierIcon = '🌟';
+        tierLabel = 'MEMBRO ANTIGO';
+        tierStyle = 'linear-gradient(135deg, #0284c7, #0369a1, #075985)';
+        tierBorder = '#38bdf8';
+        particleColor = '#7dd3fc';
+        glowColor = 'rgba(56, 189, 248, 0.4)';
+        tierDesc = `Você é o <strong style="color:#7dd3fc">${num}º membro</strong> a fazer parte do AniVoid.<br>Parte da geração que moldou esta comunidade.`;
     } else {
-        tierIcon = '✦'; tierLabel = 'MEMBRO'; tierStyle = 'from-gray-500 via-slate-600 to-gray-700'; particleColor = '#94a3b8';
-        tierDesc = `Você é o <b>${num}º membro</b> a chegar aqui. Bem-vindo à comunidade AniVoid!`;
+        tierIcon = '✦';
+        tierLabel = 'MEMBRO';
+        tierStyle = 'linear-gradient(135deg, #475569, #334155, #1e293b)';
+        tierBorder = '#94a3b8';
+        particleColor = '#cbd5e1';
+        glowColor = 'rgba(148, 163, 184, 0.3)';
+        tierDesc = `Você é o <strong style="color:#cbd5e1">${num}º membro</strong> do AniVoid.<br>Bem-vindo à nossa comunidade!`;
     }
 
-    const badgeHtml = num > 0
-        ? `<div class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl font-mono font-black text-sm border-2 uppercase tracking-widest bg-gradient-to-r ${tierStyle} text-white shadow-2xl" style="box-shadow: 0 0 30px ${particleColor}60, 0 4px 20px rgba(0,0,0,0.5);">
-               ${tierIcon} ${tierLabel} &nbsp;·&nbsp; N°${num}
-           </div>`
-        : '';
+    // Generate floating particles
+    const particles = Array.from({ length: 18 }, (_, i) => {
+        const size = 3 + Math.random() * 6;
+        return `<div style="
+            position:absolute; border-radius:50%;
+            width:${size}px; height:${size}px;
+            background:${particleColor}; opacity:${0.15 + Math.random() * 0.35};
+            left:${Math.random()*100}%; top:${Math.random()*100}%;
+            box-shadow: 0 0 ${size*2}px ${particleColor};
+            animation: float ${5 + Math.random()*6}s ease-in-out infinite alternate;
+            animation-delay:${Math.random()*4}s;
+        "></div>`;
+    }).join('');
 
     const overlay = document.createElement('div');
     overlay.id = 'member-welcome-modal';
-    overlay.className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-md';
-    overlay.style.cssText = 'opacity:0; transition: opacity 0.5s ease;';
+    overlay.style.cssText = `
+        position:fixed; inset:0; z-index:10000;
+        display:flex; align-items:center; justify-content:center;
+        background:rgba(0,0,0,0.85); backdrop-filter:blur(16px);
+        opacity:0; transition:opacity 0.5s ease;
+    `;
 
     overlay.innerHTML = `
-        <!-- Floating particles -->
-        <div class="absolute inset-0 pointer-events-none overflow-hidden">
-            ${Array.from({length: 12}, (_, i) => `
-                <div class="absolute rounded-full" style="
-                    width: ${4 + Math.random()*8}px; height: ${4 + Math.random()*8}px;
-                    background: ${particleColor}; opacity: ${0.2 + Math.random()*0.4};
-                    left: ${Math.random()*100}%; top: ${Math.random()*100}%;
-                    box-shadow: 0 0 10px ${particleColor};
-                    animation: float ${4 + Math.random()*6}s ease-in-out infinite alternate;
-                    animation-delay: ${Math.random()*3}s;
-                "></div>`).join('')}
-        </div>
+        <!-- Particles -->
+        <div style="position:absolute;inset:0;overflow:hidden;pointer-events:none;">${particles}</div>
 
-        <!-- Modal Card -->
-        <div class="relative z-10 max-w-sm w-full mx-4 rounded-3xl overflow-hidden border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.9)]"
-             style="background: linear-gradient(145deg, #0d0d0d, #1a1a1a); transform: scale(0.9); transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1);" id="member-modal-card">
+        <!-- Card -->
+        <div id="member-modal-card" style="
+            position:relative; z-index:10;
+            width:100%; max-width:420px; margin:0 16px;
+            background:linear-gradient(160deg,#111111,#1a1a1a,#111111);
+            border:1px solid rgba(255,255,255,0.08);
+            border-radius:28px; overflow:hidden;
+            box-shadow:0 60px 120px rgba(0,0,0,0.9), 0 0 60px ${glowColor};
+            transform:translateY(24px) scale(0.96);
+            transition:transform 0.55s cubic-bezier(0.34,1.56,0.64,1);
+        ">
+            <!-- Gradient top bar -->
+            <div style="height:3px; background:${tierStyle}; width:100%;"></div>
 
-            <!-- Top gradient accent -->
-            <div class="h-1 w-full bg-gradient-to-r ${tierStyle}"></div>
+            <!-- Glow halo behind badge -->
+            <div style="
+                position:absolute; top:40px; left:50%; transform:translateX(-50%);
+                width:200px; height:200px; border-radius:50%;
+                background:radial-gradient(circle, ${glowColor} 0%, transparent 70%);
+                pointer-events:none; filter:blur(20px);
+            "></div>
 
-            <div class="p-8 text-center space-y-6">
-                <!-- Animated icon -->
-                <div class="text-6xl animate-bounce">${tierIcon}</div>
+            <div style="padding:40px 36px 36px; text-align:center;">
+                <!-- Icon -->
+                <div style="font-size:64px; line-height:1; margin-bottom:20px; animation:badge-pulse 2s ease-in-out infinite;">${tierIcon}</div>
 
-                <!-- Heading -->
-                <div>
-                    <p class="text-[10px] font-mono uppercase tracking-[0.3em] text-white/40 mb-2">AniVoid — Bem-vindo</p>
-                    <h2 class="text-2xl font-serif font-bold text-white leading-tight">Olá, <span class="bg-gradient-to-r ${tierStyle} bg-clip-text text-transparent">${username}</span>!</h2>
+                <!-- Badge pill -->
+                <div style="
+                    display:inline-flex; align-items:center; gap:10px;
+                    padding:10px 24px; border-radius:100px;
+                    background:${tierStyle};
+                    border:1.5px solid ${tierBorder};
+                    box-shadow:0 0 24px ${glowColor}, 0 4px 20px rgba(0,0,0,0.5);
+                    font-family:monospace; font-weight:900;
+                    font-size:13px; letter-spacing:0.12em; text-transform:uppercase;
+                    color:#fff; margin-bottom:24px;
+                ">
+                    ${tierIcon} &nbsp;${tierLabel} &nbsp;·&nbsp; N°${num}
                 </div>
 
-                <!-- Member badge -->
-                ${badgeHtml}
+                <!-- Welcome heading -->
+                <p style="font-size:10px;font-family:monospace;letter-spacing:0.3em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:6px;">AniVoid — Bem-vindo</p>
+                <h2 style="font-size:26px;font-weight:700;color:#fff;font-family:serif;margin:0 0 16px;">
+                    Olá, <span style="background:${tierStyle};-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">${username}</span>!
+                </h2>
 
                 <!-- Description -->
-                <p class="text-sm text-gray-400 font-light leading-relaxed">
+                <p style="font-size:14px;color:rgba(255,255,255,0.55);line-height:1.7;margin-bottom:24px;">
                     ${tierDesc}
                 </p>
 
                 <!-- Divider -->
-                <div class="w-full h-px bg-white/5"></div>
+                <div style="width:100%;height:1px;background:rgba(255,255,255,0.06);margin-bottom:24px;"></div>
 
-                <!-- Message from founder -->
-                <div class="bg-white/3 border border-white/5 rounded-2xl p-4 text-left space-y-2">
-                    <p class="text-[9px] font-mono uppercase tracking-widest text-brand">Mensagem do Fundador</p>
-                    <p class="text-xs text-gray-300 font-light leading-relaxed">
-                        "Obrigado por fazer parte desta comunidade. Sua insignia de membro é permanente e estará sempre no seu perfil. Espero que aproveite cada anime da sua lista. 🎌"
+                <!-- Founder message -->
+                <div style="
+                    background:rgba(255,255,255,0.03);
+                    border:1px solid rgba(255,255,255,0.07);
+                    border-radius:16px; padding:18px 20px;
+                    text-align:left; margin-bottom:28px;
+                ">
+                    <p style="font-size:9px;font-family:monospace;text-transform:uppercase;letter-spacing:0.2em;color:#FF4500;margin-bottom:8px;">✦ Mensagem do Fundador</p>
+                    <p style="font-size:13px;color:rgba(255,255,255,0.65);line-height:1.75;font-style:italic;margin:0;">
+                        &ldquo;Sua insignia de membro é permanente e única. Obrigado por fazer parte do AniVoid desde o início. Espero que cada anime da sua lista te marque tanto quanto você já marcou este lugar.&rdquo;
                     </p>
-                    <p class="text-[9px] text-white/30 font-mono mt-1">— Felipe!, Fundador do AniVoid</p>
+                    <p style="font-size:10px;color:rgba(255,255,255,0.25);font-family:monospace;margin-top:10px;margin-bottom:0;">— Felipe!&nbsp;&nbsp;|&nbsp;&nbsp;Fundador &amp; Admin do AniVoid</p>
                 </div>
 
-                <!-- CTA Button -->
-                <button onclick="document.getElementById('member-welcome-modal').remove(); document.body.style.overflow='';"
-                    class="w-full py-3.5 rounded-2xl font-bold text-sm uppercase tracking-widest bg-gradient-to-r ${tierStyle} text-white hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-lg cursor-pointer border-0">
-                    Ver minha insignia no perfil ✨
+                <!-- CTA -->
+                <button
+                    onclick="document.getElementById('member-welcome-modal').style.opacity='0'; setTimeout(()=>{const m=document.getElementById('member-welcome-modal');if(m)m.remove();document.body.style.overflow='';},400);"
+                    style="
+                        width:100%; padding:16px;
+                        border-radius:16px; border:none; cursor:pointer;
+                        background:${tierStyle};
+                        box-shadow:0 0 20px ${glowColor};
+                        color:#fff; font-weight:800;
+                        font-size:13px; letter-spacing:0.1em;
+                        text-transform:uppercase; font-family:monospace;
+                        transition:transform 0.15s, box-shadow 0.15s;
+                    "
+                    onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 0 32px ${glowColor}'"
+                    onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 0 20px ${glowColor}'"
+                >
+                    ${tierIcon}&nbsp;&nbsp;Exibir minha insignia no perfil
                 </button>
             </div>
         </div>
     `;
 
+    // Inject keyframes if not yet injected
+    if (!document.getElementById('member-modal-keyframes')) {
+        const style = document.createElement('style');
+        style.id = 'member-modal-keyframes';
+        style.textContent = `
+            @keyframes float {
+                from { transform: translateY(0px) rotate(0deg); }
+                to   { transform: translateY(-18px) rotate(10deg); }
+            }
+            @keyframes badge-pulse {
+                0%, 100% { transform: scale(1) rotate(-3deg); }
+                50%       { transform: scale(1.12) rotate(3deg); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
     document.body.appendChild(overlay);
     document.body.style.overflow = 'hidden';
 
-    // Animate in
     requestAnimationFrame(() => {
-        overlay.style.opacity = '1';
-        const card = document.getElementById('member-modal-card');
-        if (card) card.style.transform = 'scale(1)';
+        requestAnimationFrame(() => {
+            overlay.style.opacity = '1';
+            const card = document.getElementById('member-modal-card');
+            if (card) { card.style.transform = 'translateY(0) scale(1)'; }
+        });
     });
 }
 
