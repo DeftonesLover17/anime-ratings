@@ -1535,6 +1535,29 @@ class AppState {
         }
     }
 
+    async setFriendship(targetUsername) {
+        if (!this.loggedInUser) return { error: 'Faça login primeiro' };
+        try {
+            const response = await fetch(API_BASE_URL + '/api/admin/set-friendship', {
+                method: 'POST',
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ target: targetUsername })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                return { error: data.error || 'Erro ao confirmar amizade' };
+            }
+            if (data.registeredUsers) {
+                storeRegisteredUsers(data.registeredUsers);
+                this.loadLocalSession();
+            }
+            return { success: true };
+        } catch (err) {
+            console.error('Error confirming friendship:', err);
+            return { error: 'Erro de conexão com o servidor' };
+        }
+    }
+
     async removeFriend(targetUsername) {
         if (!this.loggedInUser) return { error: 'Faça login primeiro' };
         try {
@@ -6633,9 +6656,17 @@ function renderRegisteredUsersSuggestions() {
         const isFriend = curUser.friends && curUser.friends.some(f => user && user.username && f.toLowerCase() === user.username.toLowerCase());
         const hasSentRequest = user && user.friendRequests && user.friendRequests.some(r => r.from && r.from.toLowerCase() === loggedInUsername.toLowerCase());
         const hasReceivedRequest = curUser.friendRequests && curUser.friendRequests.some(r => r.from && user && user.username && r.from.toLowerCase() === user.username.toLowerCase());
+        const canAdminConfirm = loggedInUsername.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
 
         if (isFriend) {
             actionBtnHtml = `<span class="text-[10px] text-gray-500 font-mono uppercase tracking-wider font-semibold">Amigos</span>`;
+        } else if (hasSentRequest && canAdminConfirm) {
+            actionBtnHtml = `
+                <button type="button" class="btn-confirm-friend px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-mono font-semibold flex items-center gap-1 transition-all shrink-0">
+                    <iconify-icon icon="lucide:check" class="text-xs"></iconify-icon>
+                    <span>Confirmar</span>
+                </button>
+            `;
         } else if (hasSentRequest) {
             actionBtnHtml = `<span class="text-[10px] text-amber-500/70 font-mono uppercase tracking-wider font-semibold flex items-center gap-1"><iconify-icon icon="lucide:clock" class="text-xs"></iconify-icon> Pendente</span>`;
         } else if (hasReceivedRequest) {
@@ -6691,6 +6722,23 @@ function renderRegisteredUsersSuggestions() {
                 const res = await state.respondFriendRequest(user.username, 'accept');
                 if (res.error) {
                     alert(res.error);
+                } else {
+                    showWelcomeToast(`Agora você e ${user.username} são amigos!`);
+                    state.save();
+                    renderCentralDeAmigos();
+                }
+            });
+        }
+
+        const confirmFriendBtn = item.querySelector('.btn-confirm-friend');
+        if (confirmFriendBtn) {
+            confirmFriendBtn.addEventListener('click', async () => {
+                confirmFriendBtn.disabled = true;
+                confirmFriendBtn.innerHTML = `<iconify-icon icon="lucide:loader-2" class="animate-spin text-xs"></iconify-icon><span>Confirmando...</span>`;
+                const res = await state.setFriendship(user.username);
+                if (res.error) {
+                    alert(res.error);
+                    renderCentralDeAmigos();
                 } else {
                     showWelcomeToast(`Agora você e ${user.username} são amigos!`);
                     state.save();

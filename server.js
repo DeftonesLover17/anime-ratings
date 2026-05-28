@@ -313,6 +313,99 @@ function isAdminUser(user) {
     return admins.includes(normalizeUsername(user && user.username));
 }
 
+function usernameKey(username) {
+    return String(username || '').trim().toLowerCase();
+}
+
+function sameUsername(a, b) {
+    return usernameKey(a) === usernameKey(b);
+}
+
+function findRegisteredUser(state, username) {
+    return (state.registeredUsers || []).find(user => user && user.username && sameUsername(user.username, username));
+}
+
+function hasFriend(user, friendName) {
+    return Array.isArray(user && user.friends) && user.friends.some(name => sameUsername(name, friendName));
+}
+
+function addFriend(user, friendUser) {
+    if (!user || !friendUser || !friendUser.username || sameUsername(user.username, friendUser.username)) return;
+    if (!Array.isArray(user.friends)) user.friends = [];
+    if (!hasFriend(user, friendUser.username)) {
+        user.friends.push(friendUser.username);
+    }
+}
+
+function removeFriendRequestsBetween(user, otherUser) {
+    if (!user || !otherUser) return;
+    if (Array.isArray(user.friendRequests)) {
+        user.friendRequests = user.friendRequests.filter(req => req && !sameUsername(req.from, otherUser.username));
+    }
+    if (Array.isArray(otherUser.friendRequests)) {
+        otherUser.friendRequests = otherUser.friendRequests.filter(req => req && !sameUsername(req.from, user.username));
+    }
+}
+
+function ensureMutualFriendship(user, otherUser) {
+    addFriend(user, otherUser);
+    addFriend(otherUser, user);
+    removeFriendRequestsBetween(user, otherUser);
+}
+
+function normalizeSocialGraph(state) {
+    const users = Array.isArray(state && state.registeredUsers) ? state.registeredUsers : [];
+    users.forEach(user => {
+        if (!user || !user.username) return;
+        const seenFriends = new Set();
+        user.friends = Array.isArray(user.friends)
+            ? user.friends
+                .map(friendName => findRegisteredUser(state, friendName))
+                .filter(friendUser => friendUser && !sameUsername(friendUser.username, user.username))
+                .filter(friendUser => {
+                    const key = usernameKey(friendUser.username);
+                    if (seenFriends.has(key)) return false;
+                    seenFriends.add(key);
+                    return true;
+                })
+                .map(friendUser => friendUser.username)
+            : [];
+    });
+
+    users.forEach(user => {
+        (user.friends || []).forEach(friendName => {
+            const friendUser = findRegisteredUser(state, friendName);
+            if (friendUser) ensureMutualFriendship(user, friendUser);
+        });
+    });
+
+    users.forEach(user => {
+        if (!user || !user.username) return;
+        const seenRequests = new Set();
+        user.friendRequests = Array.isArray(user.friendRequests)
+            ? user.friendRequests
+                .filter(req => req && req.from)
+                .map(req => {
+                    const fromUser = findRegisteredUser(state, req.from);
+                    return fromUser ? { ...req, from: fromUser.username } : null;
+                })
+                .filter(req => req && !sameUsername(req.from, user.username))
+                .filter(req => {
+                    const fromUser = findRegisteredUser(state, req.from);
+                    return fromUser && !hasFriend(user, fromUser.username) && !hasFriend(fromUser, user.username);
+                })
+                .filter(req => {
+                    const key = usernameKey(req.from);
+                    if (seenRequests.has(key)) return false;
+                    seenRequests.add(key);
+                    return true;
+                })
+            : [];
+    });
+
+    return state;
+}
+
 let pgPool = null;
 let pgReadyPromise = null;
 let pgSslMode = process.env.PGSSLMODE === 'disable' ? 'disable' : 'require';
@@ -448,6 +541,7 @@ function readState(callback) {
 }
 
 function writeState(state, callback) {
+    normalizeSocialGraph(state);
     const safeState = sanitizeStateForStorage(state);
     if (!DATABASE_URL) {
         fs.writeFile(STATE_FILE, JSON.stringify(safeState, null, 2), 'utf8', callback);
@@ -1164,29 +1258,56 @@ const server = http.createServer((req, res) => {
                     const authUser = requireAuthenticatedUser(req, res, state);
                     if (!authUser) return;
                     const from = authUser.username;
-                    const fromUser = state.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === from.toLowerCase());
-                    const toUser = state.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === to.toLowerCase());
+                    const fromUser = findRegisteredUser(state, from);
+                    const toUser = findRegisteredUser(state, to);
                     
                     if (!fromUser || !toUser) {
                         sendJson(res, 404, { error: 'Usuário não encontrado' });
                         return;
                     }
                     
-                    if (from.toLowerCase() === to.toLowerCase()) {
+                    if (sameUsername(from, to)) {
                         sendJson(res, 400, { error: 'Não é possível adicionar a si mesmo' });
                         return;
                     }
                     
-                    const fromId = from.toLowerCase();
-                    const toId = to.toLowerCase();
+                    const fromId = usernameKey(from);
+                    const toId = usernameKey(to);
                     if (!fromUser.friends) fromUser.friends = [];
-                    if (fromUser.friends.some(f => f.toLowerCase() === toId)) {
-                        sendJson(res, 400, { error: 'Vocês já são amigos' });
+                    if (hasFriend(fromUser, toUser.username) || hasFriend(toUser, fromUser.username)) {
+                        ensureMutualFriendship(fromUser, toUser);
+                        writeState(state, (writeErr) => {
+                            if (writeErr) {
+                                sendJson(res, 500, { error: 'Failed to repair friendship' });
+                                return;
+                            }
+                            sendJson(res, 200, {
+                                success: true,
+                                alreadyFriends: true,
+                                registeredUsers: sanitizeState(state, authUser.username).registeredUsers
+                            });
+                        });
+                        return;
+                    }
+
+                    if (Array.isArray(fromUser.friendRequests) && fromUser.friendRequests.some(r => r && usernameKey(r.from) === toId)) {
+                        ensureMutualFriendship(fromUser, toUser);
+                        writeState(state, (writeErr) => {
+                            if (writeErr) {
+                                sendJson(res, 500, { error: 'Failed to accept request' });
+                                return;
+                            }
+                            sendJson(res, 200, {
+                                success: true,
+                                accepted: true,
+                                registeredUsers: sanitizeState(state, authUser.username).registeredUsers
+                            });
+                        });
                         return;
                     }
                     
                     if (!toUser.friendRequests) toUser.friendRequests = [];
-                    if (!toUser.friendRequests.some(r => r.from.toLowerCase() === fromId)) {
+                    if (!toUser.friendRequests.some(r => r && usernameKey(r.from) === fromId)) {
                         toUser.friendRequests.push({
                             from: fromUser.username,
                             timestamp: new Date().toISOString()
@@ -1236,34 +1357,78 @@ const server = http.createServer((req, res) => {
                     const authUser = requireAuthenticatedUser(req, res, state);
                     if (!authUser) return;
                     const username = authUser.username;
-                    const user = state.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === username.toLowerCase());
-                    const targetUser = state.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === target.toLowerCase());
+                    const user = findRegisteredUser(state, username);
+                    const targetUser = findRegisteredUser(state, target);
                     
                     if (!user || !targetUser) {
                         sendJson(res, 404, { error: 'User not found' });
                         return;
                     }
                     
-                    // Remove request
-                    if (user.friendRequests) {
-                        user.friendRequests = user.friendRequests.filter(r => r.from.toLowerCase() !== target.toLowerCase());
-                    }
+                    removeFriendRequestsBetween(user, targetUser);
                     
                     if (action === 'accept') {
-                        if (!user.friends) user.friends = [];
-                        if (!targetUser.friends) targetUser.friends = [];
-                        
-                        if (!user.friends.some(f => f.toLowerCase() === target.toLowerCase())) {
-                            user.friends.push(targetUser.username);
-                        }
-                        if (!targetUser.friends.some(f => f.toLowerCase() === username.toLowerCase())) {
-                            targetUser.friends.push(user.username);
-                        }
+                        ensureMutualFriendship(user, targetUser);
                     }
                     
                     writeState(state, (writeErr) => {
                         if (writeErr) {
                             sendJson(res, 500, { error: 'Failed to save request response' });
+                            return;
+                        }
+                        sendJson(res, 200, {
+                            success: true,
+                            registeredUsers: sanitizeState(state, authUser.username).registeredUsers
+                        });
+                    });
+                });
+            } catch(e) {
+                sendJson(res, 400, { error: 'Invalid JSON' });
+            }
+        });
+        return;
+    }
+
+    // API Route: Admin repair/confirm friendship
+    if (req.url === '/api/admin/set-friendship' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+            try {
+                const { username, target } = JSON.parse(body);
+                if (!target) {
+                    sendJson(res, 400, { error: 'Missing target username' });
+                    return;
+                }
+
+                readState((err, data) => {
+                    let state = { friends: [], animes: [], registeredUsers: [] };
+                    if (!err && data) {
+                        try { state = JSON.parse(data); } catch(e) {}
+                    }
+
+                    const authUser = requireAuthenticatedUser(req, res, state);
+                    if (!authUser) return;
+                    if (!isAdminUser(authUser)) {
+                        sendJson(res, 403, { error: 'Admin only' });
+                        return;
+                    }
+
+                    const sourceUser = findRegisteredUser(state, username || authUser.username);
+                    const targetUser = findRegisteredUser(state, target);
+                    if (!sourceUser || !targetUser) {
+                        sendJson(res, 404, { error: 'User not found' });
+                        return;
+                    }
+                    if (sameUsername(sourceUser.username, targetUser.username)) {
+                        sendJson(res, 400, { error: 'Cannot friend self' });
+                        return;
+                    }
+
+                    ensureMutualFriendship(sourceUser, targetUser);
+                    writeState(state, (writeErr) => {
+                        if (writeErr) {
+                            sendJson(res, 500, { error: 'Failed to save friendship' });
                             return;
                         }
                         sendJson(res, 200, {
