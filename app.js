@@ -4342,6 +4342,8 @@ function openAnimeDetail(animeId) {
                                 const liveAvg = Math.round((epValsLive.reduce((a,b)=>a+b,0)/epValsLive.length) * 10) / 10;
                                 avgValEl.textContent = liveAvg;
                                 avgLabelEl.style.display = '';
+                                // Update the circular rating in the panel
+                                renderCircularRating('my-rating-overall-container', liveAvg);
                             } else { avgLabelEl.style.display = 'none'; }
                         }
                 };
@@ -4419,6 +4421,8 @@ function openAnimeDetail(animeId) {
                                 const liveAvg = Math.round((epValsLive.reduce((a,b)=>a+b,0)/epValsLive.length) * 10) / 10;
                                 avgValEl.textContent = liveAvg;
                                 avgLabelEl.style.display = '';
+                                // Update the circular rating in the panel
+                                renderCircularRating('my-rating-overall-container', liveAvg);
                             } else { avgLabelEl.style.display = 'none'; }
                         }
                     };
