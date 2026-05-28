@@ -441,6 +441,11 @@ const server = http.createServer((req, res) => {
                     if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
                     if (!state.registeredUsers) state.registeredUsers = [];
 
+                    // Retroactively assign memberNumbers to any existing users missing one
+                    state.registeredUsers.forEach((u, idx) => {
+                        if (!u.memberNumber) u.memberNumber = idx + 1;
+                    });
+
                     const existingIdx = state.registeredUsers.findIndex(u =>
                         (u.username && u.username.toLowerCase() === newUser.username.toLowerCase()) ||
                         (u.email && u.email.toLowerCase() === newUser.email.toLowerCase())
@@ -453,6 +458,7 @@ const server = http.createServer((req, res) => {
                         return;
                     }
 
+                    const nextMemberNumber = state.registeredUsers.length + 1;
                     const userToAdd = {
                         username: newUser.username,
                         email: newUser.email,
@@ -466,6 +472,7 @@ const server = http.createServer((req, res) => {
                         favoriteStudios: newUser.favoriteStudios || [],
                         favoriteAnimes: newUser.favoriteAnimes || [],
                         activeTitle: newUser.activeTitle || '',
+                        memberNumber: nextMemberNumber,
                         isVirtual: false
                     };
                     state.registeredUsers.push(userToAdd);

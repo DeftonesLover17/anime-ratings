@@ -2472,33 +2472,83 @@ function createFilterButton(text, isActive, onClick) {
     return btn;
 }
 
+// Helper to get member badge HTML based on member number
+function getMemberBadgeHtml(user, compact = false) {
+    if (!user) return '';
+    // Try to get memberNumber from the user object or from localStorage
+    let memberNumber = user.memberNumber;
+    if (!memberNumber) {
+        try {
+            const registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+            const username = user.username || user.name || '';
+            const usernameLower = username.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const realUser = registeredUsers.find(u => u && u.username &&
+                u.username.toLowerCase().replace(/[^a-z0-9]/g, '') === usernameLower);
+            if (realUser) memberNumber = realUser.memberNumber;
+        } catch(e) {}
+    }
+    if (!memberNumber) return '';
+
+    // Tier config based on member number
+    const num = parseInt(memberNumber);
+    let style, icon, label;
+    if (num === 1) {
+        style = 'background: linear-gradient(135deg, #ffd700, #ff8c00, #ffd700); color: #1a0a00; border-color: #ffd700;';
+        icon = '👑';
+        label = compact ? `N°${num}` : `FUNDADOR  N°${num}`;
+    } else if (num === 2) {
+        style = 'background: linear-gradient(135deg, #c0c0c0, #808080, #c0c0c0); color: #0a0a0a; border-color: #c0c0c0;';
+        icon = '🥈';
+        label = compact ? `N°${num}` : `FUNDADOR  N°${num}`;
+    } else if (num === 3) {
+        style = 'background: linear-gradient(135deg, #cd7f32, #8b4513, #cd7f32); color: #fff8f0; border-color: #cd7f32;';
+        icon = '🥉';
+        label = compact ? `N°${num}` : `FUNDADOR  N°${num}`;
+    } else if (num <= 10) {
+        style = 'background: linear-gradient(135deg, #7B2FBE, #4a1080); color: #e8d5ff; border-color: #a855f7;';
+        icon = '⚡';
+        label = compact ? `N°${num}` : `MEMBRO ANTIGO  N°${num}`;
+    } else {
+        style = 'background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.65); border-color: rgba(255,255,255,0.2);';
+        icon = '✦';
+        label = compact ? `N°${num}` : `MEMBRO  N°${num}`;
+    }
+
+    if (compact) {
+        return `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[8px] font-mono font-bold border ml-1 shrink-0" style="${style} box-shadow: 0 0 6px rgba(255,255,255,0.1);">${icon} ${label}</span>`;
+    }
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-mono font-bold border ml-1.5 shrink-0" style="${style} box-shadow: 0 0 8px rgba(255,255,255,0.12); letter-spacing: 0.05em;">${icon} ${label}</span>`;
+}
+
 // Helper to get HTML badges for Felipe dynamically based on active title choice (admin, founder, or both)
 function getUserBadgesHtml(user) {
     if (!user) return '';
     const username = user.username || user.name || '';
     const usernameLower = username.toLowerCase().replace(/[^a-z0-9]/g, '');
     const isFelipe = user.id === 'felipe' || usernameLower === 'felipe';
-    if (!isFelipe) return '';
 
-    let activeTitle = user.activeTitle;
-    if (!activeTitle) {
-        try {
-            const registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
-            const realUser = registeredUsers.find(u => u && u.username && u.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe');
-            if (realUser) {
-                activeTitle = realUser.activeTitle;
-            }
-        } catch (e) {}
+    let titleHtml = '';
+    if (isFelipe) {
+        let activeTitle = user.activeTitle;
+        if (!activeTitle) {
+            try {
+                const registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+                const realUser = registeredUsers.find(u => u && u.username && u.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe');
+                if (realUser) activeTitle = realUser.activeTitle;
+            } catch (e) {}
+        }
+        if (!activeTitle) activeTitle = 'admin';
+        const adminHtml = `<span class="premium-badge premium-badge-admin ml-1"><iconify-icon icon="lucide:shield-check"></iconify-icon>ADMIN</span>`;
+        const founderHtml = `<span class="premium-badge premium-badge-founder ml-1"><iconify-icon icon="lucide:crown"></iconify-icon>FUNDADOR</span>`;
+        if (activeTitle === 'admin') titleHtml = adminHtml;
+        else if (activeTitle === 'founder') titleHtml = founderHtml;
+        else if (activeTitle === 'both') titleHtml = adminHtml + founderHtml;
+        else titleHtml = adminHtml;
     }
-    if (!activeTitle) activeTitle = 'admin';
 
-    const adminHtml = `<span class="premium-badge premium-badge-admin ml-1"><iconify-icon icon="lucide:shield-check"></iconify-icon>ADMIN</span>`;
-    const founderHtml = `<span class="premium-badge premium-badge-founder ml-1"><iconify-icon icon="lucide:crown"></iconify-icon>FUNDADOR</span>`;
-
-    if (activeTitle === 'admin') return adminHtml;
-    if (activeTitle === 'founder') return founderHtml;
-    if (activeTitle === 'both') return adminHtml + founderHtml;
-    return adminHtml;
+    // Add member number badge for all users
+    const memberBadge = getMemberBadgeHtml(user, true);
+    return titleHtml + memberBadge;
 }
 
 // Helper to calculate dynamic colors based on score (red to yellow to green)
