@@ -164,6 +164,16 @@ function mergeStates(localState, serverState, loggedInUser) {
                         const serverRating = serverAnime.ratings[loggedInId];
                         
                         if (localRating) {
+                            // Skip phantom ratings: overall=0 with no episode scores and default status
+                            // These are auto-created by initFriendRatingIfMissing and should not persist
+                            const hasRealOverall = localRating.overall && parseFloat(localRating.overall) > 0;
+                            const hasEpisodeRatings = localRating.episodeRatings && Object.keys(localRating.episodeRatings).length > 0;
+                            const hasRealStatus = localRating.status && localRating.status !== 'Plan to Watch';
+                            const isRealRating = hasRealOverall || hasEpisodeRatings || hasRealStatus;
+                            
+                            if (!isRealRating) {
+                                // Do not persist empty/default ratings — skip this anime for this user
+                            } else {
                             // Check if status changed
                             if (localRating.status && (!serverRating || serverRating.status !== localRating.status)) {
                                 const statusPhrases = {
@@ -189,7 +199,7 @@ function mergeStates(localState, serverState, loggedInUser) {
                             
                             // Check if overall score changed
                             if (localRating.overall !== undefined && (!serverRating || serverRating.overall !== localRating.overall)) {
-                                if (localRating.overall !== '-') {
+                                if (localRating.overall !== '-' && parseFloat(localRating.overall) > 0) {
                                     mergedActivities.push({
                                         id: generateActivityId(),
                                         username: authorUser.username,
@@ -225,6 +235,7 @@ function mergeStates(localState, serverState, loggedInUser) {
                                 ...serverAnime.ratings[loggedInId],
                                 ...localRating
                             };
+                            } // end isRealRating
                         }
                     } else {
                         // Fallback (initial setup / migration)
@@ -499,6 +510,51 @@ const server = http.createServer((req, res) => {
                 res.statusCode = 400;
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ error: 'Invalid JSON body' }));
+            }
+        });
+        return;
+    }
+
+    // API Route: Clear specific anime ratings for a user (admin cleanup)
+    if (req.url === '/api/clear-user-ratings' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+            try {
+                const { username, animeIds } = JSON.parse(body);
+                if (!username || !Array.isArray(animeIds)) {
+                    res.statusCode = 400;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify({ error: 'Missing username or animeIds' }));
+                    return;
+                }
+                fs.readFile(STATE_FILE, 'utf8', (err, data) => {
+                    let state = { friends: [], animes: [], registeredUsers: [] };
+                    if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
+                    const userId = username.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    let cleared = 0;
+                    state.animes.forEach(anime => {
+                        if (animeIds.includes(anime.id) && anime.ratings && anime.ratings[userId]) {
+                            delete anime.ratings[userId];
+                            cleared++;
+                        }
+                    });
+                    fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), 'utf8', (writeErr) => {
+                        if (writeErr) {
+                            res.statusCode = 500;
+                            res.setHeader('Content-Type', 'application/json');
+                            res.end(JSON.stringify({ error: 'Failed to save' }));
+                            return;
+                        }
+                        res.statusCode = 200;
+                        res.setHeader('Content-Type', 'application/json');
+                        res.end(JSON.stringify({ success: true, cleared }));
+                    });
+                });
+            } catch(e) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'Invalid JSON' }));
             }
         });
         return;

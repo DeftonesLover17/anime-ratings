@@ -5401,25 +5401,22 @@ function initRegistrationOptions() {
                 }
             });
 
-            // Pre-populate ratings for selected favorite animes to make the dashboard alive instantly!
+            // Pre-populate status for selected favorite animes (mark as Completed, NO rating)
             selectedAnimeIds.forEach(animeId => {
                 const anime = state.animes.find(a => a.id === animeId);
                 if (anime) {
                     const totalEps = parseInt(anime.episodes) || 0;
-                    anime.ratings[userId] = {
-                        animation: 10,
-                        story: 10,
-                        sound: 10,
-                        overall: 10.0,
-                        status: 'Completed',
-                        episodesWatched: totalEps,
-                        episodeRatings: {}
-                    };
-                    // Pre-rate individual episodes if any
-                    if (totalEps > 0) {
-                        for (let i = 1; i <= totalEps; i++) {
-                            anime.ratings[userId].episodeRatings[i] = 10;
-                        }
+                    // Only set watch status — never pre-populate a score the user didn't give
+                    if (!anime.ratings[userId]) {
+                        anime.ratings[userId] = {
+                            animation: 0,
+                            story: 0,
+                            sound: 0,
+                            overall: 0,
+                            status: 'Completed',
+                            episodesWatched: totalEps,
+                            episodeRatings: {}
+                        };
                     }
                     // Add a cute initial review
                     if (!anime.comments) anime.comments = [];
