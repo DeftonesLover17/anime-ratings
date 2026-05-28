@@ -4220,7 +4220,7 @@ function openAnimeDetail(animeId) {
                         <p class="text-[8px] text-gray-500 font-mono">Preenche todos os eps assistidos com essa nota base</p>
                     </div>
                     <div class="flex items-center gap-1.5 shrink-0">
-                        ${computedAvg !== null ? `<span class="text-[9px] text-gray-400 font-mono">Média atual: <b class="text-white">${computedAvg}</b></span>` : ''}
+                        `<span id="quick-fill-avg-label" class="text-[9px] text-gray-400 font-mono" style="${computedAvg !== null ? '' : 'display:none'}">Média atual: <b id="quick-fill-avg-value" class="text-white">${computedAvg !== null ? computedAvg : ''}</b></span>`
                         <div id="quick-fill-rating-container" class="relative"></div>
                     </div>
                 `;
@@ -4325,11 +4325,25 @@ function openAnimeDetail(animeId) {
                 const inp1 = epRatingContainer1.querySelector('input');
                 const save1 = () => {
                     let v = parseFloat(inp1.value);
-                    if (isNaN(v)) { state.setEpisodeRating(anime.id, state.currentFriendId, 1, ''); return; }
-                    v = Math.min(10, Math.max(0, Math.round(v * 10) / 10));
-                    inp1.value = v;
-                    state.setEpisodeRating(anime.id, state.currentFriendId, 1, v);
+                    if (isNaN(v)) { state.setEpisodeRating(anime.id, state.currentFriendId, 1, ''); }
+                    else {
+                        v = Math.min(10, Math.max(0, Math.round(v * 10) / 10));
+                        inp1.value = v;
+                        state.setEpisodeRating(anime.id, state.currentFriendId, 1, v);
+                    }
                     renderAnimeGrid();
+                        // Update avg label live
+                        const allEpInputs = document.querySelectorAll('.ep-rating-input');
+                        const epValsLive = Array.from(allEpInputs).map(el => parseFloat(el.value)).filter(n => !isNaN(n) && n > 0);
+                        const avgLabelEl = document.getElementById('quick-fill-avg-label');
+                        const avgValEl = document.getElementById('quick-fill-avg-value');
+                        if (avgLabelEl && avgValEl) {
+                            if (epValsLive.length > 0) {
+                                const liveAvg = Math.round((epValsLive.reduce((a,b)=>a+b,0)/epValsLive.length) * 10) / 10;
+                                avgValEl.textContent = liveAvg;
+                                avgLabelEl.style.display = '';
+                            } else { avgLabelEl.style.display = 'none'; }
+                        }
                 };
                 inp1.addEventListener('change', save1);
                 inp1.addEventListener('keydown', (e) => { if (e.key === 'Enter') { inp1.blur(); } });
@@ -4388,11 +4402,25 @@ function openAnimeDetail(animeId) {
                     const epIndex = i;
                     const saveI = () => {
                         let v = parseFloat(inpI.value);
-                        if (isNaN(v)) { state.setEpisodeRating(anime.id, state.currentFriendId, epIndex, ''); return; }
-                        v = Math.min(10, Math.max(0, Math.round(v * 2) / 2));
-                        inpI.value = v;
-                        state.setEpisodeRating(anime.id, state.currentFriendId, epIndex, v);
+                        if (isNaN(v)) { state.setEpisodeRating(anime.id, state.currentFriendId, epIndex, ''); }
+                        else {
+                            v = Math.min(10, Math.max(0, Math.round(v * 10) / 10));
+                            inpI.value = v;
+                            state.setEpisodeRating(anime.id, state.currentFriendId, epIndex, v);
+                        }
                         renderAnimeGrid();
+                        // Update avg label live
+                        const allEpInputs = document.querySelectorAll('.ep-rating-input');
+                        const epValsLive = Array.from(allEpInputs).map(el => parseFloat(el.value)).filter(n => !isNaN(n) && n > 0);
+                        const avgLabelEl = document.getElementById('quick-fill-avg-label');
+                        const avgValEl = document.getElementById('quick-fill-avg-value');
+                        if (avgLabelEl && avgValEl) {
+                            if (epValsLive.length > 0) {
+                                const liveAvg = Math.round((epValsLive.reduce((a,b)=>a+b,0)/epValsLive.length) * 10) / 10;
+                                avgValEl.textContent = liveAvg;
+                                avgLabelEl.style.display = '';
+                            } else { avgLabelEl.style.display = 'none'; }
+                        }
                     };
                     inpI.addEventListener('change', saveI);
                     inpI.addEventListener('keydown', (e) => { if (e.key === 'Enter') { inpI.blur(); } });
