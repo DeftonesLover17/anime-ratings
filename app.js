@@ -4231,7 +4231,7 @@ function openAnimeDetail(animeId) {
                     <div class="flex items-center gap-1.5">
                         <input
                             id="quick-fill-input"
-                            type="number" min="0" max="10" step="0.5"
+                            type="number" min="0" max="10" step="0.1"
                             placeholder="0–10"
                             class="w-16 bg-white/5 border border-brand/30 rounded-lg px-2 py-1.5 text-xs font-mono text-white text-center focus:outline-none focus:border-brand/70 transition-colors"
                         >
@@ -4246,7 +4246,7 @@ function openAnimeDetail(animeId) {
                     let val = parseFloat(qfInput.value);
                     if (isNaN(val) || val < 0) return;
                     if (val > 10) val = 10;
-                    val = Math.round(val * 2) / 2; // round to nearest 0.5
+                    val = Math.round(val * 10) / 10; // round to 1 decimal place
                     state.setGeneralRating(anime.id, state.currentFriendId, val);
                     openAnimeDetail(anime.id);
                     renderAnimeGrid();
@@ -4326,7 +4326,7 @@ function openAnimeDetail(animeId) {
                 const save1 = () => {
                     let v = parseFloat(inp1.value);
                     if (isNaN(v)) { state.setEpisodeRating(anime.id, state.currentFriendId, 1, ''); return; }
-                    v = Math.min(10, Math.max(0, Math.round(v * 2) / 2));
+                    v = Math.min(10, Math.max(0, Math.round(v * 10) / 10));
                     inp1.value = v;
                     state.setEpisodeRating(anime.id, state.currentFriendId, 1, v);
                     renderAnimeGrid();
