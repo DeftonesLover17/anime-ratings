@@ -6905,28 +6905,7 @@ function renderActivitiesFeed() {
         if (trigger) {
             trigger.addEventListener('click', (e) => {
                 e.preventDefault();
-                const anime = state.animes.find(a => a.id === act.animeId);
-                if (anime) {
-                    // Open anime detail
-                    state.activeDetailAnimeId = anime.id;
-                    const banner = document.getElementById('featured-banner-wrapper');
-                    const grid = document.getElementById('anime-grid-section');
-                    const detailPage = document.getElementById('anime-detail-page');
-                    const activitiesWrapper = document.getElementById('activities-section-wrapper');
-
-                    if (banner) banner.style.display = 'none';
-                    if (grid) grid.style.display = 'none';
-                    if (activitiesWrapper) activitiesWrapper.style.display = 'none';
-                    if (detailPage) {
-                        detailPage.classList.remove('hidden');
-                        setTimeout(() => {
-                            detailPage.classList.add('page-transition-active');
-                        }, 50);
-                    }
-
-                    // Render detail info
-                    renderAnimeDetail(anime);
-                }
+                if (act.animeId) openAnimeDetail(act.animeId);
             });
         }
 
