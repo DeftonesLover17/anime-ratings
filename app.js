@@ -2806,9 +2806,12 @@ function renderAnimeGrid() {
                 <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent"></div>
                 
                 <!-- Group Average Score Badge (top-right) -->
-                <div class="absolute top-4 right-4 flex items-center justify-center gap-1 bg-[#050505]/80 backdrop-blur-sm border border-white/10 px-2.5 py-1 rounded-full text-xs font-semibold transition-all duration-300" style="${avgBadgeStyle}">
-                    <span class="${avgScore > 0 ? '' : 'text-yellow-400'}">★</span>
-                    <span>${avgScore > 0 ? avgScore : 'S/N'}</span>
+                <div class="absolute top-4 right-4 flex flex-col items-center gap-0.5 group" style="z-index:3">
+                    <div class="flex items-center justify-center gap-1 bg-[#050505]/90 backdrop-blur-sm border px-2.5 py-1 rounded-full text-xs font-semibold transition-all duration-300" style="${avgBadgeStyle}; border-width: 1.5px;">
+                        <span class="${avgScore > 0 ? '' : 'text-yellow-400'}">★</span>
+                        <span>${avgScore > 0 ? avgScore : 'S/N'}</span>
+                    </div>
+                    <span class="text-[7px] font-mono uppercase tracking-widest text-white/40 group-hover:text-white/70 transition-colors">Nota Geral</span>
                 </div>
 
                 <!-- Personal Status Badge (top-left) -->
