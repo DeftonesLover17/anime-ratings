@@ -4038,6 +4038,9 @@ function openAnimeDetail(animeId) {
             detailPage.style.transition = 'none';
         }
 
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'instant' });
+
         // Fade overlay out and slide detail page in
         requestAnimationFrame(() => {
             transitionOverlay.style.opacity = '0';
