@@ -2723,19 +2723,19 @@ function renderAnimeGrid() {
         const myScoreColorInfo = getScoreColor(myScore);
         // Personal score badge on image (bottom-right overlay)
         const myScoreBadgeHtml = myScore
-            ? `<div class="absolute bottom-11 right-3 flex flex-col items-center justify-center gap-0" style="z-index:2">
-                <div class="flex items-center gap-1 px-2.5 py-1 rounded-xl text-sm font-bold font-mono backdrop-blur-md" style="background: ${myScoreColorInfo.text}22; border: 1.5px solid ${myScoreColorInfo.text}60; color: ${myScoreColorInfo.text}; text-shadow: 0 0 8px ${myScoreColorInfo.glow}; box-shadow: 0 0 12px ${myScoreColorInfo.glow}50, inset 0 1px 0 ${myScoreColorInfo.text}20">
-                    <span style="font-size:10px; opacity:0.8">★</span>
+            ? `<div class="absolute bottom-10 right-3 flex flex-col items-center justify-center gap-0" style="z-index:2">
+                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold font-mono backdrop-blur-md" style="background: ${myScoreColorInfo.text}28; border: 2px solid ${myScoreColorInfo.text}80; color: ${myScoreColorInfo.text}; font-size:16px; text-shadow: 0 0 12px ${myScoreColorInfo.glow}; box-shadow: 0 0 20px ${myScoreColorInfo.glow}70, 0 0 6px ${myScoreColorInfo.glow}40, inset 0 1px 0 ${myScoreColorInfo.text}30">
+                    <span style="font-size:12px; opacity:0.9">★</span>
                     <span>${myScore}</span>
                 </div>
-                <span class="text-[7px] font-mono uppercase tracking-widest mt-0.5" style="color: ${myScoreColorInfo.text}90; text-shadow: 0 0 4px ${myScoreColorInfo.glow}">Sua Nota</span>
+                <span class="text-[7px] font-mono uppercase tracking-widest mt-1" style="color: ${myScoreColorInfo.text}; opacity: 0.85; text-shadow: 0 0 6px ${myScoreColorInfo.glow}">Sua Nota</span>
                </div>`
-            : `<div class="absolute bottom-11 right-3 flex flex-col items-center justify-center gap-0" style="z-index:2">
-                <div class="flex items-center gap-1 px-2.5 py-1 rounded-xl text-sm font-bold font-mono backdrop-blur-md" style="background: rgba(255,255,255,0.04); border: 1.5px dashed rgba(255,255,255,0.15); color: rgba(255,255,255,0.3)">
-                    <span style="font-size:10px">★</span>
+            : `<div class="absolute bottom-10 right-3 flex flex-col items-center justify-center gap-0" style="z-index:2">
+                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold font-mono backdrop-blur-md" style="font-size:16px; background: rgba(255,255,255,0.04); border: 2px dashed rgba(255,255,255,0.18); color: rgba(255,255,255,0.25)">
+                    <span style="font-size:12px">★</span>
                     <span>—</span>
                 </div>
-                <span class="text-[7px] font-mono uppercase tracking-widest mt-0.5 text-white/25">Sua Nota</span>
+                <span class="text-[7px] font-mono uppercase tracking-widest mt-1 text-white/25">Sua Nota</span>
                </div>`;
 
         const card = document.createElement('div');
@@ -2798,12 +2798,6 @@ function renderAnimeGrid() {
                     
                     <div class="flex justify-between items-center">
                         <span class="text-[9px] text-gray-500 font-mono uppercase">${anime.season}</span>
-                        <div class="flex items-center gap-2">
-                            <div class="flex items-center gap-1.5">
-                                <span class="text-[8px] uppercase font-mono text-white/25 tracking-wider">Grupo</span>
-                                <span class="text-xs font-bold font-mono transition-all duration-300" style="${avgScore > 0 ? `color: ${avgColorInfo.text}; text-shadow: 0 0 4px ${avgColorInfo.glow}` : 'color: #444'}">${avgScore > 0 ? avgScore : '—'}</span>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
