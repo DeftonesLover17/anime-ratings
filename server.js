@@ -19,14 +19,14 @@ if (!fs.existsSync(STATE_FILE)) {
 }
 
 const MIME_TYPES = {
-    '.html': 'text/html',
-    '.css': 'text/css',
-    '.js': 'text/javascript',
+    '.html': 'text/html; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
     '.svg': 'image/svg+xml',
-    '.json': 'application/json'
+    '.json': 'application/json; charset=utf-8'
 };
 
 // Helper to merge state databases on the server
