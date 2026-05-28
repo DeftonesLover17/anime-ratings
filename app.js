@@ -2784,11 +2784,11 @@ function renderAnimeGrid() {
         // Personal score badge on image (bottom-right overlay)
         const myScoreBadgeHtml = myScore
             ? `<div class="absolute bottom-10 right-3 flex flex-col items-center justify-center gap-0" style="z-index:2">
-                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold font-mono backdrop-blur-md" style="background: ${myScoreColorInfo.text}28; border: 2px solid ${myScoreColorInfo.text}80; color: ${myScoreColorInfo.text}; font-size:16px; text-shadow: 0 0 12px ${myScoreColorInfo.glow}; box-shadow: 0 0 20px ${myScoreColorInfo.glow}70, 0 0 6px ${myScoreColorInfo.glow}40, inset 0 1px 0 ${myScoreColorInfo.text}30">
-                    <span style="font-size:12px; opacity:0.9">★</span>
+                <div class="flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold font-mono" style="background: rgba(0,0,0,0.75); border: 2px solid ${myScoreColorInfo.text}; color: ${myScoreColorInfo.text}; font-size:18px; text-shadow: 0 0 16px ${myScoreColorInfo.glow}; box-shadow: 0 0 28px ${myScoreColorInfo.glow}, 0 0 10px ${myScoreColorInfo.glow}60, inset 0 1px 0 ${myScoreColorInfo.text}40">
+                    <span style="font-size:13px">★</span>
                     <span>${myScore}</span>
                 </div>
-                <span class="text-[7px] font-mono uppercase tracking-widest mt-1" style="color: ${myScoreColorInfo.text}; opacity: 0.85; text-shadow: 0 0 6px ${myScoreColorInfo.glow}">Sua Nota</span>
+                <span class="text-[8px] font-mono font-bold uppercase tracking-widest mt-1" style="color: ${myScoreColorInfo.text}; text-shadow: 0 0 8px ${myScoreColorInfo.glow}">Sua Nota</span>
                </div>`
             : `<div class="absolute bottom-10 right-3 flex flex-col items-center justify-center gap-0" style="z-index:2">
                 <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold font-mono backdrop-blur-md" style="font-size:16px; background: rgba(255,255,255,0.04); border: 2px dashed rgba(255,255,255,0.18); color: rgba(255,255,255,0.25)">
