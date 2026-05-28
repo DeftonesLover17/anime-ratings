@@ -5514,13 +5514,7 @@ function initRegistrationOptions() {
                 // Show a welcome toast!
                 showWelcomeToast(matchedUser.username);
 
-                // Show member badge modal once (first login after badge system launch)
-                const badgeSeenKey = `anivoid_badge_seen_${userId}`;
-                if (!localStorage.getItem(badgeSeenKey)) {
-                    localStorage.setItem(badgeSeenKey, '1');
-                    const memberNumber = matchedUser.memberNumber || null;
-                    setTimeout(() => showMemberWelcomeModal(matchedUser.username, memberNumber), 800);
-                }
+                // Modal only shown on new registration, not on login
             } else {
                 alert('E-mail ou senha incorretos! Por favor, tente novamente.');
             }
