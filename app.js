@@ -5391,7 +5391,7 @@ function initRegistrationOptions() {
     // 7. Form submission handler
     if (!regForm.dataset.listenerHooked) {
         regForm.dataset.listenerHooked = 'true';
-        regForm.addEventListener('submit', (e) => {
+        regForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
             const name = document.getElementById('reg-name').value.trim();
@@ -5497,27 +5497,26 @@ function initRegistrationOptions() {
             registeredUsers.push(newUserRecord);
             localStorage.setItem('anivoid_registered_users', JSON.stringify(registeredUsers));
 
-                // Immediately register on the server and get member number
-                let assignedMemberNumber = null;
-                try {
-                    const regResp = await fetch(API_BASE_URL + '/api/register', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(newUserRecord)
-                    });
-                    if (regResp.ok) {
-                        const regData = await regResp.json();
-                        if (regData.user && regData.user.memberNumber) {
-                            assignedMemberNumber = regData.user.memberNumber;
-                            // Update local state with member number
-                            try {
-                                const lsUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
-                                const myIdx = lsUsers.findIndex(u => u && u.username && u.username.toLowerCase() === name.toLowerCase());
-                                if (myIdx >= 0) { lsUsers[myIdx].memberNumber = assignedMemberNumber; localStorage.setItem('anivoid_registered_users', JSON.stringify(lsUsers)); }
-                            } catch(e) {}
-                        }
+            // Immediately register on the server and get member number
+            let assignedMemberNumber = null;
+            try {
+                const regResp = await fetch(API_BASE_URL + '/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newUserRecord)
+                });
+                if (regResp.ok) {
+                    const regData = await regResp.json();
+                    if (regData.user && regData.user.memberNumber) {
+                        assignedMemberNumber = regData.user.memberNumber;
+                        try {
+                            const lsUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+                            const myIdx = lsUsers.findIndex(u => u && u.username && u.username.toLowerCase() === name.toLowerCase());
+                            if (myIdx >= 0) { lsUsers[myIdx].memberNumber = assignedMemberNumber; localStorage.setItem('anivoid_registered_users', JSON.stringify(lsUsers)); }
+                        } catch(e) {}
                     }
-                } catch(e) {}
+                }
+            } catch(e) {}
 
             // Set session and save
             localStorage.setItem('anivoid_logged_in_username', name);
