@@ -1,10 +1,15 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
-const PORT = 8080;
-const DATA_DIR = path.join(__dirname, 'data');
-const STATE_FILE = path.join(DATA_DIR, 'state.json');
+const PORT = process.env.PORT || 8080;
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+const STATE_FILE = process.env.STATE_FILE || path.join(DATA_DIR, 'state.json');
+const PASSWORD_ITERATIONS = 310000;
+const PASSWORD_KEY_LENGTH = 32;
+const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+const sessions = new Map();
 
 // Ensure data folder and state file exist
 if (!fs.existsSync(DATA_DIR)) {
@@ -28,6 +33,120 @@ const MIME_TYPES = {
     '.svg': 'image/svg+xml',
     '.json': 'application/json; charset=utf-8'
 };
+
+function normalizeUsername(username) {
+    return String(username || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function sendJson(res, statusCode, payload) {
+    res.statusCode = statusCode;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify(payload));
+}
+
+function sanitizeUser(user, viewerUsername = '') {
+    if (!user || typeof user !== 'object') return user;
+    const {
+        password,
+        passwordHash,
+        passwordSalt,
+        passwordIterations,
+        passwordDigest,
+        ...safeUser
+    } = user;
+    if (viewerUsername && user.username && user.username.toLowerCase() === viewerUsername.toLowerCase()) {
+        return safeUser;
+    }
+    delete safeUser.email;
+    return safeUser;
+}
+
+function sanitizeState(state, viewerUsername = '') {
+    const safeState = {
+        ...state,
+        registeredUsers: Array.isArray(state.registeredUsers)
+            ? state.registeredUsers.map(user => sanitizeUser(user, viewerUsername))
+            : []
+    };
+    return safeState;
+}
+
+function hashPassword(password, salt = crypto.randomBytes(16).toString('base64'), iterations = PASSWORD_ITERATIONS) {
+    const passwordHash = crypto
+        .pbkdf2Sync(String(password || ''), salt, iterations, PASSWORD_KEY_LENGTH, 'sha256')
+        .toString('base64');
+    return {
+        passwordHash,
+        passwordSalt: salt,
+        passwordIterations: iterations,
+        passwordDigest: 'pbkdf2-sha256'
+    };
+}
+
+function timingSafeCompare(a, b) {
+    const aBuffer = Buffer.from(String(a || ''), 'base64');
+    const bBuffer = Buffer.from(String(b || ''), 'base64');
+    if (aBuffer.length !== bBuffer.length) return false;
+    return crypto.timingSafeEqual(aBuffer, bBuffer);
+}
+
+function verifyPassword(user, password) {
+    if (!user || !password) return false;
+    if (user.passwordHash && user.passwordSalt) {
+        const iterations = user.passwordIterations || PASSWORD_ITERATIONS;
+        const candidate = hashPassword(password, user.passwordSalt, iterations).passwordHash;
+        return timingSafeCompare(candidate, user.passwordHash);
+    }
+    return typeof user.password === 'string' && user.password === password;
+}
+
+function setPassword(user, password) {
+    Object.assign(user, hashPassword(password));
+    delete user.password;
+}
+
+function createSession(username) {
+    const token = crypto.randomBytes(32).toString('base64url');
+    sessions.set(token, {
+        username,
+        expiresAt: Date.now() + SESSION_TTL_MS
+    });
+    return token;
+}
+
+function getAuthenticatedUser(req, state) {
+    const header = req.headers.authorization || '';
+    const match = header.match(/^Bearer\s+(.+)$/i);
+    if (!match) return null;
+    const session = sessions.get(match[1]);
+    if (!session || session.expiresAt < Date.now()) {
+        if (session) sessions.delete(match[1]);
+        return null;
+    }
+    const user = (state.registeredUsers || []).find(u =>
+        u && u.username && u.username.toLowerCase() === session.username.toLowerCase()
+    );
+    if (!user) return null;
+    session.expiresAt = Date.now() + SESSION_TTL_MS;
+    return user;
+}
+
+function requireAuthenticatedUser(req, res, state) {
+    const user = getAuthenticatedUser(req, state);
+    if (!user) {
+        sendJson(res, 401, { error: 'Sessão inválida ou expirada. Faça login novamente.' });
+        return null;
+    }
+    return user;
+}
+
+function isAdminUser(user) {
+    const admins = (process.env.ADMIN_USERS || 'Felipe!,Felipe')
+        .split(',')
+        .map(name => normalizeUsername(name))
+        .filter(Boolean);
+    return admins.includes(normalizeUsername(user && user.username));
+}
 
 // Helper to merge state databases on the server
 function mergeStates(localState, serverState, loggedInUser) {
@@ -73,7 +192,6 @@ function mergeStates(localState, serverState, loggedInUser) {
                     mergedUsers[index] = {
                         ...mergedUsers[index], // Server state is base
                         email: u.email || mergedUsers[index].email,
-                        password: u.password || mergedUsers[index].password,
                         color: u.color || mergedUsers[index].color,
                         avatar: u.avatar || mergedUsers[index].avatar,
                         emailVerified: u.emailVerified !== undefined ? u.emailVerified : mergedUsers[index].emailVerified,
@@ -88,8 +206,7 @@ function mergeStates(localState, serverState, loggedInUser) {
                     };
                 }
             } else {
-                // New registration (not found in server database)
-                mergedUsers.push(u);
+                // New accounts must go through /api/register so credentials are validated and hashed.
             }
         });
     }
@@ -407,7 +524,7 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // API Route: Admin patch-user (set any field on a registered user)
+    // API Route: patch current user profile fields
     if (req.url === '/api/patch-user' && req.method === 'POST') {
         let body = '';
         req.on('data', chunk => { body += chunk; });
@@ -415,24 +532,37 @@ const server = http.createServer((req, res) => {
             try {
                 const { username, fields } = JSON.parse(body);
                 if (!username || !fields) {
-                    res.statusCode = 400; res.setHeader('Content-Type','application/json');
-                    res.end(JSON.stringify({ error: 'Missing username or fields' })); return;
+                    sendJson(res, 400, { error: 'Missing username or fields' }); return;
                 }
                 fs.readFile(STATE_FILE, 'utf8', (err, data) => {
                     let state = { friends: [], animes: [], registeredUsers: [], activities: [] };
                     if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
+                    const authUser = requireAuthenticatedUser(req, res, state);
+                    if (!authUser) return;
+                    if (authUser.username.toLowerCase() !== username.toLowerCase() && !isAdminUser(authUser)) {
+                        sendJson(res, 403, { error: 'Você só pode alterar o próprio perfil.' });
+                        return;
+                    }
                     const idx = state.registeredUsers.findIndex(u => u && u.username && u.username.toLowerCase() === username.toLowerCase());
-                    if (idx < 0) { res.statusCode = 404; res.setHeader('Content-Type','application/json'); res.end(JSON.stringify({ error: 'User not found' })); return; }
-                    Object.assign(state.registeredUsers[idx], fields);
+                    if (idx < 0) { sendJson(res, 404, { error: 'User not found' }); return; }
+                    const allowedFields = ['email', 'color', 'avatar', 'emailVerified', 'favoriteGenres', 'favoriteStudios', 'favoriteAnimes', 'activeTitle', 'featuredAnimeId'];
+                    const safeFields = {};
+                    allowedFields.forEach(field => {
+                        if (Object.prototype.hasOwnProperty.call(fields, field)) safeFields[field] = fields[field];
+                    });
+                    Object.assign(state.registeredUsers[idx], safeFields);
                     // If field is explicitly null, delete it
-                    Object.keys(fields).forEach(k => { if (fields[k] === null) delete state.registeredUsers[idx][k]; });
+                    Object.keys(safeFields).forEach(k => { if (safeFields[k] === null) delete state.registeredUsers[idx][k]; });
                     fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), 'utf8', (writeErr) => {
-                        if (writeErr) { res.statusCode = 500; res.setHeader('Content-Type','application/json'); res.end(JSON.stringify({ error: 'Failed to save' })); return; }
-                        res.statusCode = 200; res.setHeader('Content-Type','application/json');
-                        res.end(JSON.stringify({ success: true, user: state.registeredUsers[idx], registeredUsers: state.registeredUsers }));
+                        if (writeErr) { sendJson(res, 500, { error: 'Failed to save' }); return; }
+                        sendJson(res, 200, {
+                            success: true,
+                            user: sanitizeUser(state.registeredUsers[idx], authUser.username),
+                            registeredUsers: sanitizeState(state, authUser.username).registeredUsers
+                        });
                     });
                 });
-            } catch(e) { res.statusCode = 400; res.setHeader('Content-Type','application/json'); res.end(JSON.stringify({ error: 'Invalid JSON' })); }
+            } catch(e) { sendJson(res, 400, { error: 'Invalid JSON' }); }
         });
         return;
     }
@@ -442,14 +572,73 @@ const server = http.createServer((req, res) => {
     if (req.url === '/api/get-state' && req.method === 'GET') {
         fs.readFile(STATE_FILE, 'utf8', (err, data) => {
             if (err) {
-                res.statusCode = 500;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'Failed to read state' }));
+                sendJson(res, 500, { error: 'Failed to read state' });
                 return;
             }
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(data);
+            let state = { friends: [], animes: [], registeredUsers: [], activities: [] };
+            try { state = JSON.parse(data); } catch(e) {}
+            const authUser = getAuthenticatedUser(req, state);
+            sendJson(res, 200, sanitizeState(state, authUser ? authUser.username : ''));
+        });
+        return;
+    }
+
+    // API Route: Login with server-side password verification
+    if (req.url === '/api/login' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+            try {
+                const { email, password } = JSON.parse(body);
+                if (!email || !password) {
+                    sendJson(res, 400, { error: 'E-mail e senha são obrigatórios.' });
+                    return;
+                }
+                fs.readFile(STATE_FILE, 'utf8', (err, data) => {
+                    let state = { friends: [], animes: [], registeredUsers: [], activities: [] };
+                    if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
+                    if (!state.registeredUsers) state.registeredUsers = [];
+
+                    const user = state.registeredUsers.find(u =>
+                        u && u.email && u.email.toLowerCase() === String(email).toLowerCase()
+                    );
+
+                    if (!user || !verifyPassword(user, password)) {
+                        sendJson(res, 401, { error: 'E-mail ou senha incorretos.' });
+                        return;
+                    }
+
+                    let migrated = false;
+                    if (!user.passwordHash || user.password) {
+                        setPassword(user, password);
+                        migrated = true;
+                    }
+
+                    const finishLogin = () => {
+                        const token = createSession(user.username);
+                        sendJson(res, 200, {
+                            success: true,
+                            token,
+                            user: sanitizeUser(user, user.username),
+                            state: sanitizeState(state, user.username)
+                        });
+                    };
+
+                    if (migrated) {
+                        fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), 'utf8', (writeErr) => {
+                            if (writeErr) {
+                                sendJson(res, 500, { error: 'Falha ao atualizar credenciais.' });
+                                return;
+                            }
+                            finishLogin();
+                        });
+                    } else {
+                        finishLogin();
+                    }
+                });
+            } catch(e) {
+                sendJson(res, 400, { error: 'Invalid JSON' });
+            }
         });
         return;
     }
@@ -461,10 +650,12 @@ const server = http.createServer((req, res) => {
         req.on('end', () => {
             try {
                 const newUser = JSON.parse(body);
-                if (!newUser.username || !newUser.email) {
-                    res.statusCode = 400;
-                    res.setHeader('Content-Type', 'application/json');
-                    res.end(JSON.stringify({ error: 'username and email required' }));
+                if (!newUser.username || !newUser.email || !newUser.password) {
+                    sendJson(res, 400, { error: 'username, email and password required' });
+                    return;
+                }
+                if (String(newUser.password).length < 4) {
+                    sendJson(res, 400, { error: 'A senha deve ter pelo menos 4 caracteres.' });
                     return;
                 }
                 fs.readFile(STATE_FILE, 'utf8', (err, data) => {
@@ -478,10 +669,7 @@ const server = http.createServer((req, res) => {
                         (u.email && u.email.toLowerCase() === newUser.email.toLowerCase())
                     );
                     if (existingIdx >= 0) {
-                        // User already exists — return success without overwriting social graph
-                        res.statusCode = 200;
-                        res.setHeader('Content-Type', 'application/json');
-                        res.end(JSON.stringify({ success: true, user: state.registeredUsers[existingIdx] }));
+                        sendJson(res, 409, { error: 'Nome de usuário ou e-mail já cadastrado.' });
                         return;
                     }
 
@@ -502,7 +690,6 @@ const server = http.createServer((req, res) => {
                     const userToAdd = {
                         username: newUser.username,
                         email: newUser.email,
-                        password: newUser.password || '',
                         color: newUser.color || '#FF4500',
                         avatar: newUser.avatar || '👤',
                         emailVerified: newUser.emailVerified !== undefined ? newUser.emailVerified : false,
@@ -516,23 +703,24 @@ const server = http.createServer((req, res) => {
                         memberDesc: memberDesc,
                         isVirtual: false
                     };
+                    setPassword(userToAdd, newUser.password);
                     state.registeredUsers.push(userToAdd);
                     fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), 'utf8', (writeErr) => {
                         if (writeErr) {
-                            res.statusCode = 500;
-                            res.setHeader('Content-Type', 'application/json');
-                            res.end(JSON.stringify({ error: 'Failed to save user' }));
+                            sendJson(res, 500, { error: 'Failed to save user' });
                             return;
                         }
-                        res.statusCode = 200;
-                        res.setHeader('Content-Type', 'application/json');
-                        res.end(JSON.stringify({ success: true, user: userToAdd }));
+                        const token = createSession(userToAdd.username);
+                        sendJson(res, 200, {
+                            success: true,
+                            token,
+                            user: sanitizeUser(userToAdd, userToAdd.username),
+                            state: sanitizeState(state, userToAdd.username)
+                        });
                     });
                 });
             } catch(e) {
-                res.statusCode = 400;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'Invalid JSON' }));
+                sendJson(res, 400, { error: 'Invalid JSON' });
             }
         });
         return;
@@ -545,7 +733,6 @@ const server = http.createServer((req, res) => {
         req.on('end', () => {
             try {
                 const payload = JSON.parse(body);
-                const loggedInUser = payload.loggedInUser || '';
                 const localState = payload.localState || payload;
 
                 fs.readFile(STATE_FILE, 'utf8', (err, data) => {
@@ -553,23 +740,20 @@ const server = http.createServer((req, res) => {
                     if (!err && data) {
                         try { serverState = JSON.parse(data); } catch(e) {}
                     }
+                    const authUser = requireAuthenticatedUser(req, res, serverState);
+                    if (!authUser) return;
+                    const loggedInUser = authUser.username;
                     const newState = mergeStates(localState, serverState, loggedInUser);
                     fs.writeFile(STATE_FILE, JSON.stringify(newState, null, 2), 'utf8', (writeErr) => {
                         if (writeErr) {
-                            res.statusCode = 500;
-                            res.setHeader('Content-Type', 'application/json');
-                            res.end(JSON.stringify({ error: 'Failed to write state' }));
+                            sendJson(res, 500, { error: 'Failed to write state' });
                             return;
                         }
-                        res.statusCode = 200;
-                        res.setHeader('Content-Type', 'application/json');
-                        res.end(JSON.stringify(newState));
+                        sendJson(res, 200, sanitizeState(newState, loggedInUser));
                     });
                 });
             } catch(e) {
-                res.statusCode = 400;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'Invalid JSON body' }));
+                sendJson(res, 400, { error: 'Invalid JSON body' });
             }
         });
         return;
@@ -583,14 +767,18 @@ const server = http.createServer((req, res) => {
             try {
                 const { username, animeIds } = JSON.parse(body);
                 if (!username || !Array.isArray(animeIds)) {
-                    res.statusCode = 400;
-                    res.setHeader('Content-Type', 'application/json');
-                    res.end(JSON.stringify({ error: 'Missing username or animeIds' }));
+                    sendJson(res, 400, { error: 'Missing username or animeIds' });
                     return;
                 }
                 fs.readFile(STATE_FILE, 'utf8', (err, data) => {
                     let state = { friends: [], animes: [], registeredUsers: [] };
                     if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
+                    const authUser = requireAuthenticatedUser(req, res, state);
+                    if (!authUser) return;
+                    if (authUser.username.toLowerCase() !== username.toLowerCase() && !isAdminUser(authUser)) {
+                        sendJson(res, 403, { error: 'Você só pode limpar as próprias avaliações.' });
+                        return;
+                    }
                     const userId = username.toLowerCase().replace(/[^a-z0-9]/g, '');
                     let cleared = 0;
                     state.animes.forEach(anime => {
@@ -601,20 +789,14 @@ const server = http.createServer((req, res) => {
                     });
                     fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), 'utf8', (writeErr) => {
                         if (writeErr) {
-                            res.statusCode = 500;
-                            res.setHeader('Content-Type', 'application/json');
-                            res.end(JSON.stringify({ error: 'Failed to save' }));
+                            sendJson(res, 500, { error: 'Failed to save' });
                             return;
                         }
-                        res.statusCode = 200;
-                        res.setHeader('Content-Type', 'application/json');
-                        res.end(JSON.stringify({ success: true, cleared }));
+                        sendJson(res, 200, { success: true, cleared });
                     });
                 });
             } catch(e) {
-                res.statusCode = 400;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'Invalid JSON' }));
+                sendJson(res, 400, { error: 'Invalid JSON' });
             }
         });
         return;
@@ -626,11 +808,9 @@ const server = http.createServer((req, res) => {
         req.on('data', chunk => { body += chunk; });
         req.on('end', () => {
             try {
-                const { from, to } = JSON.parse(body);
-                if (!from || !to) {
-                    res.statusCode = 400;
-                    res.setHeader('Content-Type', 'application/json');
-                    res.end(JSON.stringify({ error: 'Missing from or to username' }));
+                const { to } = JSON.parse(body);
+                if (!to) {
+                    sendJson(res, 400, { error: 'Missing target username' });
                     return;
                 }
                 
@@ -640,20 +820,19 @@ const server = http.createServer((req, res) => {
                         try { state = JSON.parse(data); } catch(e) {}
                     }
                     
+                    const authUser = requireAuthenticatedUser(req, res, state);
+                    if (!authUser) return;
+                    const from = authUser.username;
                     const fromUser = state.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === from.toLowerCase());
                     const toUser = state.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === to.toLowerCase());
                     
                     if (!fromUser || !toUser) {
-                        res.statusCode = 404;
-                        res.setHeader('Content-Type', 'application/json');
-                        res.end(JSON.stringify({ error: 'Usuário não encontrado' }));
+                        sendJson(res, 404, { error: 'Usuário não encontrado' });
                         return;
                     }
                     
                     if (from.toLowerCase() === to.toLowerCase()) {
-                        res.statusCode = 400;
-                        res.setHeader('Content-Type', 'application/json');
-                        res.end(JSON.stringify({ error: 'Não é possível adicionar a si mesmo' }));
+                        sendJson(res, 400, { error: 'Não é possível adicionar a si mesmo' });
                         return;
                     }
                     
@@ -661,9 +840,7 @@ const server = http.createServer((req, res) => {
                     const toId = to.toLowerCase();
                     if (!fromUser.friends) fromUser.friends = [];
                     if (fromUser.friends.some(f => f.toLowerCase() === toId)) {
-                        res.statusCode = 400;
-                        res.setHeader('Content-Type', 'application/json');
-                        res.end(JSON.stringify({ error: 'Vocês já são amigos' }));
+                        sendJson(res, 400, { error: 'Vocês já são amigos' });
                         return;
                     }
                     
@@ -677,20 +854,17 @@ const server = http.createServer((req, res) => {
                     
                     fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), 'utf8', (writeErr) => {
                         if (writeErr) {
-                            res.statusCode = 500;
-                            res.setHeader('Content-Type', 'application/json');
-                            res.end(JSON.stringify({ error: 'Failed to save request' }));
+                            sendJson(res, 500, { error: 'Failed to save request' });
                             return;
                         }
-                        res.statusCode = 200;
-                        res.setHeader('Content-Type', 'application/json');
-                        res.end(JSON.stringify({ success: true, registeredUsers: state.registeredUsers }));
+                        sendJson(res, 200, {
+                            success: true,
+                            registeredUsers: sanitizeState(state, authUser.username).registeredUsers
+                        });
                     });
                 });
             } catch(e) {
-                res.statusCode = 400;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'Invalid JSON' }));
+                sendJson(res, 400, { error: 'Invalid JSON' });
             }
         });
         return;
@@ -702,11 +876,13 @@ const server = http.createServer((req, res) => {
         req.on('data', chunk => { body += chunk; });
         req.on('end', () => {
             try {
-                const { username, target, action } = JSON.parse(body);
-                if (!username || !target || !action) {
-                    res.statusCode = 400;
-                    res.setHeader('Content-Type', 'application/json');
-                    res.end(JSON.stringify({ error: 'Missing parameters' }));
+                const { target, action } = JSON.parse(body);
+                if (!target || !action) {
+                    sendJson(res, 400, { error: 'Missing parameters' });
+                    return;
+                }
+                if (!['accept', 'reject', 'decline'].includes(action)) {
+                    sendJson(res, 400, { error: 'Ação inválida' });
                     return;
                 }
                 
@@ -716,13 +892,14 @@ const server = http.createServer((req, res) => {
                         try { state = JSON.parse(data); } catch(e) {}
                     }
                     
+                    const authUser = requireAuthenticatedUser(req, res, state);
+                    if (!authUser) return;
+                    const username = authUser.username;
                     const user = state.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === username.toLowerCase());
                     const targetUser = state.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === target.toLowerCase());
                     
                     if (!user || !targetUser) {
-                        res.statusCode = 404;
-                        res.setHeader('Content-Type', 'application/json');
-                        res.end(JSON.stringify({ error: 'User not found' }));
+                        sendJson(res, 404, { error: 'User not found' });
                         return;
                     }
                     
@@ -745,20 +922,17 @@ const server = http.createServer((req, res) => {
                     
                     fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), 'utf8', (writeErr) => {
                         if (writeErr) {
-                            res.statusCode = 500;
-                            res.setHeader('Content-Type', 'application/json');
-                            res.end(JSON.stringify({ error: 'Failed to save request response' }));
+                            sendJson(res, 500, { error: 'Failed to save request response' });
                             return;
                         }
-                        res.statusCode = 200;
-                        res.setHeader('Content-Type', 'application/json');
-                        res.end(JSON.stringify({ success: true, registeredUsers: state.registeredUsers }));
+                        sendJson(res, 200, {
+                            success: true,
+                            registeredUsers: sanitizeState(state, authUser.username).registeredUsers
+                        });
                     });
                 });
             } catch(e) {
-                res.statusCode = 400;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'Invalid JSON' }));
+                sendJson(res, 400, { error: 'Invalid JSON' });
             }
         });
         return;
@@ -770,11 +944,9 @@ const server = http.createServer((req, res) => {
         req.on('data', chunk => { body += chunk; });
         req.on('end', () => {
             try {
-                const { username, target } = JSON.parse(body);
-                if (!username || !target) {
-                    res.statusCode = 400;
-                    res.setHeader('Content-Type', 'application/json');
-                    res.end(JSON.stringify({ error: 'Missing parameters' }));
+                const { target } = JSON.parse(body);
+                if (!target) {
+                    sendJson(res, 400, { error: 'Missing parameters' });
                     return;
                 }
                 
@@ -784,6 +956,9 @@ const server = http.createServer((req, res) => {
                         try { state = JSON.parse(data); } catch(e) {}
                     }
                     
+                    const authUser = requireAuthenticatedUser(req, res, state);
+                    if (!authUser) return;
+                    const username = authUser.username;
                     const user = state.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === username.toLowerCase());
                     const targetUser = state.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === target.toLowerCase());
                     
@@ -800,32 +975,48 @@ const server = http.createServer((req, res) => {
                     
                     fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), 'utf8', (writeErr) => {
                         if (writeErr) {
-                            res.statusCode = 500;
-                            res.setHeader('Content-Type', 'application/json');
-                            res.end(JSON.stringify({ error: 'Failed to remove friend' }));
+                            sendJson(res, 500, { error: 'Failed to remove friend' });
                             return;
                         }
-                        res.statusCode = 200;
-                        res.setHeader('Content-Type', 'application/json');
-                        res.end(JSON.stringify({ success: true, registeredUsers: state.registeredUsers }));
+                        sendJson(res, 200, {
+                            success: true,
+                            registeredUsers: sanitizeState(state, authUser.username).registeredUsers
+                        });
                     });
                 });
             } catch(e) {
-                res.statusCode = 400;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'Invalid JSON' }));
+                sendJson(res, 400, { error: 'Invalid JSON' });
             }
         });
         return;
     }
 
     // Static files serving
-    let filePath = path.join(__dirname, req.url === '/' ? 'index.html' : req.url);
+    const requestUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    const pathname = decodeURIComponent(requestUrl.pathname);
+    const rootDir = path.resolve(__dirname);
+    const filePath = path.resolve(rootDir, pathname === '/' ? 'index.html' : `.${pathname}`);
     
-    if (!filePath.startsWith(__dirname)) {
+    if (filePath !== rootDir && !filePath.startsWith(rootDir + path.sep)) {
         res.statusCode = 403;
         res.setHeader('Content-Type', 'text/plain');
         res.end('Forbidden');
+        return;
+    }
+
+    const relativePath = path.relative(rootDir, filePath);
+    const publicRootFiles = new Set(['index.html', 'app.js', 'styles.css', 'favicon.png', 'logo.png']);
+    const publicImageExtensions = new Set(['.png', '.jpg', '.jpeg', '.svg']);
+    const firstSegment = relativePath.split(path.sep)[0];
+    const isPublicAsset =
+        publicRootFiles.has(relativePath) ||
+        ((firstSegment === 'covers' || firstSegment === 'logos') &&
+            publicImageExtensions.has(path.extname(relativePath).toLowerCase()));
+
+    if (!isPublicAsset) {
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.end('404 Not Found');
         return;
     }
     

@@ -908,9 +908,71 @@ const API_BASE_URL = window.location.hostname === 'localhost' || window.location
     ? '' 
     : 'https://anime-ratings.onrender.com'; // <--- Você substituirá por sua URL do Render depois
 
+const AUTH_TOKEN_KEY = 'anivoid_auth_token';
+
+function getAuthToken() {
+    return localStorage.getItem(AUTH_TOKEN_KEY) || '';
+}
+
+function setAuthSession(username, token) {
+    if (username) localStorage.setItem('anivoid_logged_in_username', username);
+    if (token) localStorage.setItem(AUTH_TOKEN_KEY, token);
+}
+
+function clearAuthSession() {
+    localStorage.removeItem('anivoid_logged_in_username');
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+}
+
+function authHeaders(extraHeaders = {}) {
+    const token = getAuthToken();
+    return token ? { ...extraHeaders, Authorization: `Bearer ${token}` } : extraHeaders;
+}
+
+function stripSensitiveUserFields(user) {
+    if (!user || typeof user !== 'object') return user;
+    const {
+        password,
+        passwordHash,
+        passwordSalt,
+        passwordIterations,
+        passwordDigest,
+        ...safeUser
+    } = user;
+    return safeUser;
+}
+
+function storeRegisteredUsers(users) {
+    if (!Array.isArray(users)) return;
+    localStorage.setItem('anivoid_registered_users', JSON.stringify(users.map(stripSensitiveUserFields)));
+}
+
+function sanitizeStoredRegisteredUsers() {
+    try {
+        const users = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+        if (Array.isArray(users)) storeRegisteredUsers(users);
+    } catch (err) {}
+}
+
+function applyServerStateSnapshot(serverState) {
+    if (!serverState || typeof serverState !== 'object') return;
+    if (Array.isArray(serverState.registeredUsers)) {
+        storeRegisteredUsers(serverState.registeredUsers);
+    }
+    if (Array.isArray(serverState.animes)) {
+        localStorage.setItem('anivoid_list_v2', JSON.stringify(serverState.animes));
+    }
+}
+
 class AppState {
     constructor() {
         this.loggedInUser = localStorage.getItem('anivoid_logged_in_username') || null;
+        this.authToken = getAuthToken();
+        if (this.loggedInUser && !this.authToken) {
+            clearAuthSession();
+            this.loggedInUser = null;
+        }
+        sanitizeStoredRegisteredUsers();
         this.friends = [];
         this.knownActivityIds = new Set();
 
@@ -1034,6 +1096,11 @@ class AppState {
     loadLocalSession() {
         try {
             this.loggedInUser = localStorage.getItem('anivoid_logged_in_username') || null;
+            this.authToken = getAuthToken();
+            if (this.loggedInUser && !this.authToken) {
+                clearAuthSession();
+                this.loggedInUser = null;
+            }
             if (this.loggedInUser) {
                 let registeredUsers = [];
                 try {
@@ -1049,7 +1116,6 @@ class AppState {
                         avatar: curUser.avatar,
                         color: curUser.color,
                         email: curUser.email,
-                        password: curUser.password,
                         emailVerified: curUser.emailVerified || false,
                         favoriteGenres: curUser.favoriteGenres || [],
                         favoriteStudios: curUser.favoriteStudios || [],
@@ -1101,7 +1167,7 @@ class AppState {
         try {
             let registeredUsers = [];
             try {
-                registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+                registeredUsers = (JSON.parse(localStorage.getItem('anivoid_registered_users')) || []).map(stripSensitiveUserFields);
             } catch (err) {}
 
             const localState = {
@@ -1129,17 +1195,27 @@ class AppState {
                 prevUsersStr = deterministicStringify(parsedUsers);
             } catch (e) {}
 
-            const response = await fetch(API_BASE_URL + '/api/sync-state', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    loggedInUser: this.loggedInUser || '',
-                    localState: localState
+            const hasAuthSession = !!this.loggedInUser && !!getAuthToken();
+            const response = hasAuthSession
+                ? await fetch(API_BASE_URL + '/api/sync-state', {
+                    method: 'POST',
+                    headers: authHeaders({
+                        'Content-Type': 'application/json'
+                    }),
+                    body: JSON.stringify({
+                        localState: localState
+                    })
                 })
-            });
+                : await fetch(API_BASE_URL + '/api/get-state', {
+                    method: 'GET'
+                });
 
+            if (response.status === 401 || response.status === 403) {
+                clearAuthSession();
+                this.loggedInUser = null;
+                this.friends = [];
+                throw new Error('Sessão expirada. Faça login novamente.');
+            }
             if (!response.ok) throw new Error('API sync request failed');
             const serverState = await response.json();
 
@@ -1253,7 +1329,7 @@ class AppState {
                 // of the logged-in user's friends list. Merge to keep local additions.
                 let localRegisteredUsers = [];
                 try {
-                    localRegisteredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+                    localRegisteredUsers = (JSON.parse(localStorage.getItem('anivoid_registered_users')) || []).map(stripSensitiveUserFields);
                 } catch(e) {}
 
                 const mergedUsers = serverState.registeredUsers.map(serverUser => {
@@ -1274,7 +1350,7 @@ class AppState {
                     return serverUser;
                 });
 
-                localStorage.setItem('anivoid_registered_users', JSON.stringify(mergedUsers));
+                storeRegisteredUsers(mergedUsers);
             }
             // After updating registeredUsers in localStorage, also read current user's featuredAnimeId
             // (so when we switch friend tabs the banner shows the right anime)
@@ -1340,7 +1416,7 @@ class AppState {
                 const meIdx = users.findIndex(u => u && u.username && u.username.toLowerCase() === this.loggedInUser.toLowerCase());
                 if (meIdx >= 0) {
                     users[meIdx] = { ...users[meIdx], featuredAnimeId: this.featuredAnimeId || null };
-                    localStorage.setItem('anivoid_registered_users', JSON.stringify(users));
+                    storeRegisteredUsers(users);
                 }
             } catch(e) {}
         }
@@ -1418,15 +1494,15 @@ class AppState {
         try {
             const response = await fetch(API_BASE_URL + '/api/send-friend-request', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ from: this.loggedInUser, to: targetUsername })
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ to: targetUsername })
             });
             const data = await response.json();
             if (!response.ok) {
                 return { error: data.error || 'Erro ao enviar solicitação' };
             }
             if (data.registeredUsers) {
-                localStorage.setItem('anivoid_registered_users', JSON.stringify(data.registeredUsers));
+                storeRegisteredUsers(data.registeredUsers);
                 this.loadLocalSession();
             }
             return { success: true };
@@ -1441,15 +1517,15 @@ class AppState {
         try {
             const response = await fetch(API_BASE_URL + '/api/respond-friend-request', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: this.loggedInUser, target: targetUsername, action })
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ target: targetUsername, action })
             });
             const data = await response.json();
             if (!response.ok) {
                 return { error: data.error || 'Erro ao responder solicitação' };
             }
             if (data.registeredUsers) {
-                localStorage.setItem('anivoid_registered_users', JSON.stringify(data.registeredUsers));
+                storeRegisteredUsers(data.registeredUsers);
                 this.loadLocalSession();
             }
             return { success: true };
@@ -1464,15 +1540,15 @@ class AppState {
         try {
             const response = await fetch(API_BASE_URL + '/api/remove-friend', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: this.loggedInUser, target: targetUsername })
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ target: targetUsername })
             });
             const data = await response.json();
             if (!response.ok) {
                 return { error: data.error || 'Erro ao remover amigo' };
             }
             if (data.registeredUsers) {
-                localStorage.setItem('anivoid_registered_users', JSON.stringify(data.registeredUsers));
+                storeRegisteredUsers(data.registeredUsers);
                 
                 // If we were currently viewing this friend's profile, switch back to ourselves!
                 const targetId = targetUsername.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -1883,7 +1959,6 @@ class AppState {
             matchedUser = {
                 username: friendUsername,
                 email: `${friendId}@virtual.anivoid`,
-                password: '',
                 color: color || '#FF4500',
                 avatar: avatar || '👤',
                 isVirtual: true,
@@ -1893,7 +1968,7 @@ class AppState {
                 favoriteAnimes: []
             };
             registeredUsers.push(matchedUser);
-            localStorage.setItem('anivoid_registered_users', JSON.stringify(registeredUsers));
+            storeRegisteredUsers(registeredUsers);
         }
 
         // Add this friend to the logged-in user's friend list
@@ -1903,7 +1978,7 @@ class AppState {
                 if (!curUser.friends) curUser.friends = [];
                 if (!curUser.friends.some(f => f.toLowerCase().replace(/[^a-z0-9]/g, '') === friendId)) {
                     curUser.friends.push(matchedUser.username);
-                    localStorage.setItem('anivoid_registered_users', JSON.stringify(registeredUsers));
+                    storeRegisteredUsers(registeredUsers);
                 }
             }
         }
@@ -2267,9 +2342,9 @@ function initUI() {
         logoutBtn.dataset.listenerHooked = 'true';
         logoutBtn.addEventListener('click', () => {
             // Disconnect session
+            clearAuthSession();
             state.friends = [];
             state.currentFriendId = null;
-            state.save();
             
             // Force reload to open login gate
             window.location.reload();
@@ -5460,22 +5535,29 @@ function initRegistrationOptions() {
 
     if (loginForm && !loginForm.dataset.listenerHooked) {
         loginForm.dataset.listenerHooked = 'true';
-        loginForm.addEventListener('submit', (e) => {
+        loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const emailVal = document.getElementById('login-email').value.trim();
             const passwordVal = document.getElementById('login-password').value.trim();
 
-            let registeredUsers = [];
             try {
-                registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
-            } catch (err) {
-                registeredUsers = [];
-            }
+                const loginResp = await fetch(API_BASE_URL + '/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: emailVal, password: passwordVal })
+                });
+                const loginData = await loginResp.json().catch(() => ({}));
 
-            const matchedUser = registeredUsers.find(u => u && u.email && u.email.toLowerCase() === emailVal.toLowerCase() && u.password === passwordVal);
+                if (!loginResp.ok || !loginData.user || !loginData.token) {
+                    alert(loginData.error || 'E-mail ou senha incorretos! Por favor, tente novamente.');
+                    return;
+                }
 
-            if (matchedUser && matchedUser.username) {
+                const matchedUser = stripSensitiveUserFields(loginData.user);
                 const userId = matchedUser.username.toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (loginData.state) {
+                    applyServerStateSnapshot(loginData.state);
+                }
 
                 // Migrate ratings and reviews from key '1' if they exist in localStorage
                 state.animes.forEach(anime => {
@@ -5494,7 +5576,7 @@ function initRegistrationOptions() {
                 });
 
                 // Save logged-in username
-                localStorage.setItem('anivoid_logged_in_username', matchedUser.username);
+                setAuthSession(matchedUser.username, loginData.token);
                 state.currentFriendId = userId;
                 
                 // Reconstruct friends and save/sync
@@ -5515,8 +5597,9 @@ function initRegistrationOptions() {
                 showWelcomeToast(matchedUser.username);
 
                 // Modal only shown on new registration, not on login
-            } else {
-                alert('E-mail ou senha incorretos! Por favor, tente novamente.');
+            } catch (err) {
+                console.error('Login failed:', err);
+                alert('Não foi possível entrar agora. Tente novamente em alguns instantes.');
             }
         });
     }
@@ -5548,7 +5631,7 @@ function initRegistrationOptions() {
                 alert('Este nome de usuário já está cadastrado por outro otaku. Escolha outro nome!');
                 return;
             }
-            const emailExists = registeredUsers.some(u => u.email.toLowerCase() === email.toLowerCase());
+            const emailExists = registeredUsers.some(u => u && u.email && u.email.toLowerCase() === email.toLowerCase());
             if (emailExists) {
                 alert('Este e-mail já está em uso por outra conta. Faça login ou utilize outro e-mail!');
                 return;
@@ -5562,7 +5645,6 @@ function initRegistrationOptions() {
                 avatar: avatar,
                 color: color,
                 email: email,
-                password: password,
                 emailVerified: false,
                 favoriteGenres: selectedGenres,
                 favoriteStudios: selectedStudios,
@@ -5618,7 +5700,6 @@ function initRegistrationOptions() {
             const newUserRecord = {
                 username: name,
                 email: email,
-                password: password,
                 color: color,
                 avatar: avatar,
                 emailVerified: false,
@@ -5627,8 +5708,6 @@ function initRegistrationOptions() {
                 favoriteAnimes: selectedAnimeIds,
                 friends: []
             };
-            registeredUsers.push(newUserRecord);
-            localStorage.setItem('anivoid_registered_users', JSON.stringify(registeredUsers));
 
             // Immediately register on the server and get member number
             let assignedMemberNumber = null;
@@ -5636,23 +5715,30 @@ function initRegistrationOptions() {
                 const regResp = await fetch(API_BASE_URL + '/api/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(newUserRecord)
+                    body: JSON.stringify({ ...newUserRecord, password })
                 });
-                if (regResp.ok) {
-                    const regData = await regResp.json();
-                    if (regData.user && regData.user.memberNumber) {
-                        assignedMemberNumber = regData.user.memberNumber;
-                        try {
-                            const lsUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
-                            const myIdx = lsUsers.findIndex(u => u && u.username && u.username.toLowerCase() === name.toLowerCase());
-                            if (myIdx >= 0) { lsUsers[myIdx].memberNumber = assignedMemberNumber; localStorage.setItem('anivoid_registered_users', JSON.stringify(lsUsers)); }
-                        } catch(e) {}
-                    }
+                const regData = await regResp.json().catch(() => ({}));
+                if (!regResp.ok || !regData.user || !regData.token) {
+                    alert(regData.error || 'Não foi possível criar sua conta agora.');
+                    return;
                 }
-            } catch(e) {}
+                setAuthSession(regData.user.username || name, regData.token);
+                if (regData.state) {
+                    applyServerStateSnapshot(regData.state);
+                } else {
+                    registeredUsers.push(stripSensitiveUserFields(regData.user));
+                    storeRegisteredUsers(registeredUsers);
+                }
+                if (regData.user && regData.user.memberNumber) {
+                    assignedMemberNumber = regData.user.memberNumber;
+                }
+            } catch(e) {
+                console.error('Registration failed:', e);
+                alert('Não foi possível criar sua conta agora. Tente novamente em alguns instantes.');
+                return;
+            }
 
             // Set session and save
-            localStorage.setItem('anivoid_logged_in_username', name);
             state.currentFriendId = userId;
             
             state.loadLocalSession();
@@ -6044,7 +6130,7 @@ function triggerSimulatedWelcomeEmail(user) {
                     const userRecord = registeredUsers.find(u => u.email === user.email);
                     if (userRecord) {
                         userRecord.emailVerified = true;
-                        localStorage.setItem('anivoid_registered_users', JSON.stringify(registeredUsers));
+                        storeRegisteredUsers(registeredUsers);
                     }
                 }
                 state.save();
@@ -6264,7 +6350,7 @@ function setupEditProfileModal() {
                 userRecord.activeTitle = editTitleSelect.value;
             }
             
-            localStorage.setItem('anivoid_registered_users', JSON.stringify(registeredUsers));
+            storeRegisteredUsers(registeredUsers);
         }
 
         // Reconstruct friends and save/sync
