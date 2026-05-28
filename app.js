@@ -4220,7 +4220,7 @@ function openAnimeDetail(animeId) {
                         <p class="text-[8px] text-gray-500 font-mono">Preenche todos os eps assistidos com essa nota base</p>
                     </div>
                     <div class="flex items-center gap-1.5 shrink-0">
-                        `<span id="quick-fill-avg-label" class="text-[9px] text-gray-400 font-mono" style="${computedAvg !== null ? '' : 'display:none'}">Média atual: <b id="quick-fill-avg-value" class="text-white">${computedAvg !== null ? computedAvg : ''}</b></span>`
+                        <span id="quick-fill-avg-label" class="text-[9px] text-gray-400 font-mono" style="${computedAvg !== null ? '' : 'display:none'}">Média atual: <b id="quick-fill-avg-value" class="text-white">${computedAvg !== null ? computedAvg : ''}</b></span>
                         <div id="quick-fill-rating-container" class="relative"></div>
                     </div>
                 `;
