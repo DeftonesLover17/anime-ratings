@@ -2711,7 +2711,7 @@ function renderAnimeGrid() {
     filteredList.forEach(anime => {
         const avgScore = state.calculateAverageScore(anime.id);
         const friendRating = anime.ratings?.[state.currentFriendId];
-        const myScore = friendRating?.overall || '-';
+        const myScore = friendRating?.overall || null;
         const myStatus = friendRating?.status || 'Plan to Watch';
         const myStatusObj = STATUS_MAP[myStatus] || STATUS_MAP['Plan to Watch'];
         const myEps = friendRating?.episodesWatched || 0;
@@ -2721,26 +2721,44 @@ function renderAnimeGrid() {
         const avgBadgeStyle = avgScore > 0 ? `border-color: ${avgColorInfo.text}30; box-shadow: 0 0 8px ${avgColorInfo.glow}; color: ${avgColorInfo.text}; text-shadow: 0 0 4px ${avgColorInfo.glow}` : '';
 
         const myScoreColorInfo = getScoreColor(myScore);
-        const myScoreTextStyle = myScore !== '-' ? `color: ${myScoreColorInfo.text}; text-shadow: 0 0 6px ${myScoreColorInfo.glow}` : 'color: #7f8c8d';
+        // Personal score badge on image (bottom-right overlay)
+        const myScoreBadgeHtml = myScore
+            ? `<div class="absolute bottom-11 right-3 flex flex-col items-center justify-center gap-0" style="z-index:2">
+                <div class="flex items-center gap-1 px-2.5 py-1 rounded-xl text-sm font-bold font-mono backdrop-blur-md" style="background: ${myScoreColorInfo.text}22; border: 1.5px solid ${myScoreColorInfo.text}60; color: ${myScoreColorInfo.text}; text-shadow: 0 0 8px ${myScoreColorInfo.glow}; box-shadow: 0 0 12px ${myScoreColorInfo.glow}50, inset 0 1px 0 ${myScoreColorInfo.text}20">
+                    <span style="font-size:10px; opacity:0.8">★</span>
+                    <span>${myScore}</span>
+                </div>
+                <span class="text-[7px] font-mono uppercase tracking-widest mt-0.5" style="color: ${myScoreColorInfo.text}90; text-shadow: 0 0 4px ${myScoreColorInfo.glow}">Sua Nota</span>
+               </div>`
+            : `<div class="absolute bottom-11 right-3 flex flex-col items-center justify-center gap-0" style="z-index:2">
+                <div class="flex items-center gap-1 px-2.5 py-1 rounded-xl text-sm font-bold font-mono backdrop-blur-md" style="background: rgba(255,255,255,0.04); border: 1.5px dashed rgba(255,255,255,0.15); color: rgba(255,255,255,0.3)">
+                    <span style="font-size:10px">★</span>
+                    <span>—</span>
+                </div>
+                <span class="text-[7px] font-mono uppercase tracking-widest mt-0.5 text-white/25">Sua Nota</span>
+               </div>`;
 
         const card = document.createElement('div');
         card.className = 'glass-card rounded-2xl overflow-hidden flex flex-col justify-between h-full reveal';
         card.innerHTML = `
             <div class="relative w-full aspect-[2/3] overflow-hidden group cursor-pointer" onclick="openAnimeDetail('${anime.id}')">
                 <img src="${anime.coverUrl}" alt="${anime.title}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
-                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent"></div>
                 
-                <!-- Average Score Badge -->
+                <!-- Group Average Score Badge (top-right) -->
                 <div class="absolute top-4 right-4 flex items-center justify-center gap-1 bg-[#050505]/80 backdrop-blur-sm border border-white/10 px-2.5 py-1 rounded-full text-xs font-semibold transition-all duration-300" style="${avgBadgeStyle}">
                     <span class="${avgScore > 0 ? '' : 'text-yellow-400'}">★</span>
                     <span>${avgScore > 0 ? avgScore : 'S/N'}</span>
                 </div>
 
-                <!-- Personal Status Badge -->
+                <!-- Personal Status Badge (top-left) -->
                 <div class="absolute top-4 left-4 flex items-center justify-center gap-1 ${myStatusObj.bg} ${myStatusObj.border} border backdrop-blur-sm px-2.5 py-1 rounded-full text-[9px] font-mono font-semibold uppercase tracking-wider ${myStatusObj.text}">
                     ${myStatusObj.label}
                 </div>
                 
+                <!-- Personal Score Badge (bottom-right overlay) -->
+                ${myScoreBadgeHtml}
+
                 <span onclick="event.stopPropagation(); window.switchTabToStudio('${anime.studio}')" class="absolute bottom-3 left-4 text-[10px] uppercase font-mono tracking-wider text-white/60 bg-black/40 hover:bg-brand/20 hover:border-brand/40 hover:text-white transition-all px-2 py-0.5 rounded border border-white/5 cursor-pointer hover:scale-105">
                     ${anime.studio}
                 </span>
@@ -2781,8 +2799,10 @@ function renderAnimeGrid() {
                     <div class="flex justify-between items-center">
                         <span class="text-[9px] text-gray-500 font-mono uppercase">${anime.season}</span>
                         <div class="flex items-center gap-2">
-                            <span class="text-[9px] uppercase font-mono text-white/40">Sua Nota:</span>
-                            <span class="text-xs font-semibold font-serif transition-all duration-300" style="${myScoreTextStyle}">${myScore}</span>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[8px] uppercase font-mono text-white/25 tracking-wider">Grupo</span>
+                                <span class="text-xs font-bold font-mono transition-all duration-300" style="${avgScore > 0 ? `color: ${avgColorInfo.text}; text-shadow: 0 0 4px ${avgColorInfo.glow}` : 'color: #444'}">${avgScore > 0 ? avgScore : '—'}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
