@@ -9,6 +9,70 @@ const EMAILJS_CONFIG = {
 
 const DEFAULT_AVATAR_SVG = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjI1KSI+PHBhdGggZD0iTTEyIDEyYTUgNSAwIDEgMCAwLTEwIDUgNSAwIDAgMCAwIDEwek0xMiAxNGMtMy43MyAwLTExIDEuODYtMTEgNS41VjIwSDIzdi0xYy0xLjEtMy42NC03LjI3LTUuNS0xMS01LjV6Ii8+PC9zdmc+';
 
+function sanitizeHtml(html) {
+    if (typeof document === 'undefined') return String(html || '');
+
+    const blockedTags = new Set(['SCRIPT', 'IFRAME', 'OBJECT', 'EMBED', 'SVG', 'MATH', 'LINK', 'META', 'BASE', 'FORM', 'STYLE']);
+    const htmlDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+    const template = document.createElement('template');
+    htmlDescriptor.set.call(template, String(html || ''));
+
+    const sanitizeNode = (node) => {
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+        if (blockedTags.has(node.tagName)) {
+            node.remove();
+            return;
+        }
+
+        [...node.attributes].forEach(attr => {
+            const name = attr.name.toLowerCase();
+            const value = String(attr.value || '').trim();
+            const lowerValue = value.replace(/[\u0000-\u001F\u007F\s]+/g, '').toLowerCase();
+
+            if (
+                name.startsWith('on') ||
+                name === 'srcdoc' ||
+                name === 'xlink:href' ||
+                name === 'formaction' ||
+                lowerValue.startsWith('javascript:') ||
+                lowerValue.startsWith('vbscript:') ||
+                lowerValue.startsWith('data:text/html')
+            ) {
+                node.removeAttribute(attr.name);
+                return;
+            }
+
+            if (['src', 'href'].includes(name)) {
+                const isSafeDataImage = /^data:image\/(png|jpe?g|gif|webp);base64,/i.test(value) || value === DEFAULT_AVATAR_SVG;
+                const isSafeUrl = /^(https?:|mailto:|\/|\.\/|\.\.\/|covers\/|logos\/|#)/i.test(value);
+                if (!isSafeDataImage && !isSafeUrl) {
+                    node.removeAttribute(attr.name);
+                }
+            }
+        });
+
+        [...node.children].forEach(sanitizeNode);
+    };
+
+    [...template.content.children].forEach(sanitizeNode);
+    return htmlDescriptor.get.call(template);
+}
+
+(function installInnerHtmlSanitizer() {
+    if (typeof Element === 'undefined' || Element.prototype.__anivoidInnerHtmlSanitized) return;
+    const htmlDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+    Object.defineProperty(Element.prototype, 'innerHTML', {
+        get() {
+            return htmlDescriptor.get.call(this);
+        },
+        set(value) {
+            htmlDescriptor.set.call(this, sanitizeHtml(value));
+        }
+    });
+    Object.defineProperty(Element.prototype, '__anivoidInnerHtmlSanitized', { value: true });
+})();
+
 function deterministicStringify(obj) {
     if (obj === null || typeof obj !== 'object') {
         return JSON.stringify(obj);

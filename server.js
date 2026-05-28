@@ -6,21 +6,24 @@ const crypto = require('crypto');
 const PORT = process.env.PORT || 8080;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const STATE_FILE = process.env.STATE_FILE || path.join(DATA_DIR, 'state.json');
+const DATABASE_URL = process.env.DATABASE_URL || '';
 const PASSWORD_ITERATIONS = 310000;
 const PASSWORD_KEY_LENGTH = 32;
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const sessions = new Map();
+const DEFAULT_STATE = {
+    friends: [],
+    animes: [],
+    registeredUsers: [],
+    activities: []
+};
 
 // Ensure data folder and state file exist
-if (!fs.existsSync(DATA_DIR)) {
+if (!DATABASE_URL && !fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
 }
-if (!fs.existsSync(STATE_FILE)) {
-    fs.writeFileSync(STATE_FILE, JSON.stringify({
-        friends: [],
-        animes: [],
-        registeredUsers: []
-    }, null, 2));
+if (!DATABASE_URL && !fs.existsSync(STATE_FILE)) {
+    fs.writeFileSync(STATE_FILE, JSON.stringify(DEFAULT_STATE, null, 2));
 }
 
 const MIME_TYPES = {
@@ -36,6 +39,167 @@ const MIME_TYPES = {
 
 function normalizeUsername(username) {
     return String(username || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function decodeHtmlEntities(value) {
+    return String(value || '')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, '&');
+}
+
+function escapeHtml(value, maxLength = 5000) {
+    const text = decodeHtmlEntities(value)
+        .replace(/\u0000/g, '')
+        .slice(0, maxLength);
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function sanitizeColor(color) {
+    const value = String(color || '').trim();
+    return /^#[0-9a-fA-F]{6}$/.test(value) ? value : '#FF4500';
+}
+
+function sanitizeImageUrl(url) {
+    const value = String(url || '').trim().slice(0, 4096);
+    if (!value) return '';
+    if (/^https?:\/\//i.test(value)) return value;
+    if (/^data:image\/(png|jpe?g|gif|webp);base64,[a-z0-9+/=]+$/i.test(value)) return value;
+    if (/^(covers|logos)\/[a-z0-9._/-]+\.(png|jpe?g|webp|gif)$/i.test(value)) return value;
+    return '';
+}
+
+function sanitizeTextArray(values, maxItems = 20, maxLength = 80) {
+    return Array.isArray(values)
+        ? values.slice(0, maxItems).map(value => escapeHtml(value, maxLength)).filter(Boolean)
+        : [];
+}
+
+function sanitizeUserRecord(user) {
+    if (!user || typeof user !== 'object') return user;
+    return {
+        ...user,
+        username: escapeHtml(user.username || '', 40),
+        email: escapeHtml(String(user.email || '').trim(), 254),
+        color: sanitizeColor(user.color),
+        avatar: sanitizeImageUrl(user.avatar) || escapeHtml(user.avatar || '👤', 80),
+        favoriteGenres: sanitizeTextArray(user.favoriteGenres),
+        favoriteStudios: sanitizeTextArray(user.favoriteStudios),
+        favoriteAnimes: sanitizeTextArray(user.favoriteAnimes, 50, 120),
+        activeTitle: escapeHtml(user.activeTitle || '', 80),
+        memberDesc: user.memberDesc ? escapeHtml(user.memberDesc, 300) : user.memberDesc,
+        friends: Array.isArray(user.friends) ? user.friends.slice(0, 500).map(name => escapeHtml(name, 40)).filter(Boolean) : [],
+        friendRequests: Array.isArray(user.friendRequests)
+            ? user.friendRequests.slice(0, 500).map(req => ({
+                ...req,
+                from: escapeHtml(req && req.from || '', 40),
+                timestamp: escapeHtml(req && req.timestamp || '', 40)
+            }))
+            : []
+    };
+}
+
+function sanitizeComment(comment) {
+    if (!comment || typeof comment !== 'object') return comment;
+    return {
+        ...comment,
+        id: escapeHtml(comment.id || '', 100),
+        friendId: escapeHtml(comment.friendId || '', 80),
+        friendName: escapeHtml(comment.friendName || '', 80),
+        comment: escapeHtml(comment.comment || '', 5000),
+        timestamp: escapeHtml(comment.timestamp || '', 40),
+        replies: Array.isArray(comment.replies)
+            ? comment.replies.slice(0, 500).map(reply => ({
+                ...reply,
+                id: escapeHtml(reply && reply.id || '', 100),
+                friendId: escapeHtml(reply && reply.friendId || '', 80),
+                friendName: escapeHtml(reply && reply.friendName || '', 80),
+                reply: escapeHtml(reply && reply.reply || '', 3000),
+                timestamp: escapeHtml(reply && reply.timestamp || '', 40)
+            }))
+            : []
+    };
+}
+
+function sanitizeRatings(ratings) {
+    if (!ratings || typeof ratings !== 'object') return {};
+    const safeRatings = {};
+    Object.entries(ratings).slice(0, 1000).forEach(([friendId, rating]) => {
+        if (!rating || typeof rating !== 'object') return;
+        const safeEpisodeRatings = {};
+        if (rating.episodeRatings && typeof rating.episodeRatings === 'object') {
+            Object.entries(rating.episodeRatings).slice(0, 1000).forEach(([episode, score]) => {
+                const safeEpisode = escapeHtml(episode, 20);
+                const numericScore = Number(score);
+                safeEpisodeRatings[safeEpisode] = Number.isFinite(numericScore) ? numericScore : 0;
+            });
+        }
+        safeRatings[escapeHtml(friendId, 80)] = {
+            ...rating,
+            animation: Number.isFinite(Number(rating.animation)) ? Number(rating.animation) : 0,
+            story: Number.isFinite(Number(rating.story)) ? Number(rating.story) : 0,
+            sound: Number.isFinite(Number(rating.sound)) ? Number(rating.sound) : 0,
+            overall: rating.overall === '-' ? '-' : (Number.isFinite(Number(rating.overall)) ? Number(rating.overall) : 0),
+            status: escapeHtml(rating.status || 'Plan to Watch', 80),
+            episodesWatched: Number.isFinite(Number(rating.episodesWatched)) ? Number(rating.episodesWatched) : 0,
+            episodeRatings: safeEpisodeRatings
+        };
+    });
+    return safeRatings;
+}
+
+function sanitizeAnimeRecord(anime) {
+    if (!anime || typeof anime !== 'object') return anime;
+    return {
+        ...anime,
+        id: escapeHtml(anime.id || '', 120),
+        title: escapeHtml(anime.title || '', 180),
+        japaneseTitle: escapeHtml(anime.japaneseTitle || '', 180),
+        synopsis: escapeHtml(anime.synopsis || '', 5000),
+        coverUrl: sanitizeImageUrl(anime.coverUrl) || '',
+        genres: sanitizeTextArray(anime.genres, 20, 80),
+        studio: escapeHtml(anime.studio || '', 120),
+        status: escapeHtml(anime.status || '', 80),
+        season: escapeHtml(anime.season || '', 80),
+        episodes: escapeHtml(anime.episodes || '', 40),
+        ratings: sanitizeRatings(anime.ratings),
+        comments: Array.isArray(anime.comments) ? anime.comments.map(sanitizeComment).filter(Boolean) : []
+    };
+}
+
+function sanitizeStateForStorage(state) {
+    const safeState = state && typeof state === 'object' ? state : DEFAULT_STATE;
+    return {
+        ...safeState,
+        friends: Array.isArray(safeState.friends) ? safeState.friends.slice(0, 500).map(friend => ({
+            ...friend,
+            name: escapeHtml(friend && friend.name || '', 80),
+            avatar: sanitizeImageUrl(friend && friend.avatar) || escapeHtml(friend && friend.avatar || '👤', 80),
+            color: sanitizeColor(friend && friend.color)
+        })) : [],
+        animes: Array.isArray(safeState.animes) ? safeState.animes.map(sanitizeAnimeRecord).filter(Boolean) : [],
+        registeredUsers: Array.isArray(safeState.registeredUsers) ? safeState.registeredUsers.map(sanitizeUserRecord).filter(Boolean) : [],
+        activities: Array.isArray(safeState.activities) ? safeState.activities.slice(0, 100).map(activity => ({
+            ...activity,
+            id: escapeHtml(activity && activity.id || '', 120),
+            username: escapeHtml(activity && activity.username || '', 80),
+            userColor: sanitizeColor(activity && activity.userColor),
+            userAvatar: sanitizeImageUrl(activity && activity.userAvatar) || escapeHtml(activity && activity.userAvatar || '👤', 80),
+            type: escapeHtml(activity && activity.type || '', 60),
+            animeId: escapeHtml(activity && activity.animeId || '', 120),
+            animeTitle: escapeHtml(activity && activity.animeTitle || '', 180),
+            details: escapeHtml(activity && activity.details || '', 300),
+            timestamp: escapeHtml(activity && activity.timestamp || '', 40)
+        })) : [],
+        featuredAnimeId: safeState.featuredAnimeId ? escapeHtml(safeState.featuredAnimeId, 120) : null
+    };
 }
 
 function sendJson(res, statusCode, payload) {
@@ -62,10 +226,11 @@ function sanitizeUser(user, viewerUsername = '') {
 }
 
 function sanitizeState(state, viewerUsername = '') {
+    const storageSafeState = sanitizeStateForStorage(state);
     const safeState = {
-        ...state,
-        registeredUsers: Array.isArray(state.registeredUsers)
-            ? state.registeredUsers.map(user => sanitizeUser(user, viewerUsername))
+        ...storageSafeState,
+        registeredUsers: Array.isArray(storageSafeState.registeredUsers)
+            ? storageSafeState.registeredUsers.map(user => sanitizeUser(user, viewerUsername))
             : []
     };
     return safeState;
@@ -146,6 +311,92 @@ function isAdminUser(user) {
         .map(name => normalizeUsername(name))
         .filter(Boolean);
     return admins.includes(normalizeUsername(user && user.username));
+}
+
+let pgPool = null;
+let pgReadyPromise = null;
+
+function getPgPool() {
+    if (!DATABASE_URL) return null;
+    if (pgPool) return pgPool;
+    try {
+        const { Pool } = require('pg');
+        pgPool = new Pool({
+            connectionString: DATABASE_URL,
+            ssl: process.env.PGSSLMODE === 'disable' ? false : { rejectUnauthorized: false }
+        });
+        return pgPool;
+    } catch (err) {
+        throw new Error('Postgres storage requires the "pg" package. Run npm install or deploy with package.json dependencies.');
+    }
+}
+
+async function ensurePostgresState() {
+    if (!DATABASE_URL) return;
+    if (pgReadyPromise) return pgReadyPromise;
+
+    pgReadyPromise = (async () => {
+        const pool = getPgPool();
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS app_state (
+                id text PRIMARY KEY,
+                state jsonb NOT NULL,
+                updated_at timestamptz NOT NULL DEFAULT now()
+            )
+        `);
+
+        let initialState = DEFAULT_STATE;
+        if (fs.existsSync(STATE_FILE)) {
+            try {
+                initialState = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+            } catch (err) {
+                initialState = DEFAULT_STATE;
+            }
+        }
+
+        await pool.query(
+            `INSERT INTO app_state (id, state)
+             VALUES ($1, $2::jsonb)
+             ON CONFLICT (id) DO NOTHING`,
+            ['main', JSON.stringify(sanitizeStateForStorage(initialState))]
+        );
+    })();
+
+    return pgReadyPromise;
+}
+
+function readState(callback) {
+    if (!DATABASE_URL) {
+        fs.readFile(STATE_FILE, 'utf8', callback);
+        return;
+    }
+
+    ensurePostgresState()
+        .then(() => getPgPool().query('SELECT state FROM app_state WHERE id = $1', ['main']))
+        .then(result => {
+            const state = result.rows[0] ? result.rows[0].state : DEFAULT_STATE;
+            callback(null, JSON.stringify(state));
+        })
+        .catch(err => callback(err));
+}
+
+function writeState(state, callback) {
+    const safeState = sanitizeStateForStorage(state);
+    if (!DATABASE_URL) {
+        fs.writeFile(STATE_FILE, JSON.stringify(safeState, null, 2), 'utf8', callback);
+        return;
+    }
+
+    ensurePostgresState()
+        .then(() => getPgPool().query(
+            `INSERT INTO app_state (id, state, updated_at)
+             VALUES ($1, $2::jsonb, now())
+             ON CONFLICT (id)
+             DO UPDATE SET state = EXCLUDED.state, updated_at = now()`,
+            ['main', JSON.stringify(safeState)]
+        ))
+        .then(() => callback(null))
+        .catch(err => callback(err));
 }
 
 // Helper to merge state databases on the server
@@ -534,7 +785,7 @@ const server = http.createServer((req, res) => {
                 if (!username || !fields) {
                     sendJson(res, 400, { error: 'Missing username or fields' }); return;
                 }
-                fs.readFile(STATE_FILE, 'utf8', (err, data) => {
+                readState((err, data) => {
                     let state = { friends: [], animes: [], registeredUsers: [], activities: [] };
                     if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
                     const authUser = requireAuthenticatedUser(req, res, state);
@@ -553,7 +804,7 @@ const server = http.createServer((req, res) => {
                     Object.assign(state.registeredUsers[idx], safeFields);
                     // If field is explicitly null, delete it
                     Object.keys(safeFields).forEach(k => { if (safeFields[k] === null) delete state.registeredUsers[idx][k]; });
-                    fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), 'utf8', (writeErr) => {
+                    writeState(state, (writeErr) => {
                         if (writeErr) { sendJson(res, 500, { error: 'Failed to save' }); return; }
                         sendJson(res, 200, {
                             success: true,
@@ -570,7 +821,7 @@ const server = http.createServer((req, res) => {
 
     // API Route: Get state
     if (req.url === '/api/get-state' && req.method === 'GET') {
-        fs.readFile(STATE_FILE, 'utf8', (err, data) => {
+        readState((err, data) => {
             if (err) {
                 sendJson(res, 500, { error: 'Failed to read state' });
                 return;
@@ -594,7 +845,7 @@ const server = http.createServer((req, res) => {
                     sendJson(res, 400, { error: 'E-mail e senha são obrigatórios.' });
                     return;
                 }
-                fs.readFile(STATE_FILE, 'utf8', (err, data) => {
+                readState((err, data) => {
                     let state = { friends: [], animes: [], registeredUsers: [], activities: [] };
                     if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
                     if (!state.registeredUsers) state.registeredUsers = [];
@@ -625,7 +876,7 @@ const server = http.createServer((req, res) => {
                     };
 
                     if (migrated) {
-                        fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), 'utf8', (writeErr) => {
+                        writeState(state, (writeErr) => {
                             if (writeErr) {
                                 sendJson(res, 500, { error: 'Falha ao atualizar credenciais.' });
                                 return;
@@ -658,7 +909,7 @@ const server = http.createServer((req, res) => {
                     sendJson(res, 400, { error: 'A senha deve ter pelo menos 4 caracteres.' });
                     return;
                 }
-                fs.readFile(STATE_FILE, 'utf8', (err, data) => {
+                readState((err, data) => {
                     let state = { friends: [], animes: [], registeredUsers: [], activities: [] };
                     if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
                     if (!state.registeredUsers) state.registeredUsers = [];
@@ -705,7 +956,7 @@ const server = http.createServer((req, res) => {
                     };
                     setPassword(userToAdd, newUser.password);
                     state.registeredUsers.push(userToAdd);
-                    fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), 'utf8', (writeErr) => {
+                    writeState(state, (writeErr) => {
                         if (writeErr) {
                             sendJson(res, 500, { error: 'Failed to save user' });
                             return;
@@ -735,7 +986,7 @@ const server = http.createServer((req, res) => {
                 const payload = JSON.parse(body);
                 const localState = payload.localState || payload;
 
-                fs.readFile(STATE_FILE, 'utf8', (err, data) => {
+                readState((err, data) => {
                     let serverState = { friends: [], animes: [], registeredUsers: [] };
                     if (!err && data) {
                         try { serverState = JSON.parse(data); } catch(e) {}
@@ -744,7 +995,7 @@ const server = http.createServer((req, res) => {
                     if (!authUser) return;
                     const loggedInUser = authUser.username;
                     const newState = mergeStates(localState, serverState, loggedInUser);
-                    fs.writeFile(STATE_FILE, JSON.stringify(newState, null, 2), 'utf8', (writeErr) => {
+                    writeState(newState, (writeErr) => {
                         if (writeErr) {
                             sendJson(res, 500, { error: 'Failed to write state' });
                             return;
@@ -770,7 +1021,7 @@ const server = http.createServer((req, res) => {
                     sendJson(res, 400, { error: 'Missing username or animeIds' });
                     return;
                 }
-                fs.readFile(STATE_FILE, 'utf8', (err, data) => {
+                readState((err, data) => {
                     let state = { friends: [], animes: [], registeredUsers: [] };
                     if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
                     const authUser = requireAuthenticatedUser(req, res, state);
@@ -787,7 +1038,7 @@ const server = http.createServer((req, res) => {
                             cleared++;
                         }
                     });
-                    fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), 'utf8', (writeErr) => {
+                    writeState(state, (writeErr) => {
                         if (writeErr) {
                             sendJson(res, 500, { error: 'Failed to save' });
                             return;
@@ -814,7 +1065,7 @@ const server = http.createServer((req, res) => {
                     return;
                 }
                 
-                fs.readFile(STATE_FILE, 'utf8', (err, data) => {
+                readState((err, data) => {
                     let state = { friends: [], animes: [], registeredUsers: [] };
                     if (!err && data) {
                         try { state = JSON.parse(data); } catch(e) {}
@@ -852,7 +1103,7 @@ const server = http.createServer((req, res) => {
                         });
                     }
                     
-                    fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), 'utf8', (writeErr) => {
+                    writeState(state, (writeErr) => {
                         if (writeErr) {
                             sendJson(res, 500, { error: 'Failed to save request' });
                             return;
@@ -886,7 +1137,7 @@ const server = http.createServer((req, res) => {
                     return;
                 }
                 
-                fs.readFile(STATE_FILE, 'utf8', (err, data) => {
+                readState((err, data) => {
                     let state = { friends: [], animes: [], registeredUsers: [] };
                     if (!err && data) {
                         try { state = JSON.parse(data); } catch(e) {}
@@ -920,7 +1171,7 @@ const server = http.createServer((req, res) => {
                         }
                     }
                     
-                    fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), 'utf8', (writeErr) => {
+                    writeState(state, (writeErr) => {
                         if (writeErr) {
                             sendJson(res, 500, { error: 'Failed to save request response' });
                             return;
@@ -950,7 +1201,7 @@ const server = http.createServer((req, res) => {
                     return;
                 }
                 
-                fs.readFile(STATE_FILE, 'utf8', (err, data) => {
+                readState((err, data) => {
                     let state = { friends: [], animes: [], registeredUsers: [] };
                     if (!err && data) {
                         try { state = JSON.parse(data); } catch(e) {}
@@ -973,7 +1224,7 @@ const server = http.createServer((req, res) => {
                         }
                     }
                     
-                    fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), 'utf8', (writeErr) => {
+                    writeState(state, (writeErr) => {
                         if (writeErr) {
                             sendJson(res, 500, { error: 'Failed to remove friend' });
                             return;
