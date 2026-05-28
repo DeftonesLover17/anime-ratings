@@ -4013,15 +4013,45 @@ function openAnimeDetail(animeId) {
     const grid = document.getElementById('anime-grid-section');
     const detailPage = document.getElementById('anime-detail-page');
 
-    if (banner) banner.style.display = 'none';
-    if (grid) grid.style.display = 'none';
+    // Cinematic page transition — fade out current view, slide in detail
+    const transitionOverlay = document.createElement('div');
+    transitionOverlay.style.cssText = `
+        position:fixed; inset:0; z-index:10001;
+        background:#050505;
+        opacity:0; pointer-events:none;
+        transition: opacity 0.35s cubic-bezier(0.4,0,0.2,1);
+    `;
+    document.body.appendChild(transitionOverlay);
 
-    if (detailPage) {
-        detailPage.classList.remove('hidden');
+    requestAnimationFrame(() => {
+        transitionOverlay.style.opacity = '1';
+    });
+
+    setTimeout(() => {
+        if (banner) banner.style.display = 'none';
+        if (grid) grid.style.display = 'none';
+
+        if (detailPage) {
+            detailPage.classList.remove('hidden');
+            detailPage.style.opacity = '0';
+            detailPage.style.transform = 'translateY(32px)';
+            detailPage.style.transition = 'none';
+        }
+
+        // Fade overlay out and slide detail page in
         requestAnimationFrame(() => {
-            detailPage.classList.add('page-transition-active');
+            transitionOverlay.style.opacity = '0';
+            if (detailPage) {
+                detailPage.style.transition = 'opacity 0.45s cubic-bezier(0.4,0,0.2,1), transform 0.45s cubic-bezier(0.34,1.1,0.64,1)';
+                detailPage.style.opacity = '1';
+                detailPage.style.transform = 'translateY(0)';
+            }
+            setTimeout(() => {
+                transitionOverlay.remove();
+                if (detailPage) detailPage.classList.add('page-transition-active');
+            }, 450);
         });
-    }
+    }, 350);
 
     // Set anime base details
     document.getElementById('detail-banner').src = anime.coverUrl;
@@ -4734,13 +4764,38 @@ function closeAnimeDetail() {
 
     if (detailPage) {
         detailPage.classList.remove('page-transition-active');
+
+        // Slide detail page out
+        detailPage.style.transition = 'opacity 0.3s cubic-bezier(0.4,0,0.2,1), transform 0.3s cubic-bezier(0.4,0,0.2,1)';
+        detailPage.style.opacity = '0';
+        detailPage.style.transform = 'translateY(24px)';
+
+        // Fade overlay in
+        const transitionOverlay = document.createElement('div');
+        transitionOverlay.style.cssText = `
+            position:fixed; inset:0; z-index:10001;
+            background:#050505;
+            opacity:0; pointer-events:none;
+            transition: opacity 0.3s cubic-bezier(0.4,0,0.2,1);
+        `;
+        document.body.appendChild(transitionOverlay);
+        requestAnimationFrame(() => { transitionOverlay.style.opacity = '1'; });
+
         setTimeout(() => {
             detailPage.classList.add('hidden');
+            detailPage.style.opacity = '';
+            detailPage.style.transform = '';
+            detailPage.style.transition = '';
             if (banner) banner.style.display = '';
             if (grid) grid.style.display = '';
             state.activeDetailAnimeId = null;
             renderAnimeGrid();
             renderFeaturedBanner();
+
+            requestAnimationFrame(() => {
+                transitionOverlay.style.opacity = '0';
+                setTimeout(() => transitionOverlay.remove(), 350);
+            });
         }, 300);
     }
 }
