@@ -2500,6 +2500,9 @@ function getMemberBadgeHtml(user, compact = false) {
     if (num === 1) {
         style = 'background: linear-gradient(135deg, #ffd700, #ff8c00, #ffd700); color: #1a0a00; border-color: #ffd700;';
         icon = '👑'; label = compact ? `N°${num}` : `MEMBRO OURO  N°${num}`;
+    } else if (num === 2) {
+        style = 'background: linear-gradient(135deg, #064e3b, #065f46, #047857); color: #6ee7b7; border-color: #10b981; box-shadow: 0 0 14px rgba(16,185,129,0.5);';
+        icon = '⚡'; label = compact ? `N°${num}` : `MEMBRO ELITE  N°${num}`;
     } else if (num <= 5) {
         style = 'background: linear-gradient(135deg, #7B2FBE, #4a1080); color: #e8d5ff; border-color: #a855f7;';
         icon = '⚡'; label = compact ? `N°${num}` : `MEMBRO ELITE  N°${num}`;
@@ -2511,10 +2514,15 @@ function getMemberBadgeHtml(user, compact = false) {
         icon = '✦'; label = compact ? `N°${num}` : `MEMBRO  N°${num}`;
     }
 
+    // Always show full label with icon in pill style (matching Felipe's ADMIN/FUNDADOR badges)
+    const fullLabel = num === 1 ? `MEMBRO OURO N°${num}` :
+                      num <= 5 ? `MEMBRO ELITE N°${num}` :
+                      num <= 20 ? `MEMBRO ANTIGO N°${num}` :
+                      `MEMBRO N°${num}`;
     if (compact) {
-        return `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[8px] font-mono font-bold border ml-1 shrink-0" style="${style} box-shadow: 0 0 6px rgba(255,255,255,0.1);">${icon} ${label}</span>`;
+        return `<span class="premium-badge ml-1" style="${style} display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:6px; font-size:9px; font-family:monospace; font-weight:900; letter-spacing:0.06em; text-transform:uppercase; border:1px solid; box-shadow: 0 0 8px rgba(255,255,255,0.15);">${icon} ${fullLabel}</span>`;
     }
-    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-mono font-bold border ml-1.5 shrink-0" style="${style} box-shadow: 0 0 8px rgba(255,255,255,0.12); letter-spacing: 0.05em;">${icon} ${label}</span>`;
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-mono font-bold border ml-1.5 shrink-0" style="${style} box-shadow: 0 0 8px rgba(255,255,255,0.12); letter-spacing: 0.05em;">${icon} ${fullLabel}</span>`;
 }
 
 // Helper to get HTML badges for Felipe dynamically based on active title choice (admin, founder, or both)
