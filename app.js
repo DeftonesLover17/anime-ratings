@@ -5388,9 +5388,7 @@ function initRegistrationOptions() {
                 if (!localStorage.getItem(badgeSeenKey)) {
                     localStorage.setItem(badgeSeenKey, '1');
                     const memberNumber = matchedUser.memberNumber || null;
-                    if (memberNumber) {
-                        setTimeout(() => showMemberWelcomeModal(matchedUser.username, memberNumber), 800);
-                    }
+                    setTimeout(() => showMemberWelcomeModal(matchedUser.username, memberNumber), 800);
                 }
             } else {
                 alert('E-mail ou senha incorretos! Por favor, tente novamente.');
@@ -5595,6 +5593,14 @@ function showMemberWelcomeModal(username, memberNumber) {
         particleColor = '#7dd3fc';
         glowColor = 'rgba(56, 189, 248, 0.4)';
         tierDesc = `Você é o <strong style="color:#7dd3fc">${num}º membro</strong> a fazer parte do AniVoid.<br>Parte da geração que moldou esta comunidade.`;
+    } else if (num === 0) {
+        tierIcon = '⭐';
+        tierLabel = 'MEMBRO ELITE';
+        tierStyle = 'linear-gradient(135deg, #7c3aed, #6d28d9, #4c1d95)';
+        tierBorder = '#a78bfa';
+        particleColor = '#c4b5fd';
+        glowColor = 'rgba(167, 139, 250, 0.4)';
+        tierDesc = `Você faz parte do <strong style="color:#c4b5fd">grupo fundador</strong> do AniVoid.<br>Sua insígnia de membro está sendo processada.`;
     } else {
         tierIcon = '✦';
         tierLabel = 'MEMBRO';
@@ -5669,7 +5675,7 @@ function showMemberWelcomeModal(username, memberNumber) {
                     font-size:13px; letter-spacing:0.12em; text-transform:uppercase;
                     color:#fff; margin-bottom:24px;
                 ">
-                    ${tierIcon} &nbsp;${tierLabel} &nbsp;·&nbsp; N°${num}
+                    ${tierIcon} &nbsp;${tierLabel}${num > 0 ? ` &nbsp;·&nbsp; N°${num}` : ""}
                 </div>
 
                 <!-- Welcome heading -->
@@ -7133,5 +7139,3 @@ if (document.readyState === 'loading') {
 } else {
     startApp();
 }
-
-
