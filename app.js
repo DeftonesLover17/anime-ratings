@@ -1513,24 +1513,10 @@ class AppState {
     calculateAverageScore(animeId) {
         const anime = this.animes.find(a => a.id === animeId);
         if (!anime || !anime.ratings) return 0;
-        
-        // Identify allowed user IDs for the group (logged-in user + their friends)
-        const groupUserIds = new Set();
-        if (this.loggedInUser) {
-            groupUserIds.add(this.loggedInUser.toLowerCase().replace(/[^a-z0-9]/g, ''));
-        }
-        if (this.friends && Array.isArray(this.friends)) {
-            this.friends.forEach(f => {
-                if (f.id) groupUserIds.add(f.id.toLowerCase().replace(/[^a-z0-9]/g, ''));
-            });
-        }
 
-        let ratingsEntries = Object.entries(anime.ratings);
-        
-        // If logged in, restrict to group members
-        if (this.loggedInUser) {
-            ratingsEntries = ratingsEntries.filter(([userId]) => groupUserIds.has(userId));
-        }
+        // Include ALL users who have rated this anime (friends + any registered user)
+        // This ensures non-friends like yamazx still contribute to the group score
+        const ratingsEntries = Object.entries(anime.ratings);
 
         const ratingsValues = ratingsEntries
             .map(([_, r]) => parseFloat(r.overall))
@@ -4426,8 +4412,30 @@ function renderComments(anime) {
     const sortedComments = [...comments].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
     sortedComments.forEach(comment => {
-        const friend = state.friends.find(f => f.id === comment.friendId) || { avatar: '👤', name: comment.friendName || 'Desconhecido', color: '#7f8c8d' };
-        
+        // Try to find author in friends first, then fall back to registeredUsers
+        let friend = state.friends.find(f => f.id === comment.friendId);
+        if (!friend) {
+            try {
+                const regUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+                const regUser = regUsers.find(u => u && u.username &&
+                    u.username.toLowerCase().replace(/[^a-z0-9]/g, '') === comment.friendId);
+                if (regUser) {
+                    friend = {
+                        id: comment.friendId,
+                        name: regUser.username,
+                        avatar: regUser.avatar || '👤',
+                        color: regUser.color || '#7f8c8d'
+                    };
+                }
+            } catch(e) {}
+        }
+        if (!friend) {
+            friend = { id: comment.friendId, avatar: '👤', name: comment.friendName || 'Desconhecido', color: '#7f8c8d' };
+        }
+
+        // Get this user's overall score for this anime
+        const userRating = anime.ratings?.[comment.friendId];
+        const userScore = userRating?.overall > 0 ? userRating.overall : null;
         let dateText = '';
         try {
             const date = new Date(comment.timestamp);
@@ -4458,11 +4466,18 @@ function renderComments(anime) {
         const repliesCount = (comment.replies || []).length;
         const repliesLabel = repliesCount > 0 ? `${repliesCount} resposta${repliesCount > 1 ? 's' : ''}` : 'Responder';
 
+        // Score badge shown next to the commenter's name
+        let scoreBadgeHtml = '';
+        if (userScore !== null && userScore !== undefined) {
+            const scoreColorInfo = getScoreColor(userScore);
+            scoreBadgeHtml = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold ml-1.5" style="background: ${scoreColorInfo.text}18; border: 1px solid ${scoreColorInfo.text}40; color: ${scoreColorInfo.text}; text-shadow: 0 0 6px ${scoreColorInfo.glow}">★ ${userScore}</span>`;
+        }
+
         div.innerHTML = `
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     ${avatarHtml}
-                    <span class="font-mono text-sm font-bold" style="color: ${friend.color}">${friend.name}${adminBadgeHtml}</span>
+                    <span class="font-mono text-sm font-bold" style="color: ${friend.color}">${friend.name}${adminBadgeHtml}${scoreBadgeHtml}</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <div class="flex items-center gap-2 text-[10px] mr-1">
