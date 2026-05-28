@@ -323,6 +323,19 @@ function formatPostgresError(err) {
     return [err && err.code, message].filter(Boolean).join(' ');
 }
 
+function classifyPostgresError(err) {
+    const code = err && err.code;
+    const message = String((err && err.message) || '').toLowerCase();
+    if (message.includes('pg package') || message.includes("cannot find module 'pg'")) return 'missing_pg_dependency';
+    if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') return 'db_host_not_found';
+    if (code === 'ETIMEDOUT' || message.includes('timeout')) return 'db_connection_timeout';
+    if (code === 'ECONNREFUSED') return 'db_connection_refused';
+    if (code === '28P01' || message.includes('password authentication failed')) return 'db_auth_failed';
+    if (code === '3D000' || message.includes('database') && message.includes('does not exist')) return 'db_not_found';
+    if (message.includes('ssl') || message.includes('pg_hba.conf')) return 'db_ssl_or_access_rule';
+    return 'db_unknown_error';
+}
+
 function getPgPool() {
     if (!DATABASE_URL) return null;
     if (pgPool) return pgPool;
@@ -842,7 +855,12 @@ const server = http.createServer((req, res) => {
             .then(() => sendJson(res, 200, { ok: true, storage: 'postgres' }))
             .catch(err => {
                 console.error(`Health check failed. ${formatPostgresError(err)}`);
-                sendJson(res, 503, { ok: false, storage: 'postgres', error: 'storage_unavailable' });
+                sendJson(res, 503, {
+                    ok: false,
+                    storage: 'postgres',
+                    error: 'storage_unavailable',
+                    reason: classifyPostgresError(err)
+                });
             });
         return;
     }
