@@ -75,7 +75,7 @@ function sanitizeImageUrl(url) {
 
     if (/^data:image\/(png|jpe?g|gif|webp);base64,/i.test(value)) {
         const compactValue = value.replace(/\s+/g, '');
-        if (compactValue.length <= MAX_DATA_IMAGE_LENGTH && /^data:image\/(png|jpe?g|gif|webp);base64,[a-z0-9+/=]+$/i.test(compactValue)) {
+        if (compactValue.length <= MAX_DATA_IMAGE_LENGTH && isCompleteDataImage(compactValue)) {
             return compactValue;
         }
         return '';
@@ -85,6 +85,40 @@ function sanitizeImageUrl(url) {
     if (/^https?:\/\//i.test(value)) return value;
     if (/^(covers|logos)\/[a-z0-9._/-]+\.(png|jpe?g|webp|gif)$/i.test(value)) return value;
     return '';
+}
+
+function isCompleteDataImage(value) {
+    const match = String(value || '').match(/^data:image\/(png|jpe?g|gif|webp);base64,([a-z0-9+/=]+)$/i);
+    if (!match) return false;
+    const type = match[1].toLowerCase();
+    const base64 = match[2];
+    if (base64.length % 4 === 1) return false;
+
+    let bytes;
+    try {
+        bytes = Buffer.from(base64, 'base64');
+    } catch (err) {
+        return false;
+    }
+    if (bytes.length < 12) return false;
+
+    if (type === 'jpg' || type === 'jpeg') {
+        return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[bytes.length - 2] === 0xff && bytes[bytes.length - 1] === 0xd9;
+    }
+    if (type === 'png') {
+        return bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47
+            && bytes.slice(-8, -4).toString('ascii') === 'IEND';
+    }
+    if (type === 'gif') {
+        const header = bytes.slice(0, 6).toString('ascii');
+        return (header === 'GIF87a' || header === 'GIF89a') && bytes[bytes.length - 1] === 0x3b;
+    }
+    if (type === 'webp') {
+        return bytes.slice(0, 4).toString('ascii') === 'RIFF'
+            && bytes.slice(8, 12).toString('ascii') === 'WEBP'
+            && bytes.readUInt32LE(4) + 8 <= bytes.length;
+    }
+    return false;
 }
 
 function sanitizeAvatar(avatar) {
