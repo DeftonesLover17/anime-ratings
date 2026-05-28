@@ -380,6 +380,73 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    // API Route: Register new user (dedicated - always persists immediately)
+    if (req.url === '/api/register' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+            try {
+                const newUser = JSON.parse(body);
+                if (!newUser.username || !newUser.email) {
+                    res.statusCode = 400;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify({ error: 'username and email required' }));
+                    return;
+                }
+                fs.readFile(STATE_FILE, 'utf8', (err, data) => {
+                    let state = { friends: [], animes: [], registeredUsers: [], activities: [] };
+                    if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
+                    if (!state.registeredUsers) state.registeredUsers = [];
+
+                    const existingIdx = state.registeredUsers.findIndex(u =>
+                        (u.username && u.username.toLowerCase() === newUser.username.toLowerCase()) ||
+                        (u.email && u.email.toLowerCase() === newUser.email.toLowerCase())
+                    );
+                    if (existingIdx >= 0) {
+                        // User already exists — return success without overwriting social graph
+                        res.statusCode = 200;
+                        res.setHeader('Content-Type', 'application/json');
+                        res.end(JSON.stringify({ success: true, user: state.registeredUsers[existingIdx] }));
+                        return;
+                    }
+
+                    const userToAdd = {
+                        username: newUser.username,
+                        email: newUser.email,
+                        password: newUser.password || '',
+                        color: newUser.color || '#FF4500',
+                        avatar: newUser.avatar || '👤',
+                        emailVerified: newUser.emailVerified !== undefined ? newUser.emailVerified : false,
+                        friends: [],
+                        friendRequests: [],
+                        favoriteGenres: newUser.favoriteGenres || [],
+                        favoriteStudios: newUser.favoriteStudios || [],
+                        favoriteAnimes: newUser.favoriteAnimes || [],
+                        activeTitle: newUser.activeTitle || '',
+                        isVirtual: false
+                    };
+                    state.registeredUsers.push(userToAdd);
+                    fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), 'utf8', (writeErr) => {
+                        if (writeErr) {
+                            res.statusCode = 500;
+                            res.setHeader('Content-Type', 'application/json');
+                            res.end(JSON.stringify({ error: 'Failed to save user' }));
+                            return;
+                        }
+                        res.statusCode = 200;
+                        res.setHeader('Content-Type', 'application/json');
+                        res.end(JSON.stringify({ success: true, user: userToAdd }));
+                    });
+                });
+            } catch(e) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'Invalid JSON' }));
+            }
+        });
+        return;
+    }
+
     // API Route: Sync state
     if (req.url === '/api/sync-state' && req.method === 'POST') {
         let body = '';

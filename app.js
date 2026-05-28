@@ -5420,6 +5420,17 @@ function initRegistrationOptions() {
             registeredUsers.push(newUserRecord);
             localStorage.setItem('anivoid_registered_users', JSON.stringify(registeredUsers));
 
+            // Immediately register on the server so the user is visible to friends right away
+            try {
+                fetch(API_BASE_URL + '/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newUserRecord)
+                }).catch(() => {
+                    // Registration will be synced on next automatic sync cycle
+                });
+            } catch(e) {}
+
             // Set session and save
             localStorage.setItem('anivoid_logged_in_username', name);
             state.currentFriendId = userId;
