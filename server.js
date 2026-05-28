@@ -485,7 +485,20 @@ const server = http.createServer((req, res) => {
                         return;
                     }
 
-                    const nextMemberNumber = state.registeredUsers.length + 1;
+                    const nextMemberNumber = state.registeredUsers.filter(u => u.memberNumber).length + 1;
+                    const memberDescs = {
+                        1: "Você é o 1º membro a fazer parte do AniVoid. Seu nome está gravado na história desta comunidade.",
+                        2: "Você é o 2º membro a fazer parte do AniVoid. Um dos primeiros a descobrir este portal.",
+                        3: "Você é o 3º membro a fazer parte do AniVoid. Bem-vindo ao grupo fundador.",
+                        4: "Você é o 4º membro a fazer parte do AniVoid. Parte dos primeiros a entrar neste universo.",
+                        5: "Você é o 5º membro a fazer parte do AniVoid. Chegou cedo e faz parte da história.",
+                        6: "Você é o 6º membro a fazer parte do AniVoid. Um dos pioneiros desta comunidade.",
+                        7: "Você é o 7º membro a fazer parte do AniVoid. Bem-vindo ao começo de algo grande.",
+                        8: "Você é o 8º membro a fazer parte do AniVoid. Sua presença marca esta jornada.",
+                        9: "Você é o 9º membro a fazer parte do AniVoid. Faz parte dos que chegaram primeiro.",
+                        10: "Você é o 10º membro a fazer parte do AniVoid. Um marco especial nesta comunidade.",
+                    };
+                    const memberDesc = memberDescs[nextMemberNumber] || `Você é o ${nextMemberNumber}º membro a fazer parte do AniVoid. Bem-vindo a esta comunidade.`;
                     const userToAdd = {
                         username: newUser.username,
                         email: newUser.email,
@@ -500,6 +513,7 @@ const server = http.createServer((req, res) => {
                         favoriteAnimes: newUser.favoriteAnimes || [],
                         activeTitle: newUser.activeTitle || '',
                         memberNumber: nextMemberNumber,
+                        memberDesc: memberDesc,
                         isVirtual: false
                     };
                     state.registeredUsers.push(userToAdd);
