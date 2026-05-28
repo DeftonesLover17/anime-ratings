@@ -59,6 +59,17 @@ function mergeStates(localState, serverState, loggedInUser) {
                 // If a user name matches the logged-in user, we merge their personal profile updates from the client,
                 // but we strictly preserve the server's social graph fields (friends, friendRequests) to prevent client overwrites.
                 if (loggedInUser && u.username && u.username.toLowerCase() === loggedInUser.toLowerCase()) {
+                    // Safe union of friends: never drop a friend that either server or client knows about.
+                    // Friends can only be removed explicitly via /api/remove-friend.
+                    const serverFriends = (mergedUsers[index].friends || []).map(f => f.toLowerCase());
+                    const clientFriends = (u.friends || []).map(f => f.toLowerCase());
+                    const unionFriendNames = [...new Set([...serverFriends, ...clientFriends])];
+                    // Resolve canonical username casing from registeredUsers
+                    const canonicalFriends = unionFriendNames.map(fl => {
+                        const found = mergedUsers.find(mu => mu.username && mu.username.toLowerCase() === fl);
+                        return found ? found.username : fl;
+                    });
+
                     mergedUsers[index] = {
                         ...mergedUsers[index], // Server state is base
                         email: u.email || mergedUsers[index].email,
@@ -70,6 +81,7 @@ function mergeStates(localState, serverState, loggedInUser) {
                         favoriteStudios: u.favoriteStudios || mergedUsers[index].favoriteStudios,
                         favoriteAnimes: u.favoriteAnimes || mergedUsers[index].favoriteAnimes,
                         activeTitle: u.activeTitle || mergedUsers[index].activeTitle,
+                        friends: canonicalFriends, // union — never shrinks
                         // Preserve per-user featuredAnimeId (client wins for their own profile)
                         featuredAnimeId: u.featuredAnimeId !== undefined ? u.featuredAnimeId : mergedUsers[index].featuredAnimeId,
                         isVirtual: false
