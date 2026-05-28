@@ -2475,6 +2475,11 @@ function createFilterButton(text, isActive, onClick) {
 // Helper to get member badge HTML based on member number
 function getMemberBadgeHtml(user, compact = false) {
     if (!user) return '';
+    // Felipe is the Founder/Creator — he uses his own special admin/founder badges, no number
+    const username = user.username || user.name || '';
+    const usernameLower = username.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (usernameLower === 'felipe') return '';
+
     // Try to get memberNumber from the user object or from localStorage
     let memberNumber = user.memberNumber;
     if (!memberNumber) {
@@ -2494,24 +2499,16 @@ function getMemberBadgeHtml(user, compact = false) {
     let style, icon, label;
     if (num === 1) {
         style = 'background: linear-gradient(135deg, #ffd700, #ff8c00, #ffd700); color: #1a0a00; border-color: #ffd700;';
-        icon = '👑';
-        label = compact ? `N°${num}` : `FUNDADOR  N°${num}`;
-    } else if (num === 2) {
-        style = 'background: linear-gradient(135deg, #c0c0c0, #808080, #c0c0c0); color: #0a0a0a; border-color: #c0c0c0;';
-        icon = '🥈';
-        label = compact ? `N°${num}` : `FUNDADOR  N°${num}`;
-    } else if (num === 3) {
-        style = 'background: linear-gradient(135deg, #cd7f32, #8b4513, #cd7f32); color: #fff8f0; border-color: #cd7f32;';
-        icon = '🥉';
-        label = compact ? `N°${num}` : `FUNDADOR  N°${num}`;
-    } else if (num <= 10) {
+        icon = '👑'; label = compact ? `N°${num}` : `MEMBRO OURO  N°${num}`;
+    } else if (num <= 5) {
         style = 'background: linear-gradient(135deg, #7B2FBE, #4a1080); color: #e8d5ff; border-color: #a855f7;';
-        icon = '⚡';
-        label = compact ? `N°${num}` : `MEMBRO ANTIGO  N°${num}`;
+        icon = '⚡'; label = compact ? `N°${num}` : `MEMBRO ÉLITE  N°${num}`;
+    } else if (num <= 20) {
+        style = 'background: linear-gradient(135deg, #0ea5e9, #0369a1); color: #e0f2fe; border-color: #38bdf8;';
+        icon = '🌟'; label = compact ? `N°${num}` : `MEMBRO ANTIGO  N°${num}`;
     } else {
         style = 'background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.65); border-color: rgba(255,255,255,0.2);';
-        icon = '✦';
-        label = compact ? `N°${num}` : `MEMBRO  N°${num}`;
+        icon = '✦'; label = compact ? `N°${num}` : `MEMBRO  N°${num}`;
     }
 
     if (compact) {
@@ -5500,16 +5497,27 @@ function initRegistrationOptions() {
             registeredUsers.push(newUserRecord);
             localStorage.setItem('anivoid_registered_users', JSON.stringify(registeredUsers));
 
-            // Immediately register on the server so the user is visible to friends right away
-            try {
-                fetch(API_BASE_URL + '/api/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(newUserRecord)
-                }).catch(() => {
-                    // Registration will be synced on next automatic sync cycle
-                });
-            } catch(e) {}
+                // Immediately register on the server and get member number
+                let assignedMemberNumber = null;
+                try {
+                    const regResp = await fetch(API_BASE_URL + '/api/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newUserRecord)
+                    });
+                    if (regResp.ok) {
+                        const regData = await regResp.json();
+                        if (regData.user && regData.user.memberNumber) {
+                            assignedMemberNumber = regData.user.memberNumber;
+                            // Update local state with member number
+                            try {
+                                const lsUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+                                const myIdx = lsUsers.findIndex(u => u && u.username && u.username.toLowerCase() === name.toLowerCase());
+                                if (myIdx >= 0) { lsUsers[myIdx].memberNumber = assignedMemberNumber; localStorage.setItem('anivoid_registered_users', JSON.stringify(lsUsers)); }
+                            } catch(e) {}
+                        }
+                    }
+                } catch(e) {}
 
             // Set session and save
             localStorage.setItem('anivoid_logged_in_username', name);
@@ -5528,6 +5536,9 @@ function initRegistrationOptions() {
             // Reload UI
             initUI();
 
+            // Show member welcome modal
+            showMemberWelcomeModal(name, assignedMemberNumber);
+
             // Trigger welcome email (mapping template object correctly)
             const emailFriendObj = {
                 name: name,
@@ -5545,6 +5556,107 @@ function initRegistrationOptions() {
 }
 
 // --- EMAIL AND TOAST NOTIFICATION HELPERS ---
+
+// Member welcome modal shown right after registration
+function showMemberWelcomeModal(username, memberNumber) {
+    // Tier config
+    const num = parseInt(memberNumber) || 0;
+    let tierIcon, tierLabel, tierStyle, tierDesc, particleColor;
+    if (num === 1) {
+        tierIcon = '👑'; tierLabel = 'MEMBRO OURO'; tierStyle = 'from-yellow-400 via-amber-500 to-yellow-600'; particleColor = '#ffd700';
+        tierDesc = 'Você é o <b>1º membro</b> a chegar aqui. Um lugar na história foi reservado para você.';
+    } else if (num <= 5) {
+        tierIcon = '⚡'; tierLabel = 'MEMBRO ÉLITE'; tierStyle = 'from-violet-500 via-purple-600 to-indigo-700'; particleColor = '#a855f7';
+        tierDesc = `Você é o <b>${num}º membro</b> a chegar aqui. Um dos primeiros a descobrir o AniVoid.`;
+    } else if (num <= 20) {
+        tierIcon = '🌟'; tierLabel = 'MEMBRO ANTIGO'; tierStyle = 'from-sky-400 via-blue-500 to-cyan-600'; particleColor = '#38bdf8';
+        tierDesc = `Você é o <b>${num}º membro</b> a chegar aqui. Parte da geração que moldou esta comunidade.`;
+    } else {
+        tierIcon = '✦'; tierLabel = 'MEMBRO'; tierStyle = 'from-gray-500 via-slate-600 to-gray-700'; particleColor = '#94a3b8';
+        tierDesc = `Você é o <b>${num}º membro</b> a chegar aqui. Bem-vindo à comunidade AniVoid!`;
+    }
+
+    const badgeHtml = num > 0
+        ? `<div class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl font-mono font-black text-sm border-2 uppercase tracking-widest bg-gradient-to-r ${tierStyle} text-white shadow-2xl" style="box-shadow: 0 0 30px ${particleColor}60, 0 4px 20px rgba(0,0,0,0.5);">
+               ${tierIcon} ${tierLabel} &nbsp;·&nbsp; N°${num}
+           </div>`
+        : '';
+
+    const overlay = document.createElement('div');
+    overlay.id = 'member-welcome-modal';
+    overlay.className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-md';
+    overlay.style.cssText = 'opacity:0; transition: opacity 0.5s ease;';
+
+    overlay.innerHTML = `
+        <!-- Floating particles -->
+        <div class="absolute inset-0 pointer-events-none overflow-hidden">
+            ${Array.from({length: 12}, (_, i) => `
+                <div class="absolute rounded-full" style="
+                    width: ${4 + Math.random()*8}px; height: ${4 + Math.random()*8}px;
+                    background: ${particleColor}; opacity: ${0.2 + Math.random()*0.4};
+                    left: ${Math.random()*100}%; top: ${Math.random()*100}%;
+                    box-shadow: 0 0 10px ${particleColor};
+                    animation: float ${4 + Math.random()*6}s ease-in-out infinite alternate;
+                    animation-delay: ${Math.random()*3}s;
+                "></div>`).join('')}
+        </div>
+
+        <!-- Modal Card -->
+        <div class="relative z-10 max-w-sm w-full mx-4 rounded-3xl overflow-hidden border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.9)]"
+             style="background: linear-gradient(145deg, #0d0d0d, #1a1a1a); transform: scale(0.9); transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1);" id="member-modal-card">
+
+            <!-- Top gradient accent -->
+            <div class="h-1 w-full bg-gradient-to-r ${tierStyle}"></div>
+
+            <div class="p-8 text-center space-y-6">
+                <!-- Animated icon -->
+                <div class="text-6xl animate-bounce">${tierIcon}</div>
+
+                <!-- Heading -->
+                <div>
+                    <p class="text-[10px] font-mono uppercase tracking-[0.3em] text-white/40 mb-2">AniVoid — Bem-vindo</p>
+                    <h2 class="text-2xl font-serif font-bold text-white leading-tight">Olá, <span class="bg-gradient-to-r ${tierStyle} bg-clip-text text-transparent">${username}</span>!</h2>
+                </div>
+
+                <!-- Member badge -->
+                ${badgeHtml}
+
+                <!-- Description -->
+                <p class="text-sm text-gray-400 font-light leading-relaxed">
+                    ${tierDesc}
+                </p>
+
+                <!-- Divider -->
+                <div class="w-full h-px bg-white/5"></div>
+
+                <!-- Message from founder -->
+                <div class="bg-white/3 border border-white/5 rounded-2xl p-4 text-left space-y-2">
+                    <p class="text-[9px] font-mono uppercase tracking-widest text-brand">Mensagem do Fundador</p>
+                    <p class="text-xs text-gray-300 font-light leading-relaxed">
+                        "Obrigado por fazer parte desta comunidade. Sua insignia de membro é permanente e estará sempre no seu perfil. Espero que aproveite cada anime da sua lista. 🎌"
+                    </p>
+                    <p class="text-[9px] text-white/30 font-mono mt-1">— Felipe!, Fundador do AniVoid</p>
+                </div>
+
+                <!-- CTA Button -->
+                <button onclick="document.getElementById('member-welcome-modal').remove(); document.body.style.overflow='';"
+                    class="w-full py-3.5 rounded-2xl font-bold text-sm uppercase tracking-widest bg-gradient-to-r ${tierStyle} text-white hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-lg cursor-pointer border-0">
+                    Ver minha insignia no perfil ✨
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+
+    // Animate in
+    requestAnimationFrame(() => {
+        overlay.style.opacity = '1';
+        const card = document.getElementById('member-modal-card');
+        if (card) card.style.transform = 'scale(1)';
+    });
+}
 
 function showWelcomeToast(username) {
     const toast = document.createElement('div');

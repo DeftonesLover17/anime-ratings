@@ -407,6 +407,37 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    // API Route: Admin patch-user (set any field on a registered user)
+    if (req.url === '/api/patch-user' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+            try {
+                const { username, fields } = JSON.parse(body);
+                if (!username || !fields) {
+                    res.statusCode = 400; res.setHeader('Content-Type','application/json');
+                    res.end(JSON.stringify({ error: 'Missing username or fields' })); return;
+                }
+                fs.readFile(STATE_FILE, 'utf8', (err, data) => {
+                    let state = { friends: [], animes: [], registeredUsers: [], activities: [] };
+                    if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
+                    const idx = state.registeredUsers.findIndex(u => u && u.username && u.username.toLowerCase() === username.toLowerCase());
+                    if (idx < 0) { res.statusCode = 404; res.setHeader('Content-Type','application/json'); res.end(JSON.stringify({ error: 'User not found' })); return; }
+                    Object.assign(state.registeredUsers[idx], fields);
+                    // If field is explicitly null, delete it
+                    Object.keys(fields).forEach(k => { if (fields[k] === null) delete state.registeredUsers[idx][k]; });
+                    fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), 'utf8', (writeErr) => {
+                        if (writeErr) { res.statusCode = 500; res.setHeader('Content-Type','application/json'); res.end(JSON.stringify({ error: 'Failed to save' })); return; }
+                        res.statusCode = 200; res.setHeader('Content-Type','application/json');
+                        res.end(JSON.stringify({ success: true, user: state.registeredUsers[idx], registeredUsers: state.registeredUsers }));
+                    });
+                });
+            } catch(e) { res.statusCode = 400; res.setHeader('Content-Type','application/json'); res.end(JSON.stringify({ error: 'Invalid JSON' })); }
+        });
+        return;
+    }
+
+
     // API Route: Get state
     if (req.url === '/api/get-state' && req.method === 'GET') {
         fs.readFile(STATE_FILE, 'utf8', (err, data) => {
@@ -441,10 +472,6 @@ const server = http.createServer((req, res) => {
                     if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
                     if (!state.registeredUsers) state.registeredUsers = [];
 
-                    // Retroactively assign memberNumbers to any existing users missing one
-                    state.registeredUsers.forEach((u, idx) => {
-                        if (!u.memberNumber) u.memberNumber = idx + 1;
-                    });
 
                     const existingIdx = state.registeredUsers.findIndex(u =>
                         (u.username && u.username.toLowerCase() === newUser.username.toLowerCase()) ||
