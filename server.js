@@ -272,7 +272,35 @@ function sanitizeStateForStorage(state) {
 function sendJson(res, statusCode, payload) {
     res.statusCode = statusCode;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
     res.end(JSON.stringify(payload));
+}
+
+function getStaticCacheControl(relativePath) {
+    if (relativePath === 'index.html') {
+        return 'no-cache';
+    }
+    if (relativePath === 'app.js' || relativePath === 'styles.css') {
+        return 'public, max-age=31536000, immutable';
+    }
+    return 'public, max-age=604800, stale-while-revalidate=86400';
+}
+
+function createStaticEtag(stat) {
+    return `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+}
+
+function requestHasFreshStaticCache(req, stat, etag) {
+    const ifNoneMatch = String(req.headers['if-none-match'] || '');
+    if (ifNoneMatch.split(',').map(value => value.trim()).includes(etag)) {
+        return true;
+    }
+
+    const ifModifiedSince = req.headers['if-modified-since'];
+    if (!ifModifiedSince) return false;
+    const sinceTime = new Date(ifModifiedSince).getTime();
+    const modifiedTime = Math.floor(stat.mtime.getTime() / 1000) * 1000;
+    return Number.isFinite(sinceTime) && modifiedTime <= sinceTime;
 }
 
 function sanitizeUser(user, viewerUsername = '') {
@@ -1612,22 +1640,56 @@ const server = http.createServer((req, res) => {
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
     
-    fs.readFile(filePath, (err, data) => {
-        if (err) {
-            if (err.code === 'ENOENT') {
+    fs.stat(filePath, (statErr, stat) => {
+        if (statErr) {
+            if (statErr.code === 'ENOENT') {
                 res.statusCode = 404;
-                res.setHeader('Content-Type', 'text/plain');
+                res.setHeader('Content-Type', 'text/plain; charset=utf-8');
                 res.end('404 Not Found');
             } else {
                 res.statusCode = 500;
-                res.setHeader('Content-Type', 'text/plain');
-                res.end('Internal Server Error: ' + err.code);
+                res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+                res.end('Internal Server Error: ' + statErr.code);
             }
-        } else {
-            res.statusCode = 200;
-            res.setHeader('Content-Type', contentType);
-            res.end(data);
+            return;
         }
+
+        if (!stat.isFile()) {
+            res.statusCode = 404;
+            res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+            res.end('404 Not Found');
+            return;
+        }
+
+        const etag = createStaticEtag(stat);
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Cache-Control', getStaticCacheControl(relativePath));
+        res.setHeader('ETag', etag);
+        res.setHeader('Last-Modified', stat.mtime.toUTCString());
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+
+        if (requestHasFreshStaticCache(req, stat, etag)) {
+            res.statusCode = 304;
+            res.end();
+            return;
+        }
+
+        fs.readFile(filePath, (err, data) => {
+            if (err) {
+                if (err.code === 'ENOENT') {
+                    res.statusCode = 404;
+                    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+                    res.end('404 Not Found');
+                } else {
+                    res.statusCode = 500;
+                    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+                    res.end('Internal Server Error: ' + err.code);
+                }
+            } else {
+                res.statusCode = 200;
+                res.end(data);
+            }
+        });
     });
 });
 

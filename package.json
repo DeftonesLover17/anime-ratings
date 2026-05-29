@@ -4,6 +4,7 @@
   "private": true,
   "main": "server.js",
   "scripts": {
+    "build:pages": "node scripts/build-pages.js",
     "start": "node server.js"
   },
   "dependencies": {
