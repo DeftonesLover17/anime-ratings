@@ -5853,8 +5853,8 @@ function initRegistrationOptions() {
 
         setAuthSession(matchedUser.username, loginData.token);
         state.currentFriendId = userId;
+        localStorage.setItem('anivoid_current_friend_v2', userId);
         state.loadLocalSession();
-        state.save();
 
         const regGate = document.getElementById('registration-gate');
         if (regGate) {

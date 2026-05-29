@@ -480,6 +480,16 @@ function ensureMutualFriendship(user, otherUser) {
     removeFriendRequestsBetween(user, otherUser);
 }
 
+function removeFriendship(user, otherUser) {
+    if (!user || !otherUser) return;
+    if (Array.isArray(user.friends)) {
+        user.friends = user.friends.filter(friend => !sameUsername(friend, otherUser.username));
+    }
+    if (Array.isArray(otherUser.friends)) {
+        otherUser.friends = otherUser.friends.filter(friend => !sameUsername(friend, user.username));
+    }
+}
+
 function normalizeSocialGraph(state) {
     const users = Array.isArray(state && state.registeredUsers) ? state.registeredUsers : [];
     users.forEach(user => {
@@ -500,13 +510,6 @@ function normalizeSocialGraph(state) {
     });
 
     users.forEach(user => {
-        (user.friends || []).forEach(friendName => {
-            const friendUser = findRegisteredUser(state, friendName);
-            if (friendUser) ensureMutualFriendship(user, friendUser);
-        });
-    });
-
-    users.forEach(user => {
         if (!user || !user.username) return;
         const seenRequests = new Set();
         user.friendRequests = Array.isArray(user.friendRequests)
@@ -519,7 +522,7 @@ function normalizeSocialGraph(state) {
                 .filter(req => req && !sameUsername(req.from, user.username))
                 .filter(req => {
                     const fromUser = findRegisteredUser(state, req.from);
-                    return fromUser && !hasFriend(user, fromUser.username) && !hasFriend(fromUser, user.username);
+                    return fromUser && !(hasFriend(user, fromUser.username) && hasFriend(fromUser, user.username));
                 })
                 .filter(req => {
                     const key = usernameKey(req.from);
@@ -847,7 +850,8 @@ async function handleRegister(request, env) {
 async function handleRecoverPassword(request, env) {
     const body = await parseJsonBody(request);
     const expectedToken = String(env.OWNER_RECOVERY_TOKEN || '').trim();
-    const allowedEmails = String(env.OWNER_RECOVERY_EMAILS || 'mfelipeneto5@gmail.com')
+    const defaultRecoveryEmails = 'mfelipeneto5@gmail.com,yagomatthews9@gmail.com,ninjazokobr@gmail.com,dallestwl@gmail.com';
+    const allowedEmails = String(env.OWNER_RECOVERY_EMAILS || defaultRecoveryEmails)
         .split(',')
         .map(email => email.trim().toLowerCase())
         .filter(Boolean);
@@ -917,10 +921,14 @@ async function handleFriendRequest(request, env) {
     if (!fromUser || !toUser) return json({ error: 'Usuário não encontrado' }, 404);
     if (sameUsername(fromUser.username, toUser.username)) return json({ error: 'Não é possível adicionar a si mesmo' }, 400);
 
-    if (hasFriend(fromUser, toUser.username) || hasFriend(toUser, fromUser.username)) {
-        ensureMutualFriendship(fromUser, toUser);
+    const fromHasTarget = hasFriend(fromUser, toUser.username);
+    const targetHasFrom = hasFriend(toUser, fromUser.username);
+    if (fromHasTarget && targetHasFrom) {
         await writeState(env, state);
         return json({ success: true, alreadyFriends: true, registeredUsers: sanitizeState(state, auth.user.username).registeredUsers });
+    }
+    if (fromHasTarget || targetHasFrom) {
+        removeFriendship(fromUser, toUser);
     }
 
     if (Array.isArray(fromUser.friendRequests) && fromUser.friendRequests.some(req => req && sameUsername(req.from, toUser.username))) {
