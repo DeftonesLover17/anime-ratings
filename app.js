@@ -925,7 +925,7 @@ const RENDER_API_BASE_URL = 'https://anime-ratings.onrender.com';
 const API_BASE_URL = window.ANIVOID_API_BASE_URL
     || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? ''
-        : RENDER_API_BASE_URL);
+        : (window.location.hostname === 'anime-ratings.onrender.com' ? RENDER_API_BASE_URL : ''));
 const AUTH_TOKEN_KEY = 'anivoid_auth_token';
 
 function getAuthToken() {
