@@ -17,7 +17,8 @@ const DEFAULT_STATE = {
     friends: [],
     animes: [],
     registeredUsers: [],
-    activities: []
+    activities: [],
+    studioLogos: {}
 };
 
 // Ensure data folder and state file exist
@@ -217,6 +218,7 @@ function sanitizeAnimeRecord(anime) {
         japaneseTitle: escapeHtml(anime.japaneseTitle || '', 180),
         synopsis: escapeHtml(anime.synopsis || '', 5000),
         coverUrl: sanitizeImageUrl(anime.coverUrl) || '',
+        studioLogoUrl: sanitizeImageUrl(anime.studioLogoUrl) || '',
         genres: sanitizeTextArray(anime.genres, 20, 80),
         studio: escapeHtml(anime.studio || '', 120),
         status: escapeHtml(anime.status || '', 80),
@@ -225,6 +227,17 @@ function sanitizeAnimeRecord(anime) {
         ratings: sanitizeRatings(anime.ratings),
         comments: Array.isArray(anime.comments) ? anime.comments.map(sanitizeComment).filter(Boolean) : []
     };
+}
+
+function sanitizeStudioLogos(studioLogos) {
+    if (!studioLogos || typeof studioLogos !== 'object' || Array.isArray(studioLogos)) return {};
+    const safeLogos = {};
+    Object.entries(studioLogos).slice(0, 500).forEach(([studioName, logoUrl]) => {
+        const safeName = escapeHtml(studioName, 120);
+        const safeLogo = sanitizeImageUrl(logoUrl);
+        if (safeName && safeLogo) safeLogos[safeName] = safeLogo;
+    });
+    return safeLogos;
 }
 
 function sanitizeStateForStorage(state) {
@@ -238,6 +251,7 @@ function sanitizeStateForStorage(state) {
             color: sanitizeColor(friend && friend.color)
         })) : [],
         animes: Array.isArray(safeState.animes) ? safeState.animes.map(sanitizeAnimeRecord).filter(Boolean) : [],
+        studioLogos: sanitizeStudioLogos(safeState.studioLogos),
         registeredUsers: Array.isArray(safeState.registeredUsers) ? safeState.registeredUsers.map(sanitizeUserRecord).filter(Boolean) : [],
         activities: Array.isArray(safeState.activities) ? safeState.activities.slice(0, 100).map(activity => ({
             ...activity,
@@ -692,6 +706,17 @@ function mergeStates(localState, serverState, loggedInUser) {
         });
     }
 
+    const mergedStudioLogos = {
+        ...(serverState.studioLogos && typeof serverState.studioLogos === 'object' ? serverState.studioLogos : {})
+    };
+    if (localState.studioLogos && typeof localState.studioLogos === 'object' && !Array.isArray(localState.studioLogos)) {
+        Object.entries(localState.studioLogos).forEach(([studioName, logoUrl]) => {
+            if (studioName && logoUrl) {
+                mergedStudioLogos[studioName] = logoUrl;
+            }
+        });
+    }
+
     // 3. Merge animes ratings and comments
     // IDs legados/stub que não devem existir no servidor (dados de teste)
     const BOGUS_IDS = new Set(['steins-gate', 'sample-anime', 'sample-anime-test', 'sample-anime-special-sync']);
@@ -708,6 +733,9 @@ function mergeStates(localState, serverState, loggedInUser) {
     if (localState.animes && Array.isArray(localState.animes)) {
         const cleanLocalAnimes = localState.animes.filter(a => !isBogusAnime(a));
         cleanLocalAnimes.forEach(localAnime => {
+            if (localAnime && localAnime.studio && localAnime.studioLogoUrl) {
+                mergedStudioLogos[localAnime.studio] = localAnime.studioLogoUrl;
+            }
             let serverAnime = mergedAnimes.find(sa => sa.id === localAnime.id);
             if (!serverAnime) {
                 serverAnime = { ...localAnime };
@@ -745,6 +773,7 @@ function mergeStates(localState, serverState, loggedInUser) {
                 serverAnime.japaneseTitle = localAnime.japaneseTitle || serverAnime.japaneseTitle;
                 serverAnime.synopsis = localAnime.synopsis || serverAnime.synopsis;
                 serverAnime.coverUrl = localAnime.coverUrl || serverAnime.coverUrl;
+                serverAnime.studioLogoUrl = localAnime.studioLogoUrl || serverAnime.studioLogoUrl;
                 serverAnime.genres = localAnime.genres || serverAnime.genres;
                 serverAnime.studio = localAnime.studio || serverAnime.studio;
                 serverAnime.season = localAnime.season || serverAnime.season;
@@ -974,6 +1003,7 @@ function mergeStates(localState, serverState, loggedInUser) {
     return {
         friends: mergedFriends,
         animes: mergedAnimes,
+        studioLogos: mergedStudioLogos,
         registeredUsers: mergedUsers,
         featuredAnimeId: featuredAnimeId,
         activities: finalActivities

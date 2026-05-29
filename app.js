@@ -979,6 +979,9 @@ function applyServerStateSnapshot(serverState) {
     if (Array.isArray(serverState.animes)) {
         localStorage.setItem('anivoid_list_v2', JSON.stringify(serverState.animes));
     }
+    if (serverState.studioLogos && typeof serverState.studioLogos === 'object') {
+        localStorage.setItem('anivoid_studio_logos', JSON.stringify(serverState.studioLogos));
+    }
 }
 
 class AppState {
@@ -992,6 +995,14 @@ class AppState {
         sanitizeStoredRegisteredUsers();
         this.friends = [];
         this.knownActivityIds = new Set();
+        try {
+            const storedStudioLogos = JSON.parse(localStorage.getItem('anivoid_studio_logos')) || {};
+            this.studioLogos = storedStudioLogos && typeof storedStudioLogos === 'object' && !Array.isArray(storedStudioLogos)
+                ? storedStudioLogos
+                : {};
+        } catch (e) {
+            this.studioLogos = {};
+        }
 
         try {
             this.animes = JSON.parse(localStorage.getItem('anivoid_list_v2'));
@@ -1190,6 +1201,7 @@ class AppState {
             const localState = {
                 registeredUsers: registeredUsers,
                 animes: this.animes,
+                studioLogos: this.studioLogos || {},
                 friends: [],
                 featuredAnimeId: this.featuredAnimeId
             };
@@ -1265,6 +1277,7 @@ class AppState {
                         });
                         return {
                             ...localAnime,
+                            studioLogoUrl: localAnime.studioLogoUrl || sa.studioLogoUrl || '',
                             ratings: sa.ratings || {},
                             comments: mergedComments
                         };
@@ -1290,6 +1303,10 @@ class AppState {
                 });
 
                 localStorage.setItem('anivoid_list_v2', JSON.stringify(this.animes));
+            }
+            if (serverState.studioLogos && typeof serverState.studioLogos === 'object') {
+                this.studioLogos = serverState.studioLogos;
+                localStorage.setItem('anivoid_studio_logos', JSON.stringify(this.studioLogos));
             }
             // Check new activities and trigger Toasts
             if (serverState.activities && Array.isArray(serverState.activities)) {
@@ -1420,6 +1437,7 @@ class AppState {
     save() {
         localStorage.setItem('anivoid_friends_v2', JSON.stringify(this.friends));
         localStorage.setItem('anivoid_list_v2', JSON.stringify(this.animes));
+        localStorage.setItem('anivoid_studio_logos', JSON.stringify(this.studioLogos || {}));
         localStorage.setItem('anivoid_current_friend_v2', this.currentFriendId);
         if (this.featuredAnimeId) {
             localStorage.setItem('anivoid_featured_anime_id', this.featuredAnimeId);
@@ -1963,7 +1981,17 @@ class AppState {
         this.save();
     }
 
-    addNewAnime(title, japaneseTitle, synopsis, genres, studio, season, episodes, coverUrl) {
+    addNewAnime(title, japaneseTitle, synopsis, genres, studio, season, episodes, coverUrl, studioLogoUrl = '') {
+        const studioName = studio.trim() || 'Desconhecido';
+        const resolvedStudioLogo = sanitizeStudioLogoUrl(studioLogoUrl) || getStudioLogo(studioName) || '';
+        if (resolvedStudioLogo && studioName.toLowerCase() !== 'desconhecido') {
+            this.studioLogos = {
+                ...(this.studioLogos || {}),
+                [studioName]: resolvedStudioLogo
+            };
+            localStorage.setItem('anivoid_studio_logos', JSON.stringify(this.studioLogos));
+        }
+
         const newAnime = {
             id: 'a_' + Date.now(),
             title: title.trim(),
@@ -1971,7 +1999,8 @@ class AppState {
             synopsis: synopsis.trim() || 'Sem sinopse disponível.',
             coverUrl: coverUrl.trim() || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=600&auto=format&fit=crop',
             genres: genres.map(g => g.trim()).filter(Boolean),
-            studio: studio.trim() || 'Desconhecido',
+            studio: studioName,
+            studioLogoUrl: resolvedStudioLogo,
             season: season.trim() || 'Outras',
             episodes: episodes.trim() || 'Desconhecido',
             ratings: {},
@@ -3048,6 +3077,64 @@ const STUDIO_LOGOS = {
     'Trigger': 'logos/trigger.png'
 };
 
+function normalizeStudioName(name) {
+    return String(name || '').trim().toLowerCase();
+}
+
+function sanitizeStudioLogoUrl(url) {
+    const value = String(url || '').trim();
+    if (!value) return '';
+    if (/^logos\/[a-z0-9._/-]+\.(png|jpe?g|webp|gif)$/i.test(value)) return value;
+    if (/^https?:\/\//i.test(value) && value.length <= 4096) return value;
+    if (/^data:image\/(png|jpe?g|gif|webp);base64,[a-z0-9+/=]+$/i.test(value) && value.length <= 2 * 1024 * 1024) return value;
+    return '';
+}
+
+function findLogoInMap(studioName, map) {
+    const key = normalizeStudioName(studioName);
+    const entry = Object.entries(map || {}).find(([name]) => normalizeStudioName(name) === key);
+    return entry ? entry[1] : '';
+}
+
+function getStudioLogo(studioName) {
+    const staticLogo = STUDIO_LOGOS[studioName] || findLogoInMap(studioName, STUDIO_LOGOS);
+    if (staticLogo) return staticLogo;
+    const customLogos = state && state.studioLogos ? state.studioLogos : {};
+    return sanitizeStudioLogoUrl(customLogos[studioName]) || sanitizeStudioLogoUrl(findLogoInMap(studioName, customLogos));
+}
+
+function rememberStudioLogo(studioName, logoUrl) {
+    const studio = String(studioName || '').trim();
+    const logo = sanitizeStudioLogoUrl(logoUrl);
+    if (!studio || !logo || studio.toLowerCase() === 'desconhecido') return '';
+    state.studioLogos = {
+        ...(state.studioLogos || {}),
+        [studio]: logo
+    };
+    localStorage.setItem('anivoid_studio_logos', JSON.stringify(state.studioLogos));
+    return logo;
+}
+
+function hydrateStudioLogosFromAnimes(animes) {
+    let changed = false;
+    (animes || []).forEach(anime => {
+        if (!anime || !anime.studio || !anime.studioLogoUrl) return;
+        const logo = sanitizeStudioLogoUrl(anime.studioLogoUrl);
+        if (!logo) return;
+        const existing = getStudioLogo(anime.studio);
+        if (!existing || existing !== logo) {
+            state.studioLogos = {
+                ...(state.studioLogos || {}),
+                [anime.studio]: logo
+            };
+            changed = true;
+        }
+    });
+    if (changed) {
+        localStorage.setItem('anivoid_studio_logos', JSON.stringify(state.studioLogos));
+    }
+}
+
 // Global Studio Brand Theme Colors (shared across landing cards and previews)
 const STUDIO_BRAND_COLORS = {
     'A-1 Pictures':       { border: 'rgba(0, 85, 255, 0.4)', glow: 'rgba(0, 85, 255, 0.15)', text: '#0055ff' },
@@ -3085,7 +3172,7 @@ const STUDIO_BRAND_COLORS = {
 
 // Dynamic cinematic transition for studio profile entries
 function triggerStudioTransition(studioName, onComplete) {
-    let logoSrc = STUDIO_LOGOS[studioName] || null;
+    let logoSrc = getStudioLogo(studioName) || null;
     if (studioName === 'A-1 Pictures') {
         logoSrc = 'logos/a1_pictures_white.png';
     }
@@ -3406,6 +3493,7 @@ function triggerStudioTransition(studioName, onComplete) {
 function renderStudiosDirectory() {
     const container = document.getElementById('studios-directory-container');
     if (!container) return;
+    hydrateStudioLogosFromAnimes(state.animes);
 
     container.innerHTML = '';
 
@@ -3466,7 +3554,7 @@ function renderStudiosDirectory() {
 
         studiosList.forEach((studioName, i) => {
             const animes = studiosMap[studioName];
-            const logoSrc = STUDIO_LOGOS[studioName] || null;
+            const logoSrc = getStudioLogo(studioName) || null;
             const initials = getStudioInitials(studioName);
             const scores = animes.map(a => state.calculateAverageScore(a.id)).filter(s => s > 0);
             const avg = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : null;
@@ -3536,7 +3624,7 @@ function renderStudiosDirectory() {
     const activeAnimes = Array.from(new Map((studiosMap[activeStudioName] || []).map(a => [a.id, a])).values());
     const initials = getStudioInitials(activeStudioName);
     const description = getStudioDescription(activeStudioName, activeAnimes);
-    const logoSrc = STUDIO_LOGOS[activeStudioName] || null;
+    const logoSrc = getStudioLogo(activeStudioName) || null;
 
     // Calculate studio average score
     const scores = activeAnimes.map(a => state.calculateAverageScore(a.id)).filter(s => s > 0);
@@ -5012,6 +5100,20 @@ function setupFormSubmissions() {
     // Add Anime Form
     const addAnimeForm = document.getElementById('add-anime-form');
     if (addAnimeForm) {
+        const studioInput = document.getElementById('form-anime-studio');
+        const studioLogoInput = document.getElementById('form-studio-logo');
+        if (studioInput && studioLogoInput && !studioInput.dataset.logoHooked) {
+            studioInput.dataset.logoHooked = 'true';
+            const fillKnownLogo = () => {
+                const knownLogo = getStudioLogo(studioInput.value);
+                if (knownLogo && !studioLogoInput.value.trim()) {
+                    studioLogoInput.value = knownLogo;
+                }
+            };
+            studioInput.addEventListener('change', fillKnownLogo);
+            studioInput.addEventListener('blur', fillKnownLogo);
+        }
+
         addAnimeForm.addEventListener('submit', (e) => {
             e.preventDefault();
             
@@ -5022,13 +5124,14 @@ function setupFormSubmissions() {
             const season = document.getElementById('form-anime-season').value;
             const episodes = document.getElementById('form-anime-episodes').value;
             const coverUrl = document.getElementById('form-anime-cover').value;
+            const studioLogoUrl = document.getElementById('form-studio-logo')?.value || '';
             
             // Genres (comma separated list)
             const genresRaw = document.getElementById('form-anime-genres').value;
             const genres = genresRaw.split(',').map(g => g.trim()).filter(Boolean);
 
             if (title) {
-                state.addNewAnime(title, japaneseTitle, synopsis, genres, studio, season, episodes, coverUrl);
+                state.addNewAnime(title, japaneseTitle, synopsis, genres, studio, season, episodes, coverUrl, studioLogoUrl);
                 
                 // Reset form and close modal
                 addAnimeForm.reset();
@@ -6514,7 +6617,11 @@ function initAddFriendModalOptions() {
                     document.getElementById('form-anime-jp-title').value = jpTitle;
                     
                     const studioInput = document.getElementById('form-anime-studio');
-                    if (studioInput) studioInput.value = anime.studios?.[0]?.name || '';
+                    const studioName = anime.studios?.[0]?.name || '';
+                    if (studioInput) studioInput.value = studioName;
+
+                    const studioLogoInput = document.getElementById('form-studio-logo');
+                    if (studioLogoInput) studioLogoInput.value = getStudioLogo(studioName) || '';
 
                     const episodesInput = document.getElementById('form-anime-episodes');
                     if (episodesInput) episodesInput.value = anime.episodes || '';
@@ -6547,6 +6654,7 @@ function initAddFriendModalOptions() {
                         document.getElementById('form-anime-title'),
                         document.getElementById('form-anime-jp-title'),
                         document.getElementById('form-anime-studio'),
+                        document.getElementById('form-studio-logo'),
                         document.getElementById('form-anime-episodes'),
                         document.getElementById('form-anime-season'),
                         document.getElementById('form-anime-genres'),
