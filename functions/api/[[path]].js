@@ -844,6 +844,33 @@ async function handleRegister(request, env) {
     return json({ success: true, token, user: sanitizeUser(userToAdd, userToAdd.username), state: sanitizeState(state, userToAdd.username) });
 }
 
+async function handleRecoverPassword(request, env) {
+    const body = await parseJsonBody(request);
+    const expectedToken = String(env.OWNER_RECOVERY_TOKEN || '').trim();
+    const allowedEmails = String(env.OWNER_RECOVERY_EMAILS || 'mfelipeneto5@gmail.com')
+        .split(',')
+        .map(email => email.trim().toLowerCase())
+        .filter(Boolean);
+    if (!expectedToken) return json({ error: 'Recuperação não configurada.' }, 503);
+    if (!body || !body.email || !body.token || !isPasswordCredential(body.passwordCredential)) {
+        return json({ error: 'Dados de recuperação inválidos.' }, 400);
+    }
+    if (!timingSafeEqual(String(body.token), expectedToken)) return json({ error: 'Código de recuperação inválido.' }, 403);
+    const email = String(body.email).trim().toLowerCase();
+    if (!allowedEmails.includes(email)) return json({ error: 'E-mail não autorizado para recuperação.' }, 403);
+
+    const state = await readState(env);
+    const user = (state.registeredUsers || []).find(candidate =>
+        candidate && candidate.email && candidate.email.toLowerCase() === email
+    );
+    if (!user) return json({ error: 'Usuário não encontrado.' }, 404);
+
+    setPasswordFromCredential(user, body.passwordCredential);
+    await writeState(env, state);
+    await getDb(env).prepare('DELETE FROM sessions WHERE username = ?1').bind(user.username).run();
+    return json({ success: true });
+}
+
 async function handlePatchUser(request, env) {
     const body = await parseJsonBody(request);
     if (!body || !body.username || !body.fields) return json({ error: 'Missing username or fields' }, 400);
@@ -999,6 +1026,7 @@ async function route(request, env) {
     if (path === '/api/login-challenge' && request.method === 'POST') return handleLoginChallenge(request, env);
     if (path === '/api/login' && request.method === 'POST') return handleLogin(request, env);
     if (path === '/api/register' && request.method === 'POST') return handleRegister(request, env);
+    if (path === '/api/recover-password' && request.method === 'POST') return handleRecoverPassword(request, env);
     if (path === '/api/patch-user' && request.method === 'POST') return handlePatchUser(request, env);
     if (path === '/api/sync-state' && request.method === 'POST') return handleSyncState(request, env);
     if (path === '/api/clear-user-ratings' && request.method === 'POST') return handleClearUserRatings(request, env);

@@ -5801,6 +5801,47 @@ function initRegistrationOptions() {
         tabRegister.addEventListener('click', showRegisterView);
     }
 
+    const recoverAccessBtn = document.getElementById('recover-access-btn');
+    if (recoverAccessBtn && !recoverAccessBtn.dataset.listenerHooked) {
+        recoverAccessBtn.dataset.listenerHooked = 'true';
+        recoverAccessBtn.addEventListener('click', async () => {
+            const emailVal = document.getElementById('login-email')?.value.trim() || 'mfelipeneto5@gmail.com';
+            const recoveryToken = prompt('Digite o código temporário de recuperação configurado no Cloudflare:');
+            if (!recoveryToken) return;
+            const newPassword = prompt('Digite a nova senha para esta conta:');
+            if (!newPassword || newPassword.length < 4) {
+                alert('A senha deve ter pelo menos 4 caracteres.');
+                return;
+            }
+            if (!USE_CLIENT_PASSWORD_PROOF) {
+                alert('Recuperação disponível apenas no site da Cloudflare.');
+                return;
+            }
+            try {
+                const passwordCredential = await createPasswordCredential(newPassword);
+                const response = await fetch(API_BASE_URL + '/api/recover-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: emailVal,
+                        token: recoveryToken,
+                        passwordCredential
+                    })
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || !data.success) {
+                    alert(data.error || 'Não foi possível recuperar o acesso agora.');
+                    return;
+                }
+                document.getElementById('login-password').value = newPassword;
+                alert('Senha atualizada. Agora clique em Entrar.');
+            } catch (err) {
+                console.error('Password recovery failed:', err);
+                alert('Não foi possível recuperar o acesso agora.');
+            }
+        });
+    }
+
     if (loginForm && !loginForm.dataset.listenerHooked) {
         loginForm.dataset.listenerHooked = 'true';
         loginForm.addEventListener('submit', async (e) => {
