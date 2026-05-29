@@ -868,7 +868,8 @@ async function handleRecoverPassword(request, env) {
     setPasswordFromCredential(user, body.passwordCredential);
     await writeState(env, state);
     await getDb(env).prepare('DELETE FROM sessions WHERE username = ?1').bind(user.username).run();
-    return json({ success: true });
+    const token = await createSession(env, user.username);
+    return json({ success: true, token, user: sanitizeUser(user, user.username), state: sanitizeState(state, user.username) });
 }
 
 async function handlePatchUser(request, env) {

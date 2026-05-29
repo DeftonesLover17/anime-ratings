@@ -5828,6 +5828,50 @@ function initRegistrationOptions() {
         }
     };
 
+    const completeAuthenticatedLogin = (loginData, passwordToRemember = '') => {
+        const matchedUser = stripSensitiveUserFields(loginData.user);
+        const userId = matchedUser.username.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (loginData.state) {
+            applyServerStateSnapshot(loginData.state);
+        }
+
+        // Migrate ratings and reviews from key '1' if they exist in localStorage
+        state.animes.forEach(anime => {
+            if (anime.ratings && anime.ratings['1']) {
+                anime.ratings[userId] = { ...anime.ratings['1'] };
+                delete anime.ratings['1'];
+            }
+            if (anime.comments) {
+                anime.comments.forEach(comment => {
+                    if (comment.friendId === '1') {
+                        comment.friendId = userId;
+                        comment.friendName = matchedUser.username;
+                    }
+                });
+            }
+        });
+
+        setAuthSession(matchedUser.username, loginData.token);
+        state.currentFriendId = userId;
+        state.loadLocalSession();
+        state.save();
+
+        const regGate = document.getElementById('registration-gate');
+        if (regGate) {
+            regGate.classList.add('hidden');
+            regGate.classList.remove('flex');
+        }
+        document.body.classList.remove('overflow-hidden');
+
+        if (passwordToRemember) {
+            const passwordInput = document.getElementById('login-password');
+            if (passwordInput) passwordInput.value = passwordToRemember;
+        }
+
+        initUI();
+        showWelcomeToast(matchedUser.username);
+    };
+
     if (toggleToLogin) {
         toggleToLogin.addEventListener('click', showLoginView);
     }
@@ -5849,7 +5893,8 @@ function initRegistrationOptions() {
             const emailVal = document.getElementById('login-email')?.value.trim() || 'mfelipeneto5@gmail.com';
             const recoveryToken = prompt('Digite o código temporário de recuperação configurado no Cloudflare:');
             if (!recoveryToken) return;
-            const newPassword = prompt('Digite a nova senha para esta conta:');
+            const rawPassword = prompt('Digite a nova senha para esta conta:');
+            const newPassword = String(rawPassword || '').trim();
             if (!newPassword || newPassword.length < 4) {
                 alert('A senha deve ter pelo menos 4 caracteres.');
                 return;
@@ -5874,7 +5919,13 @@ function initRegistrationOptions() {
                     alert(data.error || 'Não foi possível recuperar o acesso agora.');
                     return;
                 }
-                document.getElementById('login-password').value = newPassword;
+                if (data.user && data.token) {
+                    completeAuthenticatedLogin(data, newPassword);
+                    alert('Senha atualizada. Voce ja esta conectado.');
+                    return;
+                }
+                const passwordInput = document.getElementById('login-password');
+                if (passwordInput) passwordInput.value = newPassword;
                 alert('Senha atualizada. Agora clique em Entrar.');
             } catch (err) {
                 console.error('Password recovery failed:', err);
