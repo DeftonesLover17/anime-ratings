@@ -4146,13 +4146,21 @@ function renderCircularRating(containerId, score) {
 }
 
 // Custom select dropdown component renderer matching premium crimson design system
-function renderCustomDropdown(container, options, currentValue, onChange, isCompact = false, disabled = false) {
+function renderCustomDropdown(container, options, currentValue, onChange, isCompact = false, disabled = false, usePortal = false) {
+    const containerId = typeof container === 'string' ? container : (container?.id || '');
     if (typeof container === 'string') {
         container = document.getElementById(container);
     }
     if (!container) return;
 
+    if (containerId) {
+        document.querySelectorAll('.select-options-list[data-dropdown-owner]').forEach(el => {
+            if (el.dataset.dropdownOwner === containerId) el.remove();
+        });
+    }
+
     container.innerHTML = '';
+    const shouldPortal = usePortal && !isCompact;
     
     // Find current label
     const currentOpt = options.find(o => String(o.value) === String(currentValue));
@@ -4218,9 +4226,36 @@ function renderCustomDropdown(container, options, currentValue, onChange, isComp
     const list = document.createElement('div');
     if (isCompact) {
         list.className = 'absolute right-0 mt-1 w-24 select-options-list rounded-xl p-1 hidden flex-col shadow-2xl z-50 border border-white/10 max-h-48 overflow-y-auto animate-[fadeIn_0.15s_ease-out]';
+    } else if (shouldPortal) {
+        list.className = 'fixed select-options-list rounded-2xl p-2 hidden flex-col shadow-2xl border border-white/10 animate-[fadeIn_0.2s_ease-out]';
+        list.style.zIndex = '10050';
+        list.style.maxHeight = '18rem';
+        list.style.overflowY = 'auto';
     } else {
         list.className = 'absolute left-0 right-0 mt-2 select-options-list rounded-2xl p-2 hidden flex-col shadow-2xl z-50 border border-white/10 animate-[fadeIn_0.2s_ease-out]';
     }
+    if (containerId) list.dataset.dropdownOwner = containerId;
+    list.__dropdownTrigger = trigger;
+    list.__dropdownContainer = container;
+
+    const positionPortalList = () => {
+        if (!shouldPortal) return;
+
+        const rect = trigger.getBoundingClientRect();
+        const padding = 12;
+        const width = Math.min(Math.max(rect.width, 220), window.innerWidth - padding * 2);
+        const left = Math.min(Math.max(rect.left, padding), window.innerWidth - width - padding);
+        const estimatedHeight = Math.min((options.length * 44) + 16, 288, window.innerHeight - padding * 2);
+        let top = rect.bottom + 8;
+
+        if (top + estimatedHeight > window.innerHeight - padding && rect.top - estimatedHeight - 8 > padding) {
+            top = rect.top - estimatedHeight - 8;
+        }
+
+        list.style.left = `${left}px`;
+        list.style.top = `${Math.max(padding, top)}px`;
+        list.style.width = `${width}px`;
+    };
 
     if (!disabled) {
         options.forEach(opt => {
@@ -4276,14 +4311,15 @@ function renderCustomDropdown(container, options, currentValue, onChange, isComp
                 if (el !== list) {
                     el.classList.add('hidden');
                     el.classList.remove('flex');
-                    const parent = el.parentElement;
-                    if (parent) {
-                        const chev = parent.querySelector('.select-chevron');
+                    const parent = el.__dropdownContainer || el.parentElement;
+                    const triggerEl = el.__dropdownTrigger || parent;
+                    if (triggerEl) {
+                        const chev = triggerEl.querySelector('.select-chevron');
                         if (chev) chev.classList.remove('rotate-180');
                     }
-                    const row = el.closest('.episode-row');
+                    const row = parent?.closest?.('.episode-row') || el.closest('.episode-row');
                     if (row) row.classList.remove('active-dropdown-row');
-                    const panel = el.closest('.glass-panel');
+                    const panel = parent?.closest?.('.glass-panel') || el.closest('.glass-panel');
                     if (panel) panel.classList.remove('active-dropdown-panel');
                 }
             });
@@ -4311,6 +4347,7 @@ function renderCustomDropdown(container, options, currentValue, onChange, isComp
                         }
                     }
                 }
+                positionPortalList();
                 list.classList.remove('hidden');
                 list.classList.add('flex');
                 const chev = trigger.querySelector('.select-chevron');
@@ -4330,7 +4367,11 @@ function renderCustomDropdown(container, options, currentValue, onChange, isComp
 
     // Make sure we append list and trigger to container
     container.appendChild(trigger);
-    container.appendChild(list);
+    if (shouldPortal) {
+        document.body.appendChild(list);
+    } else {
+        container.appendChild(list);
+    }
 }
 
 // Open Detail Page
@@ -4489,7 +4530,7 @@ function openAnimeDetail(animeId) {
         openAnimeDetail(anime.id);
         renderAnimeGrid();
         renderFeaturedBanner();
-    }, false, isReadOnly);
+    }, false, isReadOnly, true);
 
     // Set Episode progress labels and hide if movie
     const progressContainer = document.getElementById('detail-progress-container');
