@@ -3076,10 +3076,10 @@ const STUDIO_LOGOS = {
     'Triangle Staff': 'logos/triangle_staff.png',
     'Trigger': 'logos/trigger.png',
     'Enishiya': 'logos/enishiya.svg',
-    'Studio M2': 'logos/studio_m2.jpg',
-    'Asread': 'logos/asread.jpg',
-    'asread': 'logos/asread.jpg',
-    'asread.': 'logos/asread.jpg'
+    'Studio M2': 'logos/studio_m2.png',
+    'Asread': 'logos/asread.png',
+    'asread': 'logos/asread.png',
+    'asread.': 'logos/asread.png'
 };
 
 function normalizeStudioName(name) {
