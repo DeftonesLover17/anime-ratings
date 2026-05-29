@@ -84,7 +84,7 @@ function sanitizeImageUrl(url) {
 
     if (value.length > MAX_EXTERNAL_IMAGE_URL_LENGTH) return '';
     if (/^https?:\/\//i.test(value)) return value;
-    if (/^(covers|logos)\/[a-z0-9._/-]+\.(png|jpe?g|webp|gif)$/i.test(value)) return value;
+    if (/^(covers|logos)\/[a-z0-9._/-]+\.(png|jpe?g|webp|gif|svg)$/i.test(value)) return value;
     return '';
 }
 

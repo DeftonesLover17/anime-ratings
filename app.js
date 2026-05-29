@@ -3074,7 +3074,12 @@ const STUDIO_LOGOS = {
     'Manglobe': 'logos/manglobe.png',
     'Artland': 'logos/artland.png',
     'Triangle Staff': 'logos/triangle_staff.png',
-    'Trigger': 'logos/trigger.png'
+    'Trigger': 'logos/trigger.png',
+    'Enishiya': 'logos/enishiya.svg',
+    'Studio M2': 'logos/studio_m2.jpg',
+    'Asread': 'logos/asread.jpg',
+    'asread': 'logos/asread.jpg',
+    'asread.': 'logos/asread.jpg'
 };
 
 function normalizeStudioName(name) {
@@ -3084,7 +3089,7 @@ function normalizeStudioName(name) {
 function sanitizeStudioLogoUrl(url) {
     const value = String(url || '').trim();
     if (!value) return '';
-    if (/^logos\/[a-z0-9._/-]+\.(png|jpe?g|webp|gif)$/i.test(value)) return value;
+    if (/^logos\/[a-z0-9._/-]+\.(png|jpe?g|webp|gif|svg)$/i.test(value)) return value;
     if (/^https?:\/\//i.test(value) && value.length <= 4096) return value;
     if (/^data:image\/(png|jpe?g|gif|webp);base64,[a-z0-9+/=]+$/i.test(value) && value.length <= 2 * 1024 * 1024) return value;
     return '';
@@ -3167,7 +3172,12 @@ const STUDIO_BRAND_COLORS = {
     'Manglobe':           { border: 'rgba(6, 214, 160, 0.4)', glow: 'rgba(6, 214, 160, 0.15)', text: '#06d6a0' },
     'Artland':            { border: 'rgba(214, 40, 40, 0.4)', glow: 'rgba(214, 40, 40, 0.15)', text: '#d62828' },
     'Triangle Staff':     { border: 'rgba(255, 190, 11, 0.4)', glow: 'rgba(255, 190, 11, 0.15)', text: '#ffbe0b' },
-    'Trigger':            { border: 'rgba(230, 57, 70, 0.4)', glow: 'rgba(230, 57, 70, 0.15)', text: '#e63946' }
+    'Trigger':            { border: 'rgba(230, 57, 70, 0.4)', glow: 'rgba(230, 57, 70, 0.15)', text: '#e63946' },
+    'Enishiya':           { border: 'rgba(253, 186, 116, 0.4)', glow: 'rgba(253, 186, 116, 0.15)', text: '#fdba74' },
+    'Studio M2':          { border: 'rgba(255, 255, 255, 0.32)', glow: 'rgba(255, 255, 255, 0.12)', text: '#f5f5f5' },
+    'Asread':             { border: 'rgba(0, 112, 74, 0.4)', glow: 'rgba(0, 112, 74, 0.15)', text: '#00704a' },
+    'asread':             { border: 'rgba(0, 112, 74, 0.4)', glow: 'rgba(0, 112, 74, 0.15)', text: '#00704a' },
+    'asread.':            { border: 'rgba(0, 112, 74, 0.4)', glow: 'rgba(0, 112, 74, 0.15)', text: '#00704a' }
 };
 
 // Dynamic cinematic transition for studio profile entries
