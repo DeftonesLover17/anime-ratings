@@ -851,7 +851,7 @@ async function handleRecoverPassword(request, env) {
     const body = await parseJsonBody(request);
     const expectedToken = String(env.OWNER_RECOVERY_TOKEN || '').trim();
     const defaultRecoveryEmails = 'mfelipeneto5@gmail.com,yagomatthews9@gmail.com,ninjazokobr@gmail.com,dallestwl@gmail.com';
-    const allowedEmails = String(env.OWNER_RECOVERY_EMAILS || defaultRecoveryEmails)
+    const allowedEmails = `${defaultRecoveryEmails},${env.OWNER_RECOVERY_EMAILS || ''}`
         .split(',')
         .map(email => email.trim().toLowerCase())
         .filter(Boolean);
