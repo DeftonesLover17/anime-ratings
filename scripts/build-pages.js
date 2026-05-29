@@ -31,16 +31,16 @@ const headers = `/*
   Cache-Control: public, max-age=31536000, immutable
 
 /covers/*
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
 
 /logos/*
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
 
 /favicon.png
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
 
 /logo.png
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
 `;
 
 fs.rmSync(distDir, { recursive: true, force: true });
