@@ -371,6 +371,22 @@ function randomToken() {
     return bytesToBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
+function isPasswordCredential(credential) {
+    return credential && typeof credential === 'object'
+        && typeof credential.passwordHash === 'string'
+        && typeof credential.passwordSalt === 'string'
+        && Number.isFinite(Number(credential.passwordIterations))
+        && credential.passwordDigest === 'pbkdf2-sha256';
+}
+
+function setPasswordFromCredential(user, credential) {
+    user.passwordHash = credential.passwordHash;
+    user.passwordSalt = credential.passwordSalt;
+    user.passwordIterations = Number(credential.passwordIterations);
+    user.passwordDigest = 'pbkdf2-sha256';
+    delete user.password;
+}
+
 async function hashPassword(password, salt = randomBase64(16), iterations = PASSWORD_ITERATIONS) {
     const key = await crypto.subtle.importKey(
         'raw',
@@ -409,6 +425,24 @@ async function verifyPassword(user, password) {
         return timingSafeEqual(candidate.passwordHash, user.passwordHash);
     }
     return typeof user.password === 'string' && user.password === password;
+}
+
+async function createPasswordProof(passwordHash, nonce) {
+    const key = await crypto.subtle.importKey(
+        'raw',
+        base64ToBytes(passwordHash),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+    );
+    const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(String(nonce || '')));
+    return bytesToBase64(new Uint8Array(signature));
+}
+
+async function verifyPasswordProof(user, nonce, proof) {
+    if (!user || !user.passwordHash || !nonce || !proof) return false;
+    const expectedProof = await createPasswordProof(user.passwordHash, nonce);
+    return timingSafeEqual(expectedProof, proof);
 }
 
 async function setPassword(user, password) {
@@ -516,7 +550,9 @@ async function ensureStorage(env) {
     const db = getDb(env);
     await db.prepare('CREATE TABLE IF NOT EXISTS app_state (id TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)').run();
     await db.prepare('CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, username TEXT NOT NULL, expires_at INTEGER NOT NULL)').run();
+    await db.prepare('CREATE TABLE IF NOT EXISTS auth_challenges (nonce TEXT PRIMARY KEY, email TEXT NOT NULL, expires_at INTEGER NOT NULL)').run();
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions (expires_at)').run();
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_auth_challenges_expires_at ON auth_challenges (expires_at)').run();
     await db.prepare(
         "INSERT INTO app_state (id, state, updated_at) VALUES ('main', ?1, CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING"
     ).bind(JSON.stringify(sanitizeStateForStorage(clone(DEFAULT_STATE)))).run();
@@ -713,13 +749,31 @@ async function parseJsonBody(request) {
 
 async function handleLogin(request, env) {
     const body = await parseJsonBody(request);
-    if (!body || !body.email || !body.password) return json({ error: 'E-mail e senha são obrigatórios.' }, 400);
+    if (!body || !body.email || (!body.password && !body.passwordProof)) return json({ error: 'E-mail e senha são obrigatórios.' }, 400);
     const state = await readState(env);
     const user = (state.registeredUsers || []).find(candidate =>
         candidate && candidate.email && candidate.email.toLowerCase() === String(body.email).toLowerCase()
     );
-    if (!user || !(await verifyPassword(user, body.password))) return json({ error: 'E-mail ou senha incorretos.' }, 401);
-    if (!user.passwordHash || user.password) {
+
+    if (body.passwordProof) {
+        const challenge = await getDb(env).prepare(
+            'SELECT email, expires_at FROM auth_challenges WHERE nonce = ?1'
+        ).bind(String(body.nonce || '')).first();
+        await getDb(env).prepare('DELETE FROM auth_challenges WHERE nonce = ?1').bind(String(body.nonce || '')).run();
+        if (!challenge || Number(challenge.expires_at) < Date.now()) return json({ error: 'E-mail ou senha incorretos.' }, 401);
+        if (String(challenge.email).toLowerCase() !== String(body.email).toLowerCase()) return json({ error: 'E-mail ou senha incorretos.' }, 401);
+        if (!user || !(await verifyPasswordProof(user, body.nonce, body.passwordProof))) return json({ error: 'E-mail ou senha incorretos.' }, 401);
+    } else {
+        if (user && user.passwordHash) {
+            return json({
+                error: 'Atualize a página e tente entrar novamente.',
+                authChallengeRequired: true
+            }, 409);
+        }
+        if (!user || !(await verifyPassword(user, body.password))) return json({ error: 'E-mail ou senha incorretos.' }, 401);
+    }
+
+    if (body.password && (!user.passwordHash || user.password)) {
         await setPassword(user, body.password);
         await writeState(env, state);
     }
@@ -727,10 +781,33 @@ async function handleLogin(request, env) {
     return json({ success: true, token, user: sanitizeUser(user, user.username), state: sanitizeState(state, user.username) });
 }
 
+async function handleLoginChallenge(request, env) {
+    const body = await parseJsonBody(request);
+    if (!body || !body.email) return json({ error: 'E-mail é obrigatório.' }, 400);
+    const state = await readState(env);
+    const user = (state.registeredUsers || []).find(candidate =>
+        candidate && candidate.email && candidate.email.toLowerCase() === String(body.email).toLowerCase()
+    );
+    const nonce = randomToken();
+    const email = String(body.email || '').toLowerCase();
+    const expiresAt = Date.now() + 1000 * 60 * 5;
+    await getDb(env).prepare(
+        'INSERT INTO auth_challenges (nonce, email, expires_at) VALUES (?1, ?2, ?3)'
+    ).bind(nonce, email, expiresAt).run();
+    return json({
+        nonce,
+        passwordSalt: user && user.passwordSalt ? user.passwordSalt : randomBase64(16),
+        passwordIterations: user && user.passwordIterations ? user.passwordIterations : PASSWORD_ITERATIONS,
+        passwordDigest: 'pbkdf2-sha256'
+    });
+}
+
 async function handleRegister(request, env) {
     const newUser = await parseJsonBody(request);
-    if (!newUser || !newUser.username || !newUser.email || !newUser.password) return json({ error: 'username, email and password required' }, 400);
-    if (String(newUser.password).length < 4) return json({ error: 'A senha deve ter pelo menos 4 caracteres.' }, 400);
+    if (!newUser || !newUser.username || !newUser.email || (!newUser.password && !isPasswordCredential(newUser.passwordCredential))) {
+        return json({ error: 'username, email and password required' }, 400);
+    }
+    if (newUser.password && String(newUser.password).length < 4) return json({ error: 'A senha deve ter pelo menos 4 caracteres.' }, 400);
     const state = await readState(env);
     if (!Array.isArray(state.registeredUsers)) state.registeredUsers = [];
     const exists = state.registeredUsers.some(user =>
@@ -756,7 +833,11 @@ async function handleRegister(request, env) {
         memberDesc: `Você é o ${nextMemberNumber}º membro a fazer parte do AniVoid. Bem-vindo a esta comunidade.`,
         isVirtual: false
     };
-    await setPassword(userToAdd, newUser.password);
+    if (isPasswordCredential(newUser.passwordCredential)) {
+        setPasswordFromCredential(userToAdd, newUser.passwordCredential);
+    } else {
+        await setPassword(userToAdd, newUser.password);
+    }
     state.registeredUsers.push(userToAdd);
     await writeState(env, state);
     const token = await createSession(env, userToAdd.username);
@@ -915,6 +996,7 @@ async function route(request, env) {
         const authUser = await getAuthenticatedUser(request, env, state);
         return json(sanitizeState(state, authUser ? authUser.username : ''));
     }
+    if (path === '/api/login-challenge' && request.method === 'POST') return handleLoginChallenge(request, env);
     if (path === '/api/login' && request.method === 'POST') return handleLogin(request, env);
     if (path === '/api/register' && request.method === 'POST') return handleRegister(request, env);
     if (path === '/api/patch-user' && request.method === 'POST') return handlePatchUser(request, env);

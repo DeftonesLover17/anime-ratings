@@ -947,6 +947,120 @@ function authHeaders(extraHeaders = {}) {
     return token ? { ...extraHeaders, Authorization: `Bearer ${token}` } : extraHeaders;
 }
 
+const USE_CLIENT_PASSWORD_PROOF = API_BASE_URL === ''
+    && window.location.hostname !== 'localhost'
+    && window.location.hostname !== '127.0.0.1'
+    && window.crypto
+    && window.crypto.subtle;
+
+function bytesToBase64(bytes) {
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.slice(i, i + chunkSize));
+    }
+    return btoa(binary);
+}
+
+function base64ToBytes(base64) {
+    const binary = atob(String(base64 || ''));
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+}
+
+function randomBase64(byteLength) {
+    const bytes = new Uint8Array(byteLength);
+    window.crypto.getRandomValues(bytes);
+    return bytesToBase64(bytes);
+}
+
+async function derivePasswordHashBytes(password, salt, iterations) {
+    const key = await window.crypto.subtle.importKey(
+        'raw',
+        new TextEncoder().encode(String(password || '')),
+        'PBKDF2',
+        false,
+        ['deriveBits']
+    );
+    const bits = await window.crypto.subtle.deriveBits(
+        {
+            name: 'PBKDF2',
+            salt: base64ToBytes(salt),
+            iterations,
+            hash: 'SHA-256'
+        },
+        key,
+        256
+    );
+    return new Uint8Array(bits);
+}
+
+async function createPasswordCredential(password) {
+    const passwordSalt = randomBase64(16);
+    const passwordIterations = 310000;
+    const passwordHash = bytesToBase64(await derivePasswordHashBytes(password, passwordSalt, passwordIterations));
+    return {
+        passwordHash,
+        passwordSalt,
+        passwordIterations,
+        passwordDigest: 'pbkdf2-sha256'
+    };
+}
+
+async function createPasswordProof(password, challenge) {
+    const hashBytes = await derivePasswordHashBytes(
+        password,
+        challenge.passwordSalt,
+        Number(challenge.passwordIterations) || 310000
+    );
+    const key = await window.crypto.subtle.importKey(
+        'raw',
+        hashBytes,
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+    );
+    const signature = await window.crypto.subtle.sign('HMAC', key, new TextEncoder().encode(challenge.nonce));
+    return bytesToBase64(new Uint8Array(signature));
+}
+
+async function submitLogin(email, password) {
+    if (USE_CLIENT_PASSWORD_PROOF) {
+        const challengeResp = await fetch(API_BASE_URL + '/api/login-challenge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const challenge = await challengeResp.json().catch(() => ({}));
+        if (!challengeResp.ok || !challenge.nonce || !challenge.passwordSalt) {
+            return challengeResp;
+        }
+        const passwordProof = await createPasswordProof(password, challenge);
+        return fetch(API_BASE_URL + '/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, nonce: challenge.nonce, passwordProof })
+        });
+    }
+
+    return fetch(API_BASE_URL + '/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+    });
+}
+
+async function buildRegisterPayload(userRecord, password) {
+    if (USE_CLIENT_PASSWORD_PROOF) {
+        return {
+            ...userRecord,
+            passwordCredential: await createPasswordCredential(password)
+        };
+    }
+    return { ...userRecord, password };
+}
+
 function stripSensitiveUserFields(user) {
     if (!user || typeof user !== 'object') return user;
     const {
@@ -5695,11 +5809,7 @@ function initRegistrationOptions() {
             const passwordVal = document.getElementById('login-password').value.trim();
 
             try {
-                const loginResp = await fetch(API_BASE_URL + '/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: emailVal, password: passwordVal })
-                });
+                const loginResp = await submitLogin(emailVal, passwordVal);
                 const loginData = await loginResp.json().catch(() => ({}));
 
                 if (!loginResp.ok || !loginData.user || !loginData.token) {
@@ -5866,10 +5976,11 @@ function initRegistrationOptions() {
             // Immediately register on the server and get member number
             let assignedMemberNumber = null;
             try {
+                const registerPayload = await buildRegisterPayload(newUserRecord, password);
                 const regResp = await fetch(API_BASE_URL + '/api/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...newUserRecord, password })
+                    body: JSON.stringify(registerPayload)
                 });
                 const regData = await regResp.json().catch(() => ({}));
                 if (!regResp.ok || !regData.user || !regData.token) {
