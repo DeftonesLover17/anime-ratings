@@ -1086,13 +1086,120 @@ function sanitizeStoredRegisteredUsers() {
     } catch (err) {}
 }
 
+function normalizeProfileId(value) {
+    return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function normalizeAnimeIdentity(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function hasMeaningfulRating(rating) {
+    if (!rating || typeof rating !== 'object') return false;
+    const overall = parseFloat(rating.overall);
+    const hasOverall = !isNaN(overall) && overall > 0;
+    const hasEpisodes = rating.episodeRatings &&
+        typeof rating.episodeRatings === 'object' &&
+        Object.values(rating.episodeRatings).some(score => {
+            const value = parseFloat(score);
+            return !isNaN(value) && value > 0;
+        });
+    const hasStatus = rating.status && rating.status !== 'Plan to Watch';
+    return hasOverall || hasEpisodes || hasStatus;
+}
+
+function ratingStrength(rating) {
+    if (!rating || typeof rating !== 'object') return 0;
+    const episodeCount = rating.episodeRatings && typeof rating.episodeRatings === 'object'
+        ? Object.values(rating.episodeRatings).filter(score => {
+            const value = parseFloat(score);
+            return !isNaN(value) && value > 0;
+        }).length
+        : 0;
+    const overall = parseFloat(rating.overall);
+    return episodeCount * 3 + (!isNaN(overall) && overall > 0 ? 2 : 0) + (rating.status && rating.status !== 'Plan to Watch' ? 1 : 0);
+}
+
+function animeRecoveryKeys(anime) {
+    if (!anime || typeof anime !== 'object') return [];
+    const keys = new Set();
+    if (anime.id) keys.add(`id:${anime.id}`);
+
+    const title = normalizeAnimeIdentity(anime.title);
+    const japaneseTitle = normalizeAnimeIdentity(anime.japaneseTitle);
+    if (title) keys.add(`title:${title}`);
+    if (japaneseTitle) keys.add(`title:${japaneseTitle}`);
+
+    const joined = `${title} ${japaneseTitle}`.trim();
+    if (joined.includes('jujutsu kaisen')) {
+        if (anime.id === 'a20_s2' || /\b(2|2nd|segunda|temporada 2)\b/.test(joined)) {
+            keys.add('series:jujutsu-kaisen-season-2');
+        } else if (anime.id === 'a20' || !joined.includes('shimetsu kaiyuu') && !joined.includes('culling game')) {
+            keys.add('series:jujutsu-kaisen-season-1');
+        }
+    }
+
+    return Array.from(keys);
+}
+
+function mergeLocalOwnRatings(serverAnimes, localAnimes, userId) {
+    const normalizedUserId = normalizeProfileId(userId);
+    if (!normalizedUserId || !Array.isArray(serverAnimes) || !Array.isArray(localAnimes)) return serverAnimes;
+
+    const localRatingsByKey = new Map();
+    localAnimes.forEach(localAnime => {
+        const localRating = localAnime?.ratings?.[normalizedUserId] || localAnime?.ratings?.['1'];
+        if (!hasMeaningfulRating(localRating)) return;
+        animeRecoveryKeys(localAnime).forEach(key => {
+            const current = localRatingsByKey.get(key);
+            if (!current || ratingStrength(localRating) > ratingStrength(current.rating)) {
+                localRatingsByKey.set(key, { rating: { ...localRating }, anime: localAnime });
+            }
+        });
+    });
+
+    return serverAnimes.map(serverAnime => {
+        const keys = animeRecoveryKeys(serverAnime);
+        const found = keys.map(key => localRatingsByKey.get(key)).find(Boolean);
+        if (!found) return serverAnime;
+
+        const currentRating = serverAnime?.ratings?.[normalizedUserId];
+        if (hasMeaningfulRating(currentRating) && ratingStrength(currentRating) >= ratingStrength(found.rating)) {
+            return serverAnime;
+        }
+
+        return {
+            ...serverAnime,
+            ratings: {
+                ...(serverAnime.ratings || {}),
+                [normalizedUserId]: {
+                    ...(currentRating || {}),
+                    ...found.rating
+                }
+            }
+        };
+    });
+}
+
 function applyServerStateSnapshot(serverState) {
     if (!serverState || typeof serverState !== 'object') return;
+    let previousAnimes = [];
+    try {
+        previousAnimes = JSON.parse(localStorage.getItem('anivoid_list_v2')) || [];
+    } catch (err) {}
+
     if (Array.isArray(serverState.registeredUsers)) {
         storeRegisteredUsers(serverState.registeredUsers);
     }
     if (Array.isArray(serverState.animes)) {
-        localStorage.setItem('anivoid_list_v2', JSON.stringify(serverState.animes));
+        const activeUserId = normalizeProfileId(localStorage.getItem('anivoid_logged_in_username'));
+        const animesToStore = mergeLocalOwnRatings(serverState.animes, previousAnimes, activeUserId);
+        localStorage.setItem('anivoid_list_v2', JSON.stringify(animesToStore));
     }
     if (serverState.studioLogos && typeof serverState.studioLogos === 'object') {
         localStorage.setItem('anivoid_studio_logos', JSON.stringify(serverState.studioLogos));
@@ -1370,8 +1477,13 @@ class AppState {
 
             // Update local memory and localStorage with the merged server state
             if (serverState.animes && Array.isArray(serverState.animes)) {
+                const serverAnimesWithLocalRatings = mergeLocalOwnRatings(
+                    serverState.animes,
+                    this.animes,
+                    this.loggedInUser
+                );
                 const serverAnimesMap = {};
-                serverState.animes.forEach(sa => {
+                serverAnimesWithLocalRatings.forEach(sa => {
                     serverAnimesMap[sa.id] = sa;
                 });
 
@@ -1407,7 +1519,7 @@ class AppState {
 
                 // Add new animes from server not in local (deduplicate by id)
                 const localIds = new Set(this.animes.map(a => a.id));
-                serverState.animes.forEach(sa => {
+                serverAnimesWithLocalRatings.forEach(sa => {
                     if (sa && sa.id && !localIds.has(sa.id)) {
                         this.animes.push(sa);
                         localIds.add(sa.id);
@@ -6021,9 +6133,16 @@ function initRegistrationOptions() {
 
     const completeAuthenticatedLogin = (loginData, passwordToRemember = '') => {
         const matchedUser = stripSensitiveUserFields(loginData.user);
-        const userId = matchedUser.username.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const userId = normalizeProfileId(matchedUser.username);
+        setAuthSession(matchedUser.username, loginData.token);
+        state.loggedInUser = matchedUser.username;
+
         if (loginData.state) {
             applyServerStateSnapshot(loginData.state);
+            try {
+                const restoredAnimes = JSON.parse(localStorage.getItem('anivoid_list_v2')) || [];
+                if (Array.isArray(restoredAnimes)) state.animes = restoredAnimes;
+            } catch (err) {}
         }
 
         // Migrate ratings and reviews from key '1' if they exist in localStorage
@@ -6041,8 +6160,9 @@ function initRegistrationOptions() {
                 });
             }
         });
+        state.repairDerivedRatings();
+        localStorage.setItem('anivoid_list_v2', JSON.stringify(state.animes));
 
-        setAuthSession(matchedUser.username, loginData.token);
         state.currentFriendId = userId;
         localStorage.setItem('anivoid_current_friend_v2', userId);
         state.loadLocalSession();
@@ -6061,6 +6181,10 @@ function initRegistrationOptions() {
 
         initUI();
         showWelcomeToast(matchedUser.username);
+        state.syncWithServer().then(() => {
+            renderAnimeGrid();
+            renderFeaturedBanner();
+        });
     };
 
     if (toggleToLogin) {

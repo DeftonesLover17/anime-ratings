@@ -127,6 +127,80 @@ function sameUsername(a, b) {
     return usernameKey(a) === usernameKey(b);
 }
 
+function normalizeAnimeIdentity(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function hasMeaningfulRating(rating) {
+    if (!rating || typeof rating !== 'object') return false;
+    const overall = parseFloat(rating.overall);
+    const hasOverall = Number.isFinite(overall) && overall > 0;
+    const hasEpisodes = rating.episodeRatings &&
+        typeof rating.episodeRatings === 'object' &&
+        Object.values(rating.episodeRatings).some(score => {
+            const value = parseFloat(score);
+            return Number.isFinite(value) && value > 0;
+        });
+    const hasStatus = rating.status && rating.status !== 'Plan to Watch';
+    return hasOverall || hasEpisodes || hasStatus;
+}
+
+function ratingStrength(rating) {
+    if (!rating || typeof rating !== 'object') return 0;
+    const episodeCount = rating.episodeRatings && typeof rating.episodeRatings === 'object'
+        ? Object.values(rating.episodeRatings).filter(score => {
+            const value = parseFloat(score);
+            return Number.isFinite(value) && value > 0;
+        }).length
+        : 0;
+    const overall = parseFloat(rating.overall);
+    return episodeCount * 3 + (Number.isFinite(overall) && overall > 0 ? 2 : 0) + (rating.status && rating.status !== 'Plan to Watch' ? 1 : 0);
+}
+
+function animeRecoveryKeys(anime) {
+    if (!anime || typeof anime !== 'object') return [];
+    const keys = new Set();
+    if (anime.id) keys.add(`id:${anime.id}`);
+
+    const title = normalizeAnimeIdentity(anime.title);
+    const japaneseTitle = normalizeAnimeIdentity(anime.japaneseTitle);
+    if (title) keys.add(`title:${title}`);
+    if (japaneseTitle) keys.add(`title:${japaneseTitle}`);
+
+    const joined = `${title} ${japaneseTitle}`.trim();
+    if (joined.includes('jujutsu kaisen')) {
+        if (anime.id === 'a20_s2' || /\b(2|2nd|segunda|temporada 2)\b/.test(joined)) {
+            keys.add('series:jujutsu-kaisen-season-2');
+        } else if (anime.id === 'a20' || !joined.includes('shimetsu kaiyuu') && !joined.includes('culling game')) {
+            keys.add('series:jujutsu-kaisen-season-1');
+        }
+    }
+
+    return Array.from(keys);
+}
+
+function findLocalRatingForAnime(localAnimes, serverAnime, loggedInId) {
+    const targetKeys = new Set(animeRecoveryKeys(serverAnime));
+    let bestRating = null;
+
+    (localAnimes || []).forEach(localAnime => {
+        if (!localAnime || !localAnime.ratings) return;
+        if (!animeRecoveryKeys(localAnime).some(key => targetKeys.has(key))) return;
+        const localRating = localAnime.ratings[loggedInId] || localAnime.ratings['1'];
+        if (!hasMeaningfulRating(localRating)) return;
+        if (!bestRating || ratingStrength(localRating) > ratingStrength(bestRating)) {
+            bestRating = localRating;
+        }
+    });
+
+    return bestRating;
+}
+
 function decodeHtmlEntities(value) {
     return String(value || '')
         .replace(/&lt;/g, '<')
@@ -826,6 +900,24 @@ function mergeStates(localState, serverState, loggedInUser) {
             mergeCommentsForUser(serverAnime, localAnime, loggedInId, (type, details) => {
                 pushActivity(type, localAnime, details);
             });
+        });
+
+        nextState.animes.forEach(serverAnime => {
+            if (!serverAnime || !serverAnime.id) return;
+            const recoveredRating = findLocalRatingForAnime(localState.animes, serverAnime, loggedInId);
+            if (!hasMeaningfulRating(recoveredRating)) return;
+
+            if (!serverAnime.ratings) serverAnime.ratings = {};
+            const serverRating = serverAnime.ratings[loggedInId];
+            if (hasMeaningfulRating(serverRating) && ratingStrength(serverRating) >= ratingStrength(recoveredRating)) return;
+
+            if (recoveredRating.overall !== undefined && String(recoveredRating.overall) !== String(serverRating?.overall || '')) {
+                const score = parseFloat(recoveredRating.overall);
+                if (Number.isFinite(score) && score > 0) {
+                    pushActivity('rating', serverAnime, `avaliou com nota ${recoveredRating.overall}`);
+                }
+            }
+            serverAnime.ratings[loggedInId] = { ...(serverRating || {}), ...recoveredRating };
         });
     }
 
