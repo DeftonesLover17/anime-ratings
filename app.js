@@ -6971,13 +6971,93 @@ function initAddFriendModalOptions() {
             return year ? `${ptSeason} ${year}` : ptSeason;
         };
 
-        // Fetch anime data from Jikan
+        const normalizeAnimeSearchText = (value) => String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const addAnimeSearchQuery = (queries, value) => {
+            const cleanValue = String(value || '').replace(/\s+/g, ' ').trim();
+            if (!cleanValue) return;
+            const key = cleanValue.toLowerCase();
+            if (!queries.some(query => query.toLowerCase() === key)) queries.push(cleanValue);
+        };
+
+        const buildAnimeSearchQueries = (query) => {
+            const queries = [];
+            const normalized = normalizeAnimeSearchText(query);
+            const isAttackOnTitan = normalized.includes('attack on titan') ||
+                normalized.includes('shingeki no kyojin') ||
+                /\bsnk\b/.test(normalized);
+            const wantsFinalSeason = normalized.includes('final season') ||
+                normalized.includes('temporada final') ||
+                normalized.includes('ultima temporada') ||
+                normalized.includes('kanketsu') ||
+                normalized.includes('capitulos finais') ||
+                normalized.includes('parte final');
+            const wantsPartOne = /\b(part|parte)\s*1\b/.test(normalized);
+            const wantsPartTwo = /\b(part|parte)\s*2\b/.test(normalized);
+            const wantsFinalChapters = /\b(part|parte)\s*3\b/.test(normalized) ||
+                normalized.includes('final chapters') ||
+                normalized.includes('capitulos finais') ||
+                normalized.includes('parte final') ||
+                normalized.includes('kanketsu');
+
+            if (isAttackOnTitan && wantsFinalSeason) {
+                if (wantsPartOne) addAnimeSearchQuery(queries, 'Shingeki no Kyojin: The Final Season');
+                if (wantsPartTwo) addAnimeSearchQuery(queries, 'Shingeki no Kyojin: The Final Season Part 2');
+                if (wantsFinalChapters) addAnimeSearchQuery(queries, 'Shingeki no Kyojin: The Final Season - Kanketsu-hen');
+                addAnimeSearchQuery(queries, 'Attack on Titan Final Season');
+            }
+
+            const asciiQuery = String(query || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const translatedQuery = asciiQuery
+                .replace(/\btemporada\s+final\b/gi, 'Final Season')
+                .replace(/\bultima\s+temporada\b/gi, 'Final Season')
+                .replace(/\bparte\b/gi, 'Part')
+                .replace(/\bcapitulos\s+finais\b/gi, 'Final Chapters')
+                .replace(/\bfinal\s+chapters\b/gi, 'Final Chapters');
+
+            addAnimeSearchQuery(queries, translatedQuery);
+            addAnimeSearchQuery(queries, query);
+            return queries.slice(0, 4);
+        };
+
+        const fetchAnimeMAL = async (query) => {
+            const response = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=12`);
+            if (!response.ok) throw new Error('API request failed');
+            const json = await response.json();
+            return json.data || [];
+        };
+
+        // Fetch anime data from Jikan with a few smart aliases for titles MAL stores differently.
         const searchAnimeMAL = async (query) => {
             try {
-                const response = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=5`);
-                if (!response.ok) throw new Error('API request failed');
-                const json = await response.json();
-                return json.data || [];
+                const seen = new Set();
+                const mergedResults = [];
+                const queries = buildAnimeSearchQueries(query);
+
+                for (const searchQuery of queries) {
+                    let results = [];
+                    try {
+                        results = await fetchAnimeMAL(searchQuery);
+                    } catch (queryError) {
+                        console.warn('MAL search fallback failed:', searchQuery, queryError);
+                        continue;
+                    }
+                    results.forEach(anime => {
+                        const key = anime.mal_id || `${anime.title}-${anime.url}`;
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            mergedResults.push(anime);
+                        }
+                    });
+                    if (mergedResults.length >= 10) break;
+                }
+
+                return mergedResults.slice(0, 10);
             } catch (e) {
                 console.error('Error fetching from MAL:', e);
                 return [];
