@@ -169,6 +169,9 @@ function sanitizeComment(comment) {
         friendName: escapeHtml(comment.friendName || '', 80),
         comment: escapeHtml(comment.comment || '', 5000),
         timestamp: escapeHtml(comment.timestamp || '', 40),
+        likes: Array.isArray(comment.likes)
+            ? comment.likes.slice(0, 200).map(like => normalizeUsername(like) || escapeHtml(like, 80)).filter(Boolean)
+            : [],
         replies: Array.isArray(comment.replies)
             ? comment.replies.slice(0, 500).map(reply => ({
                 ...reply,
@@ -180,6 +183,29 @@ function sanitizeComment(comment) {
             }))
             : []
     };
+}
+
+function mergeCommentLikes(serverLikes, localLikes, loggedInId = '') {
+    const likes = new Set();
+    const localLikeIds = new Set();
+    [serverLikes, localLikes].forEach(list => {
+        if (!Array.isArray(list)) return;
+        list.forEach(item => {
+            const id = normalizeUsername(item);
+            if (id) likes.add(id);
+        });
+    });
+    if (Array.isArray(localLikes)) {
+        localLikes.forEach(item => {
+            const id = normalizeUsername(item);
+            if (id) localLikeIds.add(id);
+        });
+    }
+    if (loggedInId) {
+        if (localLikeIds.has(loggedInId)) likes.add(loggedInId);
+        else likes.delete(loggedInId);
+    }
+    return Array.from(likes).slice(0, 200);
 }
 
 function sanitizeRatings(ratings) {
@@ -203,6 +229,7 @@ function sanitizeRatings(ratings) {
             overall: rating.overall === '-' ? '-' : (Number.isFinite(Number(rating.overall)) ? Number(rating.overall) : 0),
             status: escapeHtml(rating.status || 'Plan to Watch', 80),
             episodesWatched: Number.isFinite(Number(rating.episodesWatched)) ? Number(rating.episodesWatched) : 0,
+            updatedAt: escapeHtml(rating.updatedAt || '', 40),
             episodeRatings: safeEpisodeRatings
         };
     });
@@ -961,7 +988,12 @@ function mergeStates(localState, serverState, loggedInUser) {
                                     serverReplies.forEach(r => { if (r && r.id) repliesMap[r.id] = r; });
                                     localReplies.forEach(r => { if (r && r.id) repliesMap[r.id] = r; });
                                     const mergedReplies = Object.values(repliesMap).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                                    serverAnime.comments[index] = { ...serverAnime.comments[index], ...lc, replies: mergedReplies };
+                                    serverAnime.comments[index] = {
+                                        ...serverAnime.comments[index],
+                                        ...lc,
+                                        likes: mergeCommentLikes(serverAnime.comments[index].likes, lc.likes, loggedInId),
+                                        replies: mergedReplies
+                                    };
                                 } else {
                                     mergedActivities.push({
                                         id: generateActivityId(),
@@ -975,7 +1007,7 @@ function mergeStates(localState, serverState, loggedInUser) {
                                         timestamp: new Date().toISOString()
                                     });
                                     // Ensure replies array exists on new comment
-                                    serverAnime.comments.push({ ...lc, replies: lc.replies || [] });
+                                    serverAnime.comments.push({ ...lc, likes: lc.likes || [], replies: lc.replies || [] });
                                 }
                             } else if (index >= 0) {
                                 // Not the comment author, but may have added a reply.
@@ -995,7 +1027,11 @@ function mergeStates(localState, serverState, loggedInUser) {
                                     }
                                 });
                                 const mergedReplies = Object.values(repliesMap).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                                serverAnime.comments[index] = { ...serverAnime.comments[index], replies: mergedReplies };
+                                serverAnime.comments[index] = {
+                                    ...serverAnime.comments[index],
+                                    likes: mergeCommentLikes(serverAnime.comments[index].likes, lc.likes, loggedInId),
+                                    replies: mergedReplies
+                                };
                             }
                         });
                     }

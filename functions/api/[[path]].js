@@ -301,6 +301,9 @@ function sanitizeComment(comment) {
         friendName: escapeHtml(comment.friendName || '', 80),
         comment: escapeHtml(comment.comment || '', 5000),
         timestamp: escapeHtml(comment.timestamp || '', 40),
+        likes: Array.isArray(comment.likes)
+            ? comment.likes.slice(0, 200).map(like => normalizeUsername(like) || escapeHtml(like, 80)).filter(Boolean)
+            : [],
         replies: Array.isArray(comment.replies)
             ? comment.replies.slice(0, 500).map(reply => ({
                 ...reply,
@@ -336,6 +339,7 @@ function sanitizeRatings(ratings) {
             overall: rating.overall === '-' ? '-' : (Number.isFinite(Number(rating.overall)) ? Number(rating.overall) : 0),
             status: escapeHtml(rating.status || 'Plan to Watch', 80),
             episodesWatched: Number.isFinite(Number(rating.episodesWatched)) ? Number(rating.episodesWatched) : 0,
+            updatedAt: escapeHtml(rating.updatedAt || '', 40),
             episodeRatings: safeEpisodeRatings
         };
         safeRatings[safeFriendId] = ratingStrength(safeRatings[safeFriendId]) >= ratingStrength(nextRating)
@@ -714,6 +718,29 @@ function isBogusAnime(anime) {
     return bogusIds.has(id) || id.includes('debug') || id.startsWith('sample-anime') || id.includes('-test-') || id.startsWith('test-');
 }
 
+function mergeCommentLikes(serverLikes, localLikes, loggedInId = '') {
+    const likes = new Set();
+    const localLikeIds = new Set();
+    [serverLikes, localLikes].forEach(list => {
+        if (!Array.isArray(list)) return;
+        list.forEach(item => {
+            const id = normalizeUsername(item);
+            if (id) likes.add(id);
+        });
+    });
+    if (Array.isArray(localLikes)) {
+        localLikes.forEach(item => {
+            const id = normalizeUsername(item);
+            if (id) localLikeIds.add(id);
+        });
+    }
+    if (loggedInId) {
+        if (localLikeIds.has(loggedInId)) likes.add(loggedInId);
+        else likes.delete(loggedInId);
+    }
+    return Array.from(likes).slice(0, 200);
+}
+
 function mergeCommentsForUser(serverAnime, localAnime, loggedInId, onActivity = () => {}) {
     if (!serverAnime.comments) serverAnime.comments = [];
     const localComments = Array.isArray(localAnime.comments) ? localAnime.comments : [];
@@ -743,11 +770,12 @@ function mergeCommentsForUser(serverAnime, localAnime, loggedInId, onActivity = 
                 serverAnime.comments[index] = {
                     ...serverAnime.comments[index],
                     ...localComment,
+                    likes: mergeCommentLikes(serverAnime.comments[index].likes, localComment.likes, loggedInId),
                     replies: Object.values(repliesMap).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
                 };
             } else {
                 onActivity('comment_add', 'escreveu uma critica');
-                serverAnime.comments.push({ ...localComment, replies: localComment.replies || [] });
+                serverAnime.comments.push({ ...localComment, likes: localComment.likes || [], replies: localComment.replies || [] });
             }
             return;
         }
@@ -765,6 +793,7 @@ function mergeCommentsForUser(serverAnime, localAnime, loggedInId, onActivity = 
             if (addedReply) onActivity('reply_add', 'respondeu uma critica');
             serverAnime.comments[index] = {
                 ...serverAnime.comments[index],
+                likes: mergeCommentLikes(serverAnime.comments[index].likes, localComment.likes, loggedInId),
                 replies: Object.values(repliesMap).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
             };
         }

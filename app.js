@@ -1421,6 +1421,9 @@ class AppState {
         // Filters
         this.filterSeason = 'All';
         this.filterGenre = 'All';
+        this.filterStudio = 'All';
+        this.filterYear = 'All';
+        this.filterScore = 'All';
         this.filterMALStatus = 'All'; // 'All', 'Watching', 'Completed', 'On Hold', 'Dropped', 'Plan to Watch'
         this.searchQuery = '';
         this.sortBy = 'group-score'; // 'group-score', 'my-score', 'title'
@@ -1584,6 +1587,9 @@ class AppState {
                             const localComment = localCommentsMap[sc.id];
                             return {
                                 ...sc,
+                                likes: (sc.likes && sc.likes.length > 0)
+                                    ? sc.likes
+                                    : (localComment?.likes || []),
                                 // Preserve local replies (server doesn't know about them yet)
                                 replies: (localComment && localComment.replies && localComment.replies.length > 0)
                                     ? localComment.replies
@@ -1640,12 +1646,22 @@ class AppState {
                                     act.userAvatar,
                                     act.userColor
                                 );
+                                pushNotification({
+                                    type: act.type || 'activity',
+                                    title: act.username,
+                                    message: `${act.details || 'interagiu'} em ${act.animeTitle || 'um anime'}`,
+                                    avatar: act.userAvatar,
+                                    color: act.userColor,
+                                    animeId: act.animeId,
+                                    timestamp: act.timestamp
+                                });
                             }
                         }
                     }
                 });
                 this.activities = serverState.activities;
                 renderActivitiesFeed();
+                renderRecommendationsRail();
             }
 
             // Check new friend requests/acceptances before updating localStorage
@@ -1659,6 +1675,13 @@ class AppState {
                         const prevReqs = new Set((prevMe.friendRequests || []).map(r => r.from.toLowerCase()));
                         (nextMe.friendRequests || []).forEach(r => {
                             if (r.from && !prevReqs.has(r.from.toLowerCase())) {
+                                pushNotification({
+                                    type: 'friend_request',
+                                    title: 'Solicitacao de amizade',
+                                    message: `${r.from} te enviou um convite.`,
+                                    color: '#FF4500',
+                                    timestamp: r.createdAt || new Date().toISOString()
+                                });
                                 const sender = serverState.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === r.from.toLowerCase()) || { avatar: '👤', color: '#FF4500' };
                                 showToast('Solicitação de Amizade 🤝', `**${r.from}** te enviou um convite!`, sender.avatar, sender.color);
                             }
@@ -1667,6 +1690,12 @@ class AppState {
                         const prevFrs = new Set((prevMe.friends || []).map(f => f.toLowerCase()));
                         (nextMe.friends || []).forEach(f => {
                             if (f && !prevFrs.has(f.toLowerCase())) {
+                                pushNotification({
+                                    type: 'friend_accept',
+                                    title: 'Nova amizade',
+                                    message: `${f} agora esta na sua lista.`,
+                                    color: '#22c55e'
+                                });
                                 const friendObj = serverState.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === f.toLowerCase()) || { avatar: '👤', color: '#00FF00' };
                                 showToast('Nova Amizade! 🎉', `**${f}** aceitou seu convite de amizade!`, friendObj.avatar, friendObj.color);
                             }
@@ -1782,10 +1811,13 @@ class AppState {
             renderFriendsDropdown();
             renderAnimeGrid();
             renderFeaturedBanner();
+            renderRecommendationsRail();
+            updateNotificationBadges();
             if (this.activeDetailAnimeId) {
                 const anime = this.animes.find(a => a.id === this.activeDetailAnimeId);
                 if (anime) {
                     renderComments(anime);
+                    renderAnimeHistory(anime);
                     // Update breakdown list
                     const breakdownContainer = document.getElementById('detail-ratings-breakdown');
                     if (breakdownContainer) {
@@ -1812,7 +1844,7 @@ class AppState {
                             const card = document.createElement('div');
                             const isFriendAdmin = friend.id === 'felipe' || (friend.name && friend.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe');
                             const adminBadge = getUserBadgesHtml(friend);
-                            card.className = `glass-panel border rounded-2xl p-4 flex justify-between items-center text-sm ${isFriendAdmin ? 'border-brand/35 shadow-[0_0_15px_rgba(255,69,0,0.12)] bg-brand/[0.03]' : 'border-white/5'}`;
+                            card.className = `glass-panel border rounded-2xl p-4 flex justify-between items-center text-sm cursor-pointer hover:border-brand/25 transition-colors ${isFriendAdmin ? 'border-brand/35 shadow-[0_0_15px_rgba(255,69,0,0.12)] bg-brand/[0.03]' : 'border-white/5'}`;
                             const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
                                 ? `<img src="${friend.avatar}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">`
                                 : `<span class="text-2xl">${friend.avatar || '👤'}</span>`;
@@ -1834,6 +1866,7 @@ class AppState {
                                     <span class="text-lg font-serif font-bold" style="${overallTextStyle}">${overall}</span>
                                 </div>
                             `;
+                            card.addEventListener('click', () => renderPlayerProfileModal(friend.id));
                             breakdownContainer.appendChild(card);
                         });
                     }
@@ -1958,7 +1991,24 @@ class AppState {
     getSeasons() {
         const seasonsSet = new Set();
         this.animes.forEach(anime => seasonsSet.add(anime.season));
-        return Array.from(seasonsSet);
+        return Array.from(seasonsSet).filter(Boolean);
+    }
+
+    getStudios() {
+        const studiosSet = new Set();
+        this.animes.forEach(anime => {
+            if (anime.studio) studiosSet.add(anime.studio);
+        });
+        return Array.from(studiosSet).sort((a, b) => a.localeCompare(b));
+    }
+
+    getYears() {
+        const yearsSet = new Set();
+        this.animes.forEach(anime => {
+            const match = String(anime.season || '').match(/\b(19|20)\d{2}\b/);
+            if (match) yearsSet.add(match[0]);
+        });
+        return Array.from(yearsSet).sort((a, b) => Number(b) - Number(a));
     }
 
     calculateAverageScore(animeId) {
@@ -2092,6 +2142,7 @@ class AppState {
                 const catAvg = parseFloat(((r.animation + r.story + r.sound) / 3).toFixed(1));
                 r.overall = catAvg > 0 ? catAvg : 0;
             }
+            r.updatedAt = new Date().toISOString();
             
             this.save();
         }
@@ -2117,6 +2168,7 @@ class AppState {
             const epOverall = this.calculateUserOverallFromEpisodes(anime, friendId);
             r.overall = epOverall > 0 ? epOverall : score;
         }
+        r.updatedAt = new Date().toISOString();
         this.save();
     }
 
@@ -2147,6 +2199,7 @@ class AppState {
                     }
                 }
             }
+            r.updatedAt = new Date().toISOString();
             this.save();
         }
     }
@@ -2191,6 +2244,7 @@ class AppState {
             
             // Auto calculate overall
             r.overall = parseFloat(((r.animation + r.story + r.sound) / 3).toFixed(1));
+            r.updatedAt = new Date().toISOString();
             this.save();
         }
     }
@@ -2207,6 +2261,7 @@ class AppState {
             if (statusVal === 'Completed' && totalEps > 0) {
                 r.episodesWatched = totalEps;
             }
+            r.updatedAt = new Date().toISOString();
             this.save();
         }
     }
@@ -2227,6 +2282,7 @@ class AppState {
             } else if (val > 0 && r.status === 'Plan to Watch') {
                 r.status = 'Watching';
             }
+            r.updatedAt = new Date().toISOString();
             this.save();
         }
     }
@@ -2297,6 +2353,7 @@ class AppState {
                 friendName: friend.name.replace(' (Você)', ''),
                 comment: text.trim(),
                 timestamp: new Date().toISOString(),
+                likes: [],
                 replies: []
             });
             this.save();
@@ -2442,22 +2499,45 @@ class AppState {
                 this.searchQuery.trim().length > 0 ||
                 this.filterSeason !== 'All' ||
                 this.filterGenre !== 'All' ||
+                this.filterStudio !== 'All' ||
+                this.filterYear !== 'All' ||
+                this.filterScore !== 'All' ||
                 this.filterMALStatus !== 'All';
             if (archivedJujutsuSeason && !shouldShowArchivedSeason) return false;
 
             // Search match
-            const animeTitleLower = (anime.title || '').toLowerCase();
-            const animeJpTitleLower = (anime.japaneseTitle || '').toLowerCase();
-            const animeStudioLower = (anime.studio || '').toLowerCase();
-            const matchesSearch = animeTitleLower.includes(this.searchQuery.toLowerCase()) || 
-                                 animeJpTitleLower.includes(this.searchQuery.toLowerCase()) ||
-                                 animeStudioLower.includes(this.searchQuery.toLowerCase());
+            const query = normalizeUserSearchText(this.searchQuery);
+            const animeTitleLower = normalizeUserSearchText(anime.title || '');
+            const animeJpTitleLower = normalizeUserSearchText(anime.japaneseTitle || '');
+            const animeStudioLower = normalizeUserSearchText(anime.studio || '');
+            const animeGenreText = normalizeUserSearchText((anime.genres || []).join(' '));
+            const matchesSearch = !query ||
+                                 animeTitleLower.includes(query) ||
+                                 animeJpTitleLower.includes(query) ||
+                                 animeStudioLower.includes(query) ||
+                                 animeGenreText.includes(query);
             
             // Season match
             const matchesSeason = this.filterSeason === 'All' || anime.season === this.filterSeason;
             
             // Genre match
             const matchesGenre = this.filterGenre === 'All' || (anime.genres && Array.isArray(anime.genres) && anime.genres.includes(this.filterGenre));
+
+            const matchesStudio = this.filterStudio === 'All' || anime.studio === this.filterStudio;
+            const animeYearMatch = String(anime.season || '').match(/\b(19|20)\d{2}\b/);
+            const animeYear = animeYearMatch ? animeYearMatch[0] : '';
+            const matchesYear = this.filterYear === 'All' || animeYear === this.filterYear;
+            const avgScoreForFilter = this.calculateAverageScore(anime.id);
+            const myScoreForFilter = parseFloat(anime.ratings?.[this.currentFriendId]?.overall) || 0;
+            const scoreBase = this.sortBy === 'my-score' ? myScoreForFilter : avgScoreForFilter;
+            const scoreThresholds = {
+                '9+': 9,
+                '8+': 8,
+                '7+': 7,
+                'unrated': 0
+            };
+            const matchesScore = this.filterScore === 'All'
+                || (this.filterScore === 'unrated' ? scoreBase <= 0 : scoreBase >= scoreThresholds[this.filterScore]);
 
             // MAL Status match
             const friendRating = anime.ratings?.[this.currentFriendId];
@@ -2469,7 +2549,7 @@ class AppState {
             const hasPersonalScore = friendRatingForSort && parseFloat(friendRatingForSort.overall) > 0;
             const matchesMyScore = this.sortBy !== 'my-score' || hasPersonalScore || this.searchQuery.trim().length > 0;
 
-            return matchesSearch && matchesSeason && matchesGenre && matchesMALStatus && matchesMyScore;
+            return matchesSearch && matchesSeason && matchesGenre && matchesStudio && matchesYear && matchesScore && matchesMALStatus && matchesMyScore;
         }).sort((a, b) => {
             if (this.sortBy === 'group-score') {
                 return this.calculateAverageScore(b.id) - this.calculateAverageScore(a.id);
@@ -2477,6 +2557,13 @@ class AppState {
                 const scoreA = parseFloat(a.ratings?.[this.currentFriendId]?.overall) || 0;
                 const scoreB = parseFloat(b.ratings?.[this.currentFriendId]?.overall) || 0;
                 return scoreB - scoreA;
+            } else if (this.sortBy === 'year-desc') {
+                const yearA = Number((String(a.season || '').match(/\b(19|20)\d{2}\b/) || [0])[0]) || 0;
+                const yearB = Number((String(b.season || '').match(/\b(19|20)\d{2}\b/) || [0])[0]) || 0;
+                return yearB - yearA || a.title.localeCompare(b.title);
+            } else if (this.sortBy === 'recent-added') {
+                const idTime = anime => Number(String(anime.id || '').replace(/^a_/, '')) || 0;
+                return idTime(b) - idTime(a) || a.title.localeCompare(b.title);
             } else {
                 return a.title.localeCompare(b.title);
             }
@@ -2487,6 +2574,814 @@ class AppState {
 // Initialise Global State
 const state = new AppState();
 const tiltBoundCards = new WeakSet();
+
+const NOTIFICATIONS_KEY = 'anivoid_notifications_v1';
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function getRegisteredUsersSafe() {
+    try {
+        const users = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+        return Array.isArray(users) ? users.map(stripSensitiveUserFields) : [];
+    } catch (err) {
+        return [];
+    }
+}
+
+function getLoggedInProfileId() {
+    return normalizeProfileId(state.loggedInUser || localStorage.getItem('anivoid_logged_in_username') || '');
+}
+
+function findRegisteredUserById(profileId) {
+    const cleanId = normalizeProfileId(profileId);
+    return getRegisteredUsersSafe().find(user => normalizeProfileId(user?.username) === cleanId) || null;
+}
+
+function getProfileDisplayUser(profileId = state.currentFriendId) {
+    const cleanId = normalizeProfileId(profileId);
+    const friend = (state.friends || []).find(item => item && item.id === cleanId);
+    const registered = findRegisteredUserById(cleanId);
+    if (friend || registered) {
+        return {
+            id: cleanId,
+            username: registered?.username || friend?.name?.replace(' (Voce)', '').replace(' (VocÃª)', '') || cleanId || 'Usuario',
+            name: friend?.name || registered?.username || cleanId || 'Usuario',
+            avatar: registered?.avatar || friend?.avatar || DEFAULT_AVATAR_SVG,
+            color: registered?.color || friend?.color || '#FF4500',
+            emailVerified: Boolean(registered?.emailVerified || friend?.emailVerified),
+            favoriteGenres: registered?.favoriteGenres || friend?.favoriteGenres || [],
+            favoriteStudios: registered?.favoriteStudios || friend?.favoriteStudios || [],
+            favoriteAnimes: registered?.favoriteAnimes || friend?.favoriteAnimes || [],
+            activeTitle: registered?.activeTitle || friend?.activeTitle || 'admin',
+            memberNumber: registered?.memberNumber || friend?.memberNumber
+        };
+    }
+    return {
+        id: cleanId,
+        username: cleanId || 'Usuario',
+        name: cleanId || 'Usuario',
+        avatar: DEFAULT_AVATAR_SVG,
+        color: '#FF4500',
+        favoriteGenres: [],
+        favoriteStudios: [],
+        favoriteAnimes: []
+    };
+}
+
+function avatarMarkup(user, sizeClass = 'w-14 h-14', fallbackText = '') {
+    const avatar = user?.avatar || DEFAULT_AVATAR_SVG;
+    const label = escapeHtml(user?.username || user?.name || fallbackText || 'Usuario');
+    if (avatar && (String(avatar).startsWith('data:') || String(avatar).startsWith('http') || String(avatar).startsWith('covers/') || String(avatar).startsWith('logos/'))) {
+        return `<img src="${escapeHtml(avatar)}" class="${sizeClass} rounded-full object-cover border border-white/10 shadow-[0_0_18px_rgba(0,0,0,0.45)]" alt="${label}">`;
+    }
+    return `<span class="${sizeClass} rounded-full bg-white/5 border border-white/10 inline-flex items-center justify-center text-2xl shadow-[0_0_18px_rgba(0,0,0,0.45)]">${escapeHtml(avatar || fallbackText || 'U')}</span>`;
+}
+
+function getProfileStats(profileId = state.currentFriendId) {
+    const userId = normalizeProfileId(profileId);
+    const statusCounts = { Watching: 0, Completed: 0, 'On Hold': 0, Dropped: 0, 'Plan to Watch': 0 };
+    const genreScores = {};
+    const studioScores = {};
+    const ratedAnime = [];
+    let totalEpisodes = 0;
+    let ratingSum = 0;
+    let ratingCount = 0;
+    let commentsCount = 0;
+    let repliesCount = 0;
+
+    (state.animes || []).forEach(anime => {
+        const rating = anime?.ratings?.[userId];
+        if (rating) {
+            const status = rating.status || 'Plan to Watch';
+            statusCounts[status] = (statusCounts[status] || 0) + 1;
+            totalEpisodes += Number(rating.episodesWatched) || 0;
+            const overall = parseFloat(rating.overall);
+            if (!isNaN(overall) && overall > 0) {
+                ratingSum += overall;
+                ratingCount++;
+                ratedAnime.push({ anime, rating, overall });
+                (anime.genres || []).forEach(genre => {
+                    if (!genreScores[genre]) genreScores[genre] = { sum: 0, count: 0 };
+                    genreScores[genre].sum += overall;
+                    genreScores[genre].count++;
+                });
+                const studio = anime.studio || 'Desconhecido';
+                if (!studioScores[studio]) studioScores[studio] = { sum: 0, count: 0 };
+                studioScores[studio].sum += overall;
+                studioScores[studio].count++;
+            }
+        }
+
+        (anime.comments || []).forEach(comment => {
+            if (normalizeProfileId(comment.friendId) === userId) commentsCount++;
+            (comment.replies || []).forEach(reply => {
+                if (normalizeProfileId(reply.friendId) === userId) repliesCount++;
+            });
+        });
+    });
+
+    const topAnime = ratedAnime.sort((a, b) => b.overall - a.overall).slice(0, 5);
+    const topGenres = Object.entries(genreScores)
+        .map(([name, data]) => ({ name, avg: data.sum / data.count, count: data.count }))
+        .sort((a, b) => b.avg - a.avg || b.count - a.count)
+        .slice(0, 5);
+    const topStudios = Object.entries(studioScores)
+        .map(([name, data]) => ({ name, avg: data.sum / data.count, count: data.count }))
+        .sort((a, b) => b.avg - a.avg || b.count - a.count)
+        .slice(0, 5);
+    const recentActivities = (state.activities || [])
+        .filter(activity => normalizeProfileId(activity.username) === userId)
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .slice(0, 5);
+
+    const avgScore = ratingCount > 0 ? ratingSum / ratingCount : 0;
+    const xp = Math.round(totalEpisodes * 18 + ratingCount * 75 + commentsCount * 120 + repliesCount * 45 + statusCounts.Completed * 95);
+    const level = Math.max(1, Math.floor(Math.sqrt(Math.max(1, xp)) / 3));
+    const nextLevelXp = Math.pow((level + 1) * 3, 2);
+    const currentLevelXp = Math.pow(level * 3, 2);
+    const levelProgress = Math.max(5, Math.min(100, ((xp - currentLevelXp) / Math.max(1, nextLevelXp - currentLevelXp)) * 100));
+
+    return {
+        userId,
+        avgScore,
+        totalEpisodes,
+        ratingCount,
+        commentsCount,
+        repliesCount,
+        statusCounts,
+        topAnime,
+        topGenres,
+        topStudios,
+        recentActivities,
+        xp,
+        level,
+        levelProgress
+    };
+}
+
+function getProfileRank(stats) {
+    const score = (stats.avgScore * 12) + (stats.ratingCount * 1.6) + (stats.totalEpisodes * 0.18) + (stats.commentsCount * 3);
+    if (score >= 210) return { label: 'Mythic Critic', tier: 'S+', icon: 'lucide:gem', color: '#22c55e' };
+    if (score >= 145) return { label: 'Elite Curator', tier: 'S', icon: 'lucide:crown', color: '#10b981' };
+    if (score >= 90) return { label: 'Veteran Watcher', tier: 'A', icon: 'lucide:shield', color: '#84cc16' };
+    if (score >= 45) return { label: 'Rising Analyst', tier: 'B', icon: 'lucide:sparkles', color: '#facc15' };
+    return { label: 'New Challenger', tier: 'C', icon: 'lucide:badge', color: '#fb923c' };
+}
+
+function getStoredNotifications() {
+    try {
+        const items = JSON.parse(localStorage.getItem(NOTIFICATIONS_KEY)) || [];
+        return Array.isArray(items) ? items : [];
+    } catch (err) {
+        return [];
+    }
+}
+
+function setStoredNotifications(items) {
+    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify((items || []).slice(0, 100)));
+}
+
+function pushNotification(notification) {
+    if (!notification || !notification.title) return;
+    const items = getStoredNotifications();
+    const timestamp = notification.timestamp || new Date().toISOString();
+    const dedupeKey = [
+        notification.type || 'system',
+        notification.title,
+        notification.message || '',
+        notification.animeId || '',
+        timestamp.slice(0, 16)
+    ].join('|');
+    if (items.some(item => item.dedupeKey === dedupeKey)) return;
+    items.unshift({
+        id: `n_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        type: notification.type || 'system',
+        title: notification.title,
+        message: notification.message || '',
+        avatar: notification.avatar || 'bell',
+        color: notification.color || '#FF4500',
+        animeId: notification.animeId || '',
+        timestamp,
+        read: false,
+        dedupeKey
+    });
+    setStoredNotifications(items);
+    updateNotificationBadges();
+}
+
+function updateNotificationBadges() {
+    const unread = getStoredNotifications().filter(item => !item.read).length;
+    const badge = document.getElementById('notifications-dropdown-badge');
+    if (badge) {
+        if (unread > 0) {
+            badge.textContent = unread > 99 ? '99+' : String(unread);
+            badge.classList.remove('hidden');
+            badge.classList.add('inline-flex');
+        } else {
+            badge.classList.add('hidden');
+            badge.classList.remove('inline-flex');
+        }
+    }
+}
+
+function renderNotificationsModal() {
+    const list = document.getElementById('notifications-list');
+    if (!list) return;
+    const items = getStoredNotifications();
+    if (items.length === 0) {
+        list.innerHTML = `
+            <div class="rounded-2xl border border-white/5 bg-white/[0.03] p-8 text-center">
+                <iconify-icon icon="lucide:bell-off" class="text-2xl text-white/25"></iconify-icon>
+                <p class="mt-3 text-[11px] text-gray-500 font-mono uppercase tracking-widest">Nenhuma notificacao ainda</p>
+            </div>
+        `;
+        return;
+    }
+
+    list.innerHTML = items.map(item => {
+        const color = item.color || '#FF4500';
+        let timeText = '';
+        try {
+            const date = new Date(item.timestamp);
+            timeText = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        } catch (err) {}
+        const icon = item.type === 'friend_request' ? 'lucide:user-plus' : item.type === 'friend_accept' ? 'lucide:handshake' : item.type === 'rating' ? 'lucide:star' : 'lucide:zap';
+        const actionAttr = item.animeId ? `data-anime-id="${escapeHtml(item.animeId)}"` : '';
+        return `
+            <button class="notification-row w-full text-left rounded-2xl border p-4 flex gap-3 transition-all hover:scale-[1.01] ${item.read ? 'bg-white/[0.025] border-white/5' : 'bg-white/[0.055] border-white/10'}" style="--note-color:${color}" ${actionAttr}>
+                <div class="w-10 h-10 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center shrink-0" style="color:${color}; box-shadow:0 0 18px ${color}22">
+                    <iconify-icon icon="${icon}" class="text-lg"></iconify-icon>
+                </div>
+                <div class="min-w-0 flex-grow">
+                    <div class="flex items-center justify-between gap-3">
+                        <h4 class="text-xs font-mono font-bold uppercase tracking-wider text-white truncate">${escapeHtml(item.title)}</h4>
+                        <span class="text-[9px] text-gray-500 font-mono shrink-0">${escapeHtml(timeText)}</span>
+                    </div>
+                    <p class="text-[11px] text-gray-400 mt-1 leading-relaxed">${escapeHtml(item.message)}</p>
+                </div>
+                ${item.read ? '' : '<span class="w-2 h-2 rounded-full shrink-0 mt-2" style="background:var(--note-color); box-shadow:0 0 12px var(--note-color)"></span>'}
+            </button>
+        `;
+    }).join('');
+
+    list.querySelectorAll('.notification-row[data-anime-id]').forEach(row => {
+        row.addEventListener('click', () => {
+            const animeId = row.dataset.animeId;
+            const modal = document.getElementById('notifications-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+            if (animeId) openAnimeDetail(animeId);
+        });
+    });
+}
+
+function markNotificationsRead() {
+    const items = getStoredNotifications().map(item => ({ ...item, read: true }));
+    setStoredNotifications(items);
+    updateNotificationBadges();
+    renderNotificationsModal();
+}
+
+function clearNotifications() {
+    setStoredNotifications([]);
+    updateNotificationBadges();
+    renderNotificationsModal();
+}
+
+function buildPersonalRecommendations(limit = 3) {
+    const myId = getLoggedInProfileId();
+    if (!myId) return [];
+    const preferredGenres = {};
+    const preferredStudios = {};
+
+    (state.animes || []).forEach(anime => {
+        const rating = anime?.ratings?.[myId];
+        const score = parseFloat(rating?.overall);
+        if (!isNaN(score) && score >= 8) {
+            (anime.genres || []).forEach(genre => {
+                preferredGenres[genre] = (preferredGenres[genre] || 0) + score;
+            });
+            if (anime.studio) preferredStudios[anime.studio] = (preferredStudios[anime.studio] || 0) + score;
+        }
+    });
+
+    const groupIds = new Set((state.friends || []).map(friend => normalizeProfileId(friend.id)).filter(Boolean));
+    groupIds.delete(myId);
+
+    return (state.animes || [])
+        .map(anime => {
+            const myRating = anime?.ratings?.[myId];
+            const myScore = parseFloat(myRating?.overall);
+            if (!isNaN(myScore) && myScore > 0) return null;
+            if (myRating?.status === 'Completed') return null;
+
+            const friendScores = Object.entries(anime.ratings || {})
+                .filter(([userId]) => groupIds.has(normalizeProfileId(userId)))
+                .map(([_, rating]) => parseFloat(rating?.overall))
+                .filter(score => !isNaN(score) && score > 0);
+            const friendAvg = friendScores.length ? friendScores.reduce((sum, score) => sum + score, 0) / friendScores.length : 0;
+            const genreBoost = (anime.genres || []).reduce((sum, genre) => sum + (preferredGenres[genre] || 0), 0) / 10;
+            const studioBoost = (preferredStudios[anime.studio] || 0) / 12;
+            const score = friendAvg * 1.35 + genreBoost + studioBoost;
+            if (score <= 0) return null;
+
+            const reason = friendAvg >= 8
+                ? `amigos deram media ${friendAvg.toFixed(1)}`
+                : genreBoost > 0
+                    ? 'combina com seus generos fortes'
+                    : studioBoost > 0
+                        ? `voce costuma curtir ${anime.studio}`
+                        : 'boa aposta para testar';
+            return { anime, score, friendAvg, reason };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit);
+}
+
+function renderRecommendationsRail() {
+    const rail = document.getElementById('recommendations-rail');
+    const list = document.getElementById('recommendations-rail-list');
+    if (!rail || !list) return;
+    const recs = buildPersonalRecommendations(3);
+    if (recs.length === 0) {
+        rail.classList.add('hidden');
+        return;
+    }
+
+    rail.classList.remove('hidden');
+    list.innerHTML = recs.map(rec => {
+        const avg = rec.friendAvg > 0 ? rec.friendAvg.toFixed(1) : state.calculateAverageScore(rec.anime.id).toFixed(1);
+        const color = getScoreColor(avg);
+        return `
+            <button class="recommendation-card tilt-card group text-left rounded-3xl overflow-hidden border border-white/8 bg-white/[0.035] hover:bg-white/[0.055] transition-all" data-anime-id="${escapeHtml(rec.anime.id)}">
+                <div class="flex gap-4 p-4">
+                    <img src="${escapeHtml(rec.anime.coverUrl)}" class="w-16 h-24 rounded-2xl object-cover border border-white/10 shadow-lg group-hover:scale-105 transition-transform" alt="${escapeHtml(rec.anime.title)}">
+                    <div class="min-w-0 flex-grow">
+                        <div class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[8px] font-mono uppercase tracking-widest mb-3" style="color:${color.text}; border-color:${color.text}55; background:${color.text}13">
+                            <iconify-icon icon="lucide:radar" class="text-[11px]"></iconify-icon>
+                            Recomendado
+                        </div>
+                        <h4 class="text-sm font-serif font-bold text-white line-clamp-2">${escapeHtml(rec.anime.title)}</h4>
+                        <p class="text-[10px] text-gray-500 font-mono mt-1">${escapeHtml(rec.reason)}</p>
+                        <div class="mt-3 flex items-center gap-2 text-[10px] font-mono">
+                            <span class="text-white/40">${escapeHtml(rec.anime.studio || 'Studio')}</span>
+                            <span style="color:${color.text}; text-shadow:0 0 10px ${color.glow}">★ ${avg}</span>
+                        </div>
+                    </div>
+                </div>
+            </button>
+        `;
+    }).join('');
+
+    list.querySelectorAll('.recommendation-card').forEach(card => {
+        card.addEventListener('click', () => openAnimeDetail(card.dataset.animeId));
+    });
+    initSoftTiltCards(list);
+}
+
+function renderAnimeHistory(anime) {
+    const list = document.getElementById('detail-history-list');
+    const section = document.getElementById('detail-history-section');
+    if (!list || !section || !anime) return;
+
+    const rows = [];
+    (state.activities || []).forEach(activity => {
+        if (activity.animeId === anime.id) {
+            rows.push({
+                type: activity.type || 'activity',
+                title: activity.username || 'Grupo',
+                message: `${activity.details || 'interagiu'} em ${activity.animeTitle || anime.title}`,
+                timestamp: activity.timestamp,
+                color: activity.userColor || '#FF4500',
+                icon: getActivityMeta(activity).icon
+            });
+        }
+    });
+    (anime.comments || []).forEach(comment => {
+        rows.push({
+            type: 'comment',
+            title: comment.friendName || comment.friendId || 'Review',
+            message: `review: ${String(comment.comment || '').slice(0, 90)}`,
+            timestamp: comment.timestamp,
+            color: getProfileDisplayUser(comment.friendId).color,
+            icon: 'lucide:message-circle'
+        });
+        (comment.replies || []).forEach(reply => {
+            rows.push({
+                type: 'reply',
+                title: reply.friendName || reply.friendId || 'Resposta',
+                message: `respondeu: ${String(reply.reply || '').slice(0, 80)}`,
+                timestamp: reply.timestamp,
+                color: getProfileDisplayUser(reply.friendId).color,
+                icon: 'lucide:reply'
+            });
+        });
+    });
+
+    Object.entries(anime.ratings || {}).forEach(([userId, rating]) => {
+        const overall = parseFloat(rating?.overall);
+        if (!isNaN(overall) && overall > 0) {
+            const user = getProfileDisplayUser(userId);
+            rows.push({
+                type: 'rating_snapshot',
+                title: user.username,
+                message: `nota atual ${overall} com status ${(STATUS_MAP[rating.status] || STATUS_MAP['Plan to Watch']).label}`,
+                timestamp: rating.updatedAt || '',
+                color: user.color,
+                icon: 'lucide:star'
+            });
+        }
+    });
+
+    const sortedRows = rows
+        .filter(row => row.timestamp || row.type === 'rating_snapshot')
+        .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
+        .slice(0, 7);
+
+    if (sortedRows.length === 0) {
+        list.innerHTML = `<p class="text-[11px] text-gray-500 italic py-2">Sem historico registrado para esta obra ainda.</p>`;
+        return;
+    }
+
+    list.innerHTML = sortedRows.map(row => {
+        let timeText = '';
+        if (row.timestamp) {
+            try {
+                const date = new Date(row.timestamp);
+                timeText = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+            } catch (err) {}
+        } else {
+            timeText = 'atual';
+        }
+        return `
+            <div class="history-row rounded-2xl border border-white/5 bg-white/[0.035] p-3 flex gap-3 items-start">
+                <div class="w-8 h-8 rounded-xl bg-black/40 border border-white/10 flex items-center justify-center shrink-0" style="color:${row.color}; box-shadow:0 0 16px ${row.color}20">
+                    <iconify-icon icon="${row.icon}" class="text-sm"></iconify-icon>
+                </div>
+                <div class="min-w-0 flex-grow">
+                    <div class="flex items-center justify-between gap-2">
+                        <b class="text-[11px] font-mono truncate" style="color:${row.color}">${escapeHtml(row.title)}</b>
+                        <span class="text-[9px] text-gray-600 font-mono shrink-0">${escapeHtml(timeText)}</span>
+                    </div>
+                    <p class="text-[10px] text-gray-400 mt-0.5 leading-relaxed">${escapeHtml(row.message)}</p>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function toggleCommentLike(animeId, commentId) {
+    const userId = getLoggedInProfileId();
+    const anime = state.animes.find(item => item.id === animeId);
+    const comment = anime?.comments?.find(item => item.id === commentId);
+    if (!anime || !comment || !userId) return;
+    if (!Array.isArray(comment.likes)) comment.likes = [];
+    const normalizedLikes = comment.likes.map(normalizeProfileId).filter(Boolean);
+    if (normalizedLikes.includes(userId)) {
+        comment.likes = normalizedLikes.filter(id => id !== userId);
+    } else {
+        comment.likes = [...new Set([...normalizedLikes, userId])];
+    }
+    state.save();
+    renderComments(anime);
+}
+
+function exportBackupData() {
+    const payload = {
+        app: 'anivoid',
+        version: 2,
+        exportedAt: new Date().toISOString(),
+        loggedInUser: state.loggedInUser,
+        registeredUsers: getRegisteredUsersSafe(),
+        currentFriendId: state.currentFriendId,
+        featuredAnimeId: state.featuredAnimeId,
+        studioLogos: state.studioLogos || {},
+        animes: state.animes || [],
+        notifications: getStoredNotifications()
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `anivoid-backup-${date}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast('Backup exportado', 'Arquivo de seguranca criado neste navegador.', 'backup', '#22c55e');
+}
+
+function importBackupData(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+        try {
+            const payload = JSON.parse(String(reader.result || '{}'));
+            if (!payload || payload.app !== 'anivoid' || !Array.isArray(payload.animes)) {
+                alert('Arquivo de backup invalido.');
+                return;
+            }
+            if (!confirm('Importar este backup vai substituir os dados locais deste navegador. Continuar?')) return;
+            state.animes = payload.animes;
+            state.studioLogos = payload.studioLogos && typeof payload.studioLogos === 'object' ? payload.studioLogos : {};
+            state.currentFriendId = payload.currentFriendId || state.currentFriendId;
+            state.featuredAnimeId = payload.featuredAnimeId || state.featuredAnimeId;
+            localStorage.setItem('anivoid_list_v2', JSON.stringify(state.animes));
+            localStorage.setItem('anivoid_studio_logos', JSON.stringify(state.studioLogos));
+            if (Array.isArray(payload.registeredUsers)) storeRegisteredUsers(payload.registeredUsers);
+            if (Array.isArray(payload.notifications)) setStoredNotifications(payload.notifications);
+            state.loadLocalSession();
+            renderFilters();
+            renderFriendsDropdown();
+            updateProfileIndicator();
+            renderAnimeGrid();
+            renderFeaturedBanner();
+            renderRecommendationsRail();
+            showToast('Backup importado', 'Dados locais restaurados com sucesso.', 'backup', '#22c55e');
+        } catch (err) {
+            console.error(err);
+            alert('Nao foi possivel importar este backup.');
+        }
+    };
+    reader.readAsText(file);
+}
+
+function renderPlayerProfileModal(profileId = state.currentFriendId) {
+    const modal = document.getElementById('player-profile-modal');
+    const content = document.getElementById('player-profile-content');
+    if (!modal || !content) return;
+    const user = getProfileDisplayUser(profileId);
+    const stats = getProfileStats(user.id);
+    const rank = getProfileRank(stats);
+    const badges = getUserBadgesHtml({ ...user, username: user.username, name: user.username });
+    const scoreColor = getScoreColor(stats.avgScore);
+    const completed = stats.statusCounts.Completed || 0;
+    const watching = stats.statusCounts.Watching || 0;
+    const completionRate = stats.ratingCount > 0 ? Math.round((completed / stats.ratingCount) * 100) : 0;
+    const favoriteAnimeCards = stats.topAnime.slice(0, 3).map(item => {
+        const color = getScoreColor(item.overall);
+        return `
+            <button class="profile-fav-card rounded-2xl overflow-hidden border border-white/8 bg-white/[0.035] text-left group" data-anime-id="${escapeHtml(item.anime.id)}">
+                <div class="relative aspect-[3/4]">
+                    <img src="${escapeHtml(item.anime.coverUrl)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="${escapeHtml(item.anime.title)}">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent"></div>
+                    <span class="absolute top-3 right-3 rounded-xl border bg-black/75 px-2 py-1 text-[10px] font-mono font-bold" style="color:${color.text}; border-color:${color.text}55; box-shadow:0 0 14px ${color.glow}">★ ${item.overall}</span>
+                    <h4 class="absolute bottom-3 left-3 right-3 text-xs font-serif font-bold text-white line-clamp-2">${escapeHtml(item.anime.title)}</h4>
+                </div>
+            </button>
+        `;
+    }).join('');
+
+    const achievementCards = [
+        { icon: 'lucide:clapperboard', label: 'Maratonista', value: `${stats.totalEpisodes} eps`, active: stats.totalEpisodes >= 50 },
+        { icon: 'lucide:star', label: 'Critico', value: `${stats.ratingCount} notas`, active: stats.ratingCount >= 10 },
+        { icon: 'lucide:message-square', label: 'Voz do grupo', value: `${stats.commentsCount} reviews`, active: stats.commentsCount >= 3 },
+        { icon: 'lucide:trophy', label: 'Finalizador', value: `${completed} completos`, active: completed >= 5 }
+    ].map(card => `
+        <div class="achievement-card rounded-2xl border p-4 ${card.active ? 'is-active' : ''}">
+            <div class="flex items-center justify-between gap-3">
+                <iconify-icon icon="${card.icon}" class="text-xl"></iconify-icon>
+                <span class="text-[9px] font-mono uppercase tracking-widest">${card.active ? 'desbloqueado' : 'em progresso'}</span>
+            </div>
+            <h4 class="mt-4 text-sm font-serif text-white">${escapeHtml(card.label)}</h4>
+            <p class="text-[11px] text-gray-500 font-mono mt-1">${escapeHtml(card.value)}</p>
+        </div>
+    `).join('');
+
+    const genreRows = stats.topGenres.length ? stats.topGenres.map(genre => `
+        <div class="profile-meter-row">
+            <div class="flex justify-between text-[10px] font-mono">
+                <span class="text-white/75">${escapeHtml(genre.name)}</span>
+                <span style="color:${getScoreColor(genre.avg).text}">${genre.avg.toFixed(1)}</span>
+            </div>
+            <div class="profile-meter-track"><span style="width:${Math.min(100, genre.avg * 10)}%; background:${getScoreColor(genre.avg).text}"></span></div>
+        </div>
+    `).join('') : `<p class="text-[11px] text-gray-500 italic">Sem generos fortes ainda.</p>`;
+
+    const studioRows = stats.topStudios.length ? stats.topStudios.map(studio => `
+        <button class="profile-studio-row rounded-xl border border-white/5 bg-white/[0.03] p-3 flex justify-between items-center hover:bg-white/[0.055] transition-colors" data-studio="${escapeHtml(studio.name)}">
+            <span class="text-[11px] text-white font-mono truncate">${escapeHtml(studio.name)}</span>
+            <span class="text-[11px] font-mono font-bold" style="color:${getScoreColor(studio.avg).text}">★ ${studio.avg.toFixed(1)}</span>
+        </button>
+    `).join('') : `<p class="text-[11px] text-gray-500 italic">Sem estudios favoritos ainda.</p>`;
+
+    const activityRows = stats.recentActivities.length ? stats.recentActivities.map(activity => {
+        const meta = getActivityMeta(activity);
+        return `
+            <button class="profile-activity-row rounded-xl border border-white/5 bg-white/[0.03] p-3 flex gap-3 items-center text-left hover:bg-white/[0.055] transition-colors" data-anime-id="${escapeHtml(activity.animeId || '')}">
+                <span class="w-8 h-8 rounded-xl bg-black/40 border border-white/10 flex items-center justify-center shrink-0" style="color:${meta.color}">
+                    <iconify-icon icon="${meta.icon}" class="text-sm"></iconify-icon>
+                </span>
+                <span class="min-w-0 flex-grow">
+                    <span class="block text-[11px] text-white/75 font-mono truncate">${escapeHtml(activity.details || 'acao')}</span>
+                    <span class="block text-[10px] text-gray-500 truncate">${escapeHtml(activity.animeTitle || '')}</span>
+                </span>
+            </button>
+        `;
+    }).join('') : `<p class="text-[11px] text-gray-500 italic">Sem atividade recente visivel.</p>`;
+
+    content.innerHTML = `
+        <div class="profile-hero-game relative overflow-hidden p-6 md:p-8" style="--profile-accent:${user.color}; --rank-color:${rank.color}">
+            <div class="profile-hero-bg"></div>
+            <div class="relative z-10 flex items-start justify-between gap-4">
+                <div class="flex items-center gap-5 min-w-0">
+                    <div class="profile-avatar-ring" style="--profile-accent:${user.color}">
+                        ${avatarMarkup(user, 'w-20 h-20 md:w-24 md:h-24', user.username?.[0] || 'U')}
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-[10px] font-mono uppercase tracking-[0.35em] text-white/45">Player Card</p>
+                        <h2 class="text-3xl md:text-5xl font-serif font-black text-white leading-none truncate mt-2">${escapeHtml(user.username)}${badges}</h2>
+                        <div class="mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest" style="color:${rank.color}; border-color:${rank.color}55; background:${rank.color}14; box-shadow:0 0 22px ${rank.color}20">
+                            <iconify-icon icon="${rank.icon}" class="text-sm"></iconify-icon>
+                            Rank ${rank.tier} · ${rank.label}
+                        </div>
+                    </div>
+                </div>
+                <button id="close-player-profile" class="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors text-gray-400 hover:text-white border border-white/10">
+                    <iconify-icon icon="lucide:x" class="text-lg"></iconify-icon>
+                </button>
+            </div>
+
+            <div class="relative z-10 mt-8 grid grid-cols-1 lg:grid-cols-[1.25fr_0.75fr] gap-6">
+                <div class="space-y-5">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div class="profile-stat-card"><span>Media</span><b style="color:${scoreColor.text}; text-shadow:0 0 16px ${scoreColor.glow}">${stats.avgScore > 0 ? stats.avgScore.toFixed(1) : '-'}</b></div>
+                        <div class="profile-stat-card"><span>Animes</span><b>${stats.ratingCount}</b></div>
+                        <div class="profile-stat-card"><span>Episodios</span><b>${stats.totalEpisodes}</b></div>
+                        <div class="profile-stat-card"><span>Concluidos</span><b>${completed}</b></div>
+                    </div>
+
+                    <div class="profile-level-card rounded-3xl border border-white/10 bg-black/30 p-5">
+                        <div class="flex items-center justify-between gap-3 mb-3">
+                            <div>
+                                <p class="text-[9px] font-mono uppercase tracking-widest text-white/40">Nivel de conta</p>
+                                <h3 class="text-xl font-serif text-white">Nivel ${stats.level}</h3>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-[9px] font-mono uppercase tracking-widest text-white/40">XP</p>
+                                <b class="text-sm font-mono text-white">${stats.xp}</b>
+                            </div>
+                        </div>
+                        <div class="h-3 rounded-full bg-white/5 overflow-hidden border border-white/5">
+                            <div class="h-full rounded-full" style="width:${stats.levelProgress}%; background:linear-gradient(90deg, ${user.color}, ${rank.color}); box-shadow:0 0 20px ${rank.color}55"></div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        ${achievementCards}
+                    </div>
+                </div>
+
+                <div class="profile-public-card rounded-3xl border border-white/10 bg-black/35 p-5 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xs font-mono uppercase tracking-widest text-white/65">Painel publico</h3>
+                        <iconify-icon icon="lucide:scan-line" class="text-brand"></iconify-icon>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 text-center">
+                        <div class="rounded-2xl bg-white/[0.04] border border-white/5 p-3"><b class="block text-lg text-white">${watching}</b><span class="text-[9px] text-gray-500 font-mono uppercase">assistindo</span></div>
+                        <div class="rounded-2xl bg-white/[0.04] border border-white/5 p-3"><b class="block text-lg text-white">${completionRate}%</b><span class="text-[9px] text-gray-500 font-mono uppercase">clear rate</span></div>
+                    </div>
+                    <p class="text-[11px] text-gray-400 leading-relaxed">Cartao rapido para comparar gosto, ritmo e conquistas quando voce abre o perfil de alguem.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6">
+            <section class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xs font-mono uppercase tracking-widest text-white/70">Top obras</h3>
+                    <span class="text-[9px] text-gray-500 font-mono uppercase">notas mais altas</span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    ${favoriteAnimeCards || '<p class="text-[11px] text-gray-500 italic col-span-full">Sem obras avaliadas ainda.</p>'}
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="rounded-3xl border border-white/8 bg-white/[0.025] p-5 space-y-3">
+                        <h3 class="text-xs font-mono uppercase tracking-widest text-white/70">Assinatura de genero</h3>
+                        ${genreRows}
+                    </div>
+                    <div class="rounded-3xl border border-white/8 bg-white/[0.025] p-5 space-y-3">
+                        <h3 class="text-xs font-mono uppercase tracking-widest text-white/70">Studios fortes</h3>
+                        ${studioRows}
+                    </div>
+                </div>
+            </section>
+
+            <aside class="space-y-4">
+                <div class="rounded-3xl border border-white/8 bg-white/[0.025] p-5 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xs font-mono uppercase tracking-widest text-white/70">Historico recente</h3>
+                        <iconify-icon icon="lucide:activity" class="text-brand"></iconify-icon>
+                    </div>
+                    ${activityRows}
+                </div>
+                <div class="rounded-3xl border border-white/8 bg-white/[0.025] p-5 space-y-3">
+                    <h3 class="text-xs font-mono uppercase tracking-widest text-white/70">Estilo de jogo</h3>
+                    <div class="profile-style-grid">
+                        <span>Precisao <b>${stats.avgScore > 0 ? Math.min(100, Math.round(stats.avgScore * 10)) : 0}</b></span>
+                        <span>Consistencia <b>${Math.min(100, stats.ratingCount * 6)}</b></span>
+                        <span>Exploracao <b>${Math.min(100, Object.keys(stats.statusCounts).reduce((sum, key) => sum + (stats.statusCounts[key] > 0 ? 12 : 0), 0))}</b></span>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    `;
+
+    content.querySelector('#close-player-profile')?.addEventListener('click', () => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    });
+    content.querySelectorAll('[data-anime-id]').forEach(item => {
+        item.addEventListener('click', () => {
+            const id = item.dataset.animeId;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            if (id) openAnimeDetail(id);
+        });
+    });
+    content.querySelectorAll('[data-studio]').forEach(item => {
+        item.addEventListener('click', () => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            window.switchTabToStudio(item.dataset.studio);
+        });
+    });
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    initSoftTiltCards(content);
+}
+
+function setupUtilityModals() {
+    const closeDropdown = () => {
+        const dropdown = document.getElementById('friends-dropdown');
+        if (dropdown) {
+            dropdown.classList.add('hidden');
+            dropdown.classList.remove('flex');
+        }
+    };
+
+    const bindOnce = (id, event, handler) => {
+        const el = document.getElementById(id);
+        if (!el || el.dataset.utilityHooked === id) return;
+        el.dataset.utilityHooked = id;
+        el.addEventListener(event, handler);
+    };
+
+    bindOnce('open-player-profile', 'click', (event) => {
+        event.stopPropagation();
+        closeDropdown();
+        renderPlayerProfileModal(state.currentFriendId);
+    });
+    bindOnce('open-notifications', 'click', (event) => {
+        event.stopPropagation();
+        closeDropdown();
+        renderNotificationsModal();
+        const modal = document.getElementById('notifications-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+    });
+    bindOnce('close-notifications', 'click', () => {
+        const modal = document.getElementById('notifications-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    });
+    bindOnce('mark-notifications-read', 'click', markNotificationsRead);
+    bindOnce('clear-notifications', 'click', clearNotifications);
+    bindOnce('open-backup-center', 'click', (event) => {
+        event.stopPropagation();
+        closeDropdown();
+        const modal = document.getElementById('backup-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+    });
+    bindOnce('close-backup-center', 'click', () => {
+        const modal = document.getElementById('backup-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    });
+    bindOnce('export-backup-btn', 'click', exportBackupData);
+    bindOnce('import-backup-btn', 'click', () => document.getElementById('import-backup-file')?.click());
+    bindOnce('import-backup-file', 'change', (event) => importBackupData(event.target.files?.[0]));
+}
 
 function initSoftTiltCards(root = document) {
     if (!root || !window.matchMedia || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -2728,6 +3623,9 @@ function initUI() {
     renderFilters();
     renderAnimeGrid();
     renderFeaturedBanner();
+    renderRecommendationsRail();
+    updateNotificationBadges();
+    setupUtilityModals();
 
     // Event Listeners for Filters
     const searchInput = document.getElementById('search-anime');
@@ -2860,6 +3758,7 @@ function initUI() {
 
     // Setup Profile Editor Modal
     setupEditProfileModal();
+    setupUtilityModals();
 }
 
 function updateProfileIndicator() {
@@ -2906,6 +3805,7 @@ function updateProfileIndicator() {
             badge.classList.add('hidden');
         }
     }
+    updateNotificationBadges();
 }
 
 function renderFriendsDropdown() {
@@ -2995,6 +3895,58 @@ function renderFilters() {
                 renderAnimeGrid();
             });
             genresContainer.appendChild(btn);
+        });
+    }
+
+    const studiosContainer = document.getElementById('studios-filter');
+    if (studiosContainer) {
+        studiosContainer.innerHTML = '';
+        studiosContainer.appendChild(createFilterButton('Todos', state.filterStudio === 'All', () => {
+            state.filterStudio = 'All';
+            renderFilters();
+            renderAnimeGrid();
+        }));
+        state.getStudios().slice(0, 18).forEach(studio => {
+            studiosContainer.appendChild(createFilterButton(studio, state.filterStudio === studio, () => {
+                state.filterStudio = studio;
+                renderFilters();
+                renderAnimeGrid();
+            }));
+        });
+    }
+
+    const yearsContainer = document.getElementById('years-filter');
+    if (yearsContainer) {
+        yearsContainer.innerHTML = '';
+        yearsContainer.appendChild(createFilterButton('Todos', state.filterYear === 'All', () => {
+            state.filterYear = 'All';
+            renderFilters();
+            renderAnimeGrid();
+        }));
+        state.getYears().slice(0, 12).forEach(year => {
+            yearsContainer.appendChild(createFilterButton(year, state.filterYear === year, () => {
+                state.filterYear = year;
+                renderFilters();
+                renderAnimeGrid();
+            }));
+        });
+    }
+
+    const scoreContainer = document.getElementById('score-filter');
+    if (scoreContainer) {
+        scoreContainer.innerHTML = '';
+        [
+            ['All', 'Todas'],
+            ['9+', '9+ Elite'],
+            ['8+', '8+ Forte'],
+            ['7+', '7+ Boa'],
+            ['unrated', 'Sem nota']
+        ].forEach(([value, label]) => {
+            scoreContainer.appendChild(createFilterButton(label, state.filterScore === value, () => {
+                state.filterScore = value;
+                renderFilters();
+                renderAnimeGrid();
+            }));
         });
     }
 }
@@ -3455,6 +4407,7 @@ function renderAnimeGrid() {
     initSoftTiltCards(grid);
     markViewEntered(grid);
     renderActivitiesFeed();
+    renderRecommendationsRail();
 }
 
 let activeStudioName = null;
@@ -4444,6 +5397,9 @@ window.quickAddEpisode = (animeId) => {
 function resetFilters() {
     state.filterSeason = 'All';
     state.filterGenre = 'All';
+    state.filterStudio = 'All';
+    state.filterYear = 'All';
+    state.filterScore = 'All';
     state.searchQuery = '';
     state.sortBy = 'group-score';
     state.filterMALStatus = 'All';
@@ -4487,6 +5443,8 @@ function renderSortDropdown() {
     const options = [
         { value: 'group-score', label: 'Ordenar: Média do Grupo' },
         { value: 'my-score', label: 'Ordenar: Minha Nota' },
+        { value: 'year-desc', label: 'Ordenar: Ano Recente' },
+        { value: 'recent-added', label: 'Ordenar: Adicionados' },
         { value: 'title', label: 'Ordenar: Nome A-Z' }
     ];
 
@@ -5237,6 +6195,7 @@ function openAnimeDetail(animeId) {
 
     // Comments/Reviews Section
     renderComments(anime);
+    renderAnimeHistory(anime);
 
     // Group Members breakdown card container
     const breakdownContainer = document.getElementById('detail-ratings-breakdown');
@@ -5265,7 +6224,7 @@ function openAnimeDetail(animeId) {
             const card = document.createElement('div');
             const isFriendAdmin = friend.id === 'felipe' || (friend.name && friend.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe');
             const adminBadge = getUserBadgesHtml(friend);
-            card.className = `glass-panel border rounded-2xl p-4 flex justify-between items-center text-sm ${isFriendAdmin ? 'border-brand/35 shadow-[0_0_15px_rgba(255,69,0,0.12)] bg-brand/[0.03]' : 'border-white/5'}`;
+            card.className = `glass-panel border rounded-2xl p-4 flex justify-between items-center text-sm cursor-pointer hover:border-brand/25 transition-colors ${isFriendAdmin ? 'border-brand/35 shadow-[0_0_15px_rgba(255,69,0,0.12)] bg-brand/[0.03]' : 'border-white/5'}`;
             const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
                 ? `<img src="${friend.avatar}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">`
                 : `<span class="text-2xl">${friend.avatar || '👤'}</span>`;
@@ -5288,6 +6247,7 @@ function openAnimeDetail(animeId) {
                     <span class="text-lg font-serif font-bold" style="${overallTextStyle}">${overall}</span>
                 </div>
             `;
+            card.addEventListener('click', () => renderPlayerProfileModal(friend.id));
             breakdownContainer.appendChild(card);
         });
     }
@@ -5386,6 +6346,9 @@ function renderComments(anime) {
         const adminBadgeHtml = getUserBadgesHtml(friend);
         const repliesCount = (comment.replies || []).length;
         const repliesLabel = repliesCount > 0 ? `${repliesCount} resposta${repliesCount > 1 ? 's' : ''}` : 'Responder';
+        const commentLikes = Array.isArray(comment.likes) ? comment.likes.map(normalizeProfileId).filter(Boolean) : [];
+        const likedByMe = commentLikes.includes(getLoggedInProfileId());
+        const likeLabel = commentLikes.length > 0 ? `${commentLikes.length}` : 'Curtir';
 
         // Score badge shown next to the commenter's name
         let scoreBadgeHtml = '';
@@ -5403,6 +6366,11 @@ function renderComments(anime) {
                 <div class="flex items-center gap-2">
                     <div class="flex items-center gap-2 text-[10px] mr-1">
                         ${myActionsHtml}
+                        <button class="like-comment-btn ${likedByMe ? 'active' : ''} flex items-center gap-1 text-gray-500 hover:text-brand transition-colors cursor-pointer bg-transparent border-none p-0 font-mono" title="Curtir review">
+                            <iconify-icon icon="lucide:heart" class="text-[11px]"></iconify-icon>
+                            <span>${likeLabel}</span>
+                        </button>
+                        <span class="text-white/10 text-[10px]">|</span>
                         <button class="reply-toggle-btn flex items-center gap-1 text-gray-500 hover:text-brand transition-colors cursor-pointer bg-transparent border-none p-0 font-mono">
                             <iconify-icon icon="lucide:message-circle" class="text-[11px]"></iconify-icon>
                             <span class="reply-btn-label">${repliesLabel}</span>
@@ -5463,6 +6431,14 @@ function renderComments(anime) {
         const submitReplyBtn = div.querySelector('.submit-reply-btn');
         const replyBtnLabel = div.querySelector('.reply-btn-label');
         const replyAvatarSlot = div.querySelector('.reply-user-avatar-slot');
+        const likeCommentBtn = div.querySelector('.like-comment-btn');
+
+        if (likeCommentBtn) {
+            likeCommentBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleCommentLike(anime.id, comment.id);
+            });
+        }
 
         // Fill current user avatar in reply box
         const cuAvatar = currentUser.avatar;

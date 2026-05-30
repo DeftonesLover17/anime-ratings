@@ -294,10 +294,24 @@
                         <iconify-icon icon="lucide:user-cog" class="text-base text-brand"></iconify-icon>
                         <span class="font-mono uppercase tracking-wider">Editar Perfil</span>
                     </button>
+                    <button id="open-player-profile" class="w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-white/80 hover:bg-white/5 transition-colors">
+                        <iconify-icon icon="lucide:badge" class="text-base text-brand"></iconify-icon>
+                        <span class="font-mono uppercase tracking-wider">Perfil de Jogador</span>
+                    </button>
                     <div class="w-full h-px bg-white/5 my-2"></div>
                     <button id="open-add-friend" class="w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-brand hover:bg-brand/10 hover:text-white transition-colors">
                         <iconify-icon icon="lucide:plus" class="text-base"></iconify-icon>
                         <span class="font-mono uppercase tracking-wider">Adicionar Amigo</span>
+                    </button>
+                    <div class="w-full h-px bg-white/5 my-2"></div>
+                    <button id="open-notifications" class="w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-white/80 hover:bg-white/5 transition-colors">
+                        <iconify-icon icon="lucide:bell-ring" class="text-base text-brand"></iconify-icon>
+                        <span class="font-mono uppercase tracking-wider flex-grow">NotificaÃ§Ãµes</span>
+                        <span id="notifications-dropdown-badge" class="hidden bg-brand text-white text-[9px] font-bold min-w-4 h-4 px-1 rounded-full items-center justify-center">0</span>
+                    </button>
+                    <button id="open-backup-center" class="w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-white/80 hover:bg-white/5 transition-colors">
+                        <iconify-icon icon="lucide:database-backup" class="text-base text-brand"></iconify-icon>
+                        <span class="font-mono uppercase tracking-wider">Backup dos Dados</span>
                     </button>
                     <div class="w-full h-px bg-white/5 my-2"></div>
                     <button id="open-group-stats" class="w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-white/80 hover:bg-white/5 transition-colors">
@@ -341,6 +355,19 @@
                         </div>
                         <p class="text-gray-500 font-light text-[11px] italic">Nenhuma atividade recente registrada.</p>
                     </div>
+                </div>
+            </div>
+
+            <div id="recommendations-rail" class="mb-12 hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <iconify-icon icon="lucide:radar" class="text-brand text-lg"></iconify-icon>
+                        <h3 class="text-sm font-mono uppercase tracking-widest text-white/90">Radar de RecomendaÃ§Ãµes</h3>
+                    </div>
+                    <span class="text-[9px] text-gray-500 font-mono uppercase">Baseado nas suas notas e nos amigos</span>
+                </div>
+                <div id="recommendations-rail-list" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- JS populated -->
                 </div>
             </div>
             
@@ -406,6 +433,26 @@
                             <span class="text-[9px] uppercase tracking-widest text-gray-500 font-mono">Gêneros:</span>
                             <div id="genres-filter" class="flex flex-wrap gap-2">
                                 <!-- JS populated -->
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                            <div class="flex flex-col gap-2">
+                                <span class="text-[9px] uppercase tracking-widest text-gray-500 font-mono">EstÃºdios:</span>
+                                <div id="studios-filter" class="flex flex-wrap gap-2">
+                                    <!-- JS populated -->
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <span class="text-[9px] uppercase tracking-widest text-gray-500 font-mono">Ano:</span>
+                                <div id="years-filter" class="flex flex-wrap gap-2">
+                                    <!-- JS populated -->
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <span class="text-[9px] uppercase tracking-widest text-gray-500 font-mono">Nota:</span>
+                                <div id="score-filter" class="flex flex-wrap gap-2">
+                                    <!-- JS populated -->
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -615,6 +662,16 @@
                         <div id="detail-related-seasons-section" class="glass-panel border border-white/5 rounded-2xl p-6 space-y-4 hidden">
                             <h3 class="text-xs font-mono uppercase tracking-widest text-gray-400">Outras Temporadas</h3>
                             <div id="detail-related-seasons-list" class="space-y-3">
+                                <!-- JS Populated -->
+                            </div>
+                        </div>
+
+                        <div id="detail-history-section" class="glass-panel border border-white/5 rounded-2xl p-6 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-xs font-mono uppercase tracking-widest text-gray-400">HistÃ³rico da Obra</h3>
+                                <iconify-icon icon="lucide:history" class="text-brand text-sm"></iconify-icon>
+                            </div>
+                            <div id="detail-history-list" class="space-y-2">
                                 <!-- JS Populated -->
                             </div>
                         </div>
@@ -1073,8 +1130,74 @@
         </div>
     </div>
 
+    <!-- PLAYER PROFILE MODAL -->
+    <div id="player-profile-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
+        <div class="player-profile-shell glass-panel border border-white/10 rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl my-auto relative">
+            <div id="player-profile-content">
+                <!-- JS populated -->
+            </div>
+        </div>
+    </div>
+
+    <!-- NOTIFICATIONS MODAL -->
+    <div id="notifications-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
+        <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl p-6 md:p-8 space-y-5 my-auto relative">
+            <div class="flex items-center justify-between border-b border-white/5 pb-4">
+                <div class="flex items-center gap-2 text-xs font-mono text-gray-400">
+                    <iconify-icon icon="lucide:bell-ring" class="text-brand text-base"></iconify-icon>
+                    <span class="tracking-widest uppercase text-[10px]">Central de NotificaÃ§Ãµes</span>
+                </div>
+                <button id="close-notifications" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors text-gray-400 hover:text-white border-0">
+                    <iconify-icon icon="lucide:x" class="text-lg"></iconify-icon>
+                </button>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                <button id="mark-notifications-read" class="px-4 py-2 rounded-full bg-white text-black text-[10px] font-mono uppercase tracking-widest font-bold">Marcar lidas</button>
+                <button id="clear-notifications" class="px-4 py-2 rounded-full border border-white/10 text-white/60 hover:text-white hover:bg-white/5 text-[10px] font-mono uppercase tracking-widest">Limpar</button>
+            </div>
+            <div id="notifications-list" class="space-y-3 max-h-[55vh] overflow-y-auto pr-1">
+                <!-- JS populated -->
+            </div>
+        </div>
+    </div>
+
+    <!-- BACKUP MODAL -->
+    <div id="backup-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
+        <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl p-6 md:p-8 space-y-6 my-auto relative">
+            <div class="flex items-center justify-between border-b border-white/5 pb-4">
+                <div class="flex items-center gap-2 text-xs font-mono text-gray-400">
+                    <iconify-icon icon="lucide:database-backup" class="text-brand text-base"></iconify-icon>
+                    <span class="tracking-widest uppercase text-[10px]">Backup & RestauraÃ§Ã£o</span>
+                </div>
+                <button id="close-backup-center" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors text-gray-400 hover:text-white border-0">
+                    <iconify-icon icon="lucide:x" class="text-lg"></iconify-icon>
+                </button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="backup-card rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
+                    <iconify-icon icon="lucide:download-cloud" class="text-brand text-2xl"></iconify-icon>
+                    <div>
+                        <h3 class="text-sm font-serif text-white">Exportar dados</h3>
+                        <p class="text-[11px] text-gray-500 font-light mt-1">Baixa um arquivo com animes, notas, perfil, amigos e logos.</p>
+                    </div>
+                    <button id="export-backup-btn" class="w-full py-3 rounded-full bg-white text-black text-[10px] font-mono uppercase tracking-widest font-bold">Exportar backup</button>
+                </div>
+                <div class="backup-card rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
+                    <iconify-icon icon="lucide:upload-cloud" class="text-brand text-2xl"></iconify-icon>
+                    <div>
+                        <h3 class="text-sm font-serif text-white">Importar backup</h3>
+                        <p class="text-[11px] text-gray-500 font-light mt-1">Restaura um arquivo exportado pelo AniVoid neste navegador.</p>
+                    </div>
+                    <input id="import-backup-file" type="file" accept="application/json,.json" class="hidden">
+                    <button id="import-backup-btn" class="w-full py-3 rounded-full border border-white/10 text-white/70 hover:text-white hover:bg-white/5 text-[10px] font-mono uppercase tracking-widest font-bold">Importar backup</button>
+                </div>
+            </div>
+            <p class="text-[10px] text-gray-500 font-mono leading-relaxed">Dica: o backup nÃ£o revela senhas. Ele guarda apenas os dados que o site usa para reconstruir sua experiÃªncia.</p>
+        </div>
+    </div>
+
     <!-- Scripts Integration -->
-    <script src="app.js?v=56"></script>
+    <script src="app.js?v=57"></script>
     <script>
         // Custom simple trigger for profile menu opening
         const profileBtn = document.getElementById('profile-indicator');
