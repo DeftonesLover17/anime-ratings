@@ -3223,9 +3223,9 @@ const STUDIO_LOGOS = {
     'Asread': 'logos/asread.png',
     'asread': 'logos/asread.png',
     'asread.': 'logos/asread.png',
-    'P.A. Works': 'https://cdn.myanimelist.net/s/common/company_logos/20be7c87-65ec-4db4-9754-4054c9a31293_600x600_i?s=68da4c6576bee3a9a7aa622a86a2609c',
-    'P.A.Works': 'https://cdn.myanimelist.net/s/common/company_logos/20be7c87-65ec-4db4-9754-4054c9a31293_600x600_i?s=68da4c6576bee3a9a7aa622a86a2609c',
-    'PA Works': 'https://cdn.myanimelist.net/s/common/company_logos/20be7c87-65ec-4db4-9754-4054c9a31293_600x600_i?s=68da4c6576bee3a9a7aa622a86a2609c'
+    'P.A. Works': 'logos/p_a_works.png',
+    'P.A.Works': 'logos/p_a_works.png',
+    'PA Works': 'logos/p_a_works.png'
 };
 
 function normalizeStudioName(name) {
