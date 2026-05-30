@@ -658,16 +658,9 @@ input[type="range"]::-webkit-slider-thumb:hover {
     50% { transform: rotateX(70deg) rotateZ(8deg) translate3d(3%, 12%, -335px); }
 }
 
-#main-nav,
 #featured-banner-wrapper,
 #anime-grid-section,
-#anime-detail-page,
-#registration-gate,
-#add-anime-modal,
-#add-friend-modal,
-#group-stats-modal,
-#edit-profile-modal,
-#email-modal {
+#anime-detail-page {
     position: relative;
 }
 
@@ -675,6 +668,30 @@ input[type="range"]::-webkit-slider-thumb:hover {
 #anime-grid-section,
 #anime-detail-page {
     z-index: 1;
+}
+
+#main-nav {
+    position: fixed;
+    z-index: 1000;
+}
+
+#friends-dropdown {
+    z-index: 1002;
+    pointer-events: auto;
+}
+
+#registration-gate,
+#add-anime-modal,
+#add-friend-modal,
+#group-stats-modal,
+#edit-profile-modal,
+#email-modal {
+    position: fixed;
+}
+
+#add-anime-modal,
+#add-friend-modal {
+    z-index: 9998;
 }
 
 .tilt-card,
