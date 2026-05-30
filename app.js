@@ -3018,6 +3018,9 @@ function renderAnimeGrid() {
 
     grid.innerHTML = '';
     const filteredList = state.getFilteredAnimeList();
+    const loggedInUserId = (state.loggedInUser || localStorage.getItem('anivoid_logged_in_username') || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const isViewingOtherProfile = Boolean(loggedInUserId && state.currentFriendId && state.currentFriendId !== loggedInUserId);
+    const shouldShowScoreComparison = isViewingOtherProfile && state.sortBy === 'my-score';
 
     if (filteredList.length === 0) {
         grid.innerHTML = `
@@ -3037,11 +3040,47 @@ function renderAnimeGrid() {
         const myStatusObj = STATUS_MAP[myStatus] || STATUS_MAP['Plan to Watch'];
         const myEps = friendRating?.episodesWatched || 0;
         const maxEps = parseInt(anime.episodes) || 0;
+        const ownRating = loggedInUserId ? anime.ratings?.[loggedInUserId] : null;
+        const ownScore = ownRating?.overall || null;
         
         const avgColorInfo = getScoreColor(avgScore);
         const avgBadgeStyle = avgScore > 0 ? `border-color: ${avgColorInfo.text}30; box-shadow: 0 0 8px ${avgColorInfo.glow}; color: ${avgColorInfo.text}; text-shadow: 0 0 4px ${avgColorInfo.glow}` : '';
 
         const myScoreColorInfo = getScoreColor(myScore);
+        const ownScoreColorInfo = getScoreColor(ownScore);
+        const profileScoreNumber = parseFloat(myScore);
+        const ownScoreNumber = parseFloat(ownScore);
+        const hasProfileScore = Number.isFinite(profileScoreNumber) && profileScoreNumber > 0;
+        const hasOwnScore = Number.isFinite(ownScoreNumber) && ownScoreNumber > 0;
+        const scoreDifference = hasProfileScore && hasOwnScore ? profileScoreNumber - ownScoreNumber : null;
+        const diffAbs = scoreDifference === null ? null : Math.abs(scoreDifference).toFixed(1);
+        const diffText = scoreDifference === null
+            ? 'S/N'
+            : (Math.abs(scoreDifference) < 0.05 ? 'igual' : `${scoreDifference > 0 ? '+' : '-'}${diffAbs}`);
+        const diffColor = scoreDifference === null
+            ? '#6b7280'
+            : (Math.abs(scoreDifference) < 0.05 ? '#e5e7eb' : (scoreDifference > 0 ? '#22c55e' : '#fb7185'));
+        const comparisonHtml = shouldShowScoreComparison
+            ? `<div class="mb-3 rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2 shadow-[0_0_18px_rgba(255,255,255,0.03)]">
+                <div class="flex items-center justify-between gap-2 text-center">
+                    <div class="min-w-0">
+                        <span class="block text-[7px] font-mono uppercase tracking-widest text-white/35">Perfil</span>
+                        <b class="block text-sm font-serif" style="color: ${hasProfileScore ? myScoreColorInfo.text : '#6b7280'}; text-shadow: ${hasProfileScore ? `0 0 8px ${myScoreColorInfo.glow}` : 'none'}">${hasProfileScore ? myScore : '-'}</b>
+                    </div>
+                    <div class="h-8 w-px bg-white/10"></div>
+                    <div class="min-w-0">
+                        <span class="block text-[7px] font-mono uppercase tracking-widest text-white/35">Voce</span>
+                        <b class="block text-sm font-serif" style="color: ${hasOwnScore ? ownScoreColorInfo.text : '#6b7280'}; text-shadow: ${hasOwnScore ? `0 0 8px ${ownScoreColorInfo.glow}` : 'none'}">${hasOwnScore ? ownScore : '-'}</b>
+                    </div>
+                    <div class="h-8 w-px bg-white/10"></div>
+                    <div class="min-w-0">
+                        <span class="block text-[7px] font-mono uppercase tracking-widest text-white/35">Dif.</span>
+                        <b class="block text-sm font-mono" style="color: ${diffColor}">${diffText}</b>
+                    </div>
+                </div>
+               </div>`
+            : '';
+        const scoreBadgeLabel = isViewingOtherProfile ? 'Nota Perfil' : 'Sua Nota';
         // Personal score badge on image (bottom-right overlay)
         const myScoreBadgeHtml = myScore
             ? `<div class="absolute bottom-10 right-3 flex flex-col items-center justify-center gap-0" style="z-index:2">
@@ -3049,14 +3088,14 @@ function renderAnimeGrid() {
                     <span style="font-size:13px">★</span>
                     <span>${myScore}</span>
                 </div>
-                <span class="text-[8px] font-mono font-bold uppercase tracking-widest mt-1" style="color: ${myScoreColorInfo.text}; text-shadow: 0 0 8px ${myScoreColorInfo.glow}">Sua Nota</span>
+                <span class="text-[8px] font-mono font-bold uppercase tracking-widest mt-1" style="color: ${myScoreColorInfo.text}; text-shadow: 0 0 8px ${myScoreColorInfo.glow}">${scoreBadgeLabel}</span>
                </div>`
             : `<div class="absolute bottom-10 right-3 flex flex-col items-center justify-center gap-0" style="z-index:2">
                 <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold font-mono backdrop-blur-md" style="font-size:16px; background: rgba(255,255,255,0.04); border: 2px dashed rgba(255,255,255,0.18); color: rgba(255,255,255,0.25)">
                     <span style="font-size:12px">★</span>
                     <span>—</span>
                 </div>
-                <span class="text-[7px] font-mono uppercase tracking-widest mt-1 text-white/25">Sua Nota</span>
+                <span class="text-[7px] font-mono uppercase tracking-widest mt-1 text-white/25">${scoreBadgeLabel}</span>
                </div>`;
 
         const card = document.createElement('div');
@@ -3098,6 +3137,7 @@ function renderAnimeGrid() {
                     <p class="text-xs text-gray-400 font-light line-clamp-2 leading-relaxed mb-3">
                         ${anime.synopsis}
                     </p>
+                    ${comparisonHtml}
                 </div>
                 
                 <div>
