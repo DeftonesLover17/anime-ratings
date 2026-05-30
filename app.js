@@ -1210,6 +1210,10 @@ class AppState {
             }
         } catch (err) {}
 
+        if (this.repairDerivedRatings()) {
+            localStorage.setItem('anivoid_list_v2', JSON.stringify(this.animes));
+        }
+
         try {
             this.currentFriendId = localStorage.getItem('anivoid_current_friend_v2');
         } catch (e) {
@@ -1418,6 +1422,7 @@ class AppState {
                     return true;
                 });
 
+                this.repairDerivedRatings();
                 localStorage.setItem('anivoid_list_v2', JSON.stringify(this.animes));
             }
             if (serverState.studioLogos && typeof serverState.studioLogos === 'object') {
@@ -1552,6 +1557,7 @@ class AppState {
     }
 
     save() {
+        this.repairDerivedRatings();
         localStorage.setItem('anivoid_friends_v2', JSON.stringify(this.friends));
         localStorage.setItem('anivoid_list_v2', JSON.stringify(this.animes));
         localStorage.setItem('anivoid_studio_logos', JSON.stringify(this.studioLogos || {}));
@@ -1832,6 +1838,37 @@ class AppState {
         if (vals.length === 0) return 0;
         const sum = vals.reduce((a, b) => a + b, 0);
         return parseFloat((sum / vals.length).toFixed(1));
+    }
+
+    repairDerivedRatings() {
+        if (!Array.isArray(this.animes)) return false;
+        let changed = false;
+
+        this.animes.forEach(anime => {
+            if (!anime || !anime.ratings) return;
+            Object.values(anime.ratings).forEach(rating => {
+                if (!rating || typeof rating !== 'object') return;
+                if (!rating.episodeRatings || typeof rating.episodeRatings !== 'object') {
+                    rating.episodeRatings = {};
+                }
+
+                const episodeScores = Object.values(rating.episodeRatings)
+                    .map(score => parseFloat(score))
+                    .filter(score => !isNaN(score) && score > 0);
+
+                if (episodeScores.length === 0) return;
+
+                const episodeAverage = parseFloat((episodeScores.reduce((sum, score) => sum + score, 0) / episodeScores.length).toFixed(1));
+                const currentOverall = parseFloat(rating.overall);
+
+                if (isNaN(currentOverall) || currentOverall <= 0 || currentOverall.toFixed(1) !== episodeAverage.toFixed(1)) {
+                    rating.overall = episodeAverage;
+                    changed = true;
+                }
+            });
+        });
+
+        return changed;
     }
 
     setEpisodeRating(animeId, friendId, epNum, ratingVal) {
@@ -2204,8 +2241,13 @@ class AppState {
         const dedupedAnimes = Array.from(titleMap.values());
 
         return dedupedAnimes.filter(anime => {
-            // Hide older Jujutsu Kaisen seasons from the main dashboard
-            if (anime.id === 'a20' || anime.id === 'a20_s2') return false;
+            const archivedJujutsuSeason = anime.id === 'a20' || anime.id === 'a20_s2';
+            const shouldShowArchivedSeason = this.sortBy === 'my-score' ||
+                this.searchQuery.trim().length > 0 ||
+                this.filterSeason !== 'All' ||
+                this.filterGenre !== 'All' ||
+                this.filterMALStatus !== 'All';
+            if (archivedJujutsuSeason && !shouldShowArchivedSeason) return false;
 
             // Search match
             const animeTitleLower = (anime.title || '').toLowerCase();
@@ -4720,7 +4762,6 @@ function openAnimeDetail(animeId) {
             if (existingQuickFill) existingQuickFill.remove();
 
             if (maxEps > 1 && !isReadOnly) {
-                const currentAvg = state.calculateUserOverallFromEpisodes(anime, myRating);
                 // Compute avg from episodeRatings directly
                 const epVals = Object.values(myRating.episodeRatings || {}).map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
                 const computedAvg = epVals.length > 0 ? parseFloat((epVals.reduce((a,b)=>a+b,0)/epVals.length).toFixed(1)) : null;
