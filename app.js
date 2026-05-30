@@ -3192,7 +3192,7 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
     }).join('') : `<p class="text-[11px] text-gray-500 italic">Sem atividade recente visivel.</p>`;
 
     content.innerHTML = `
-        <div class="profile-hero-game relative overflow-hidden p-6 md:p-8" style="--profile-accent:${user.color}; --rank-color:${rank.color}">
+        <div class="profile-hero-game relative overflow-hidden p-6 md:p-8" style="--profile-accent:${user.color}">
             <div class="profile-hero-bg"></div>
             <div class="relative z-10 flex items-start justify-between gap-4">
                 <div class="flex items-center gap-5 min-w-0">
@@ -3200,7 +3200,7 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
                         ${avatarMarkup(user, 'w-20 h-20 md:w-24 md:h-24', user.username?.[0] || 'U')}
                     </div>
                     <div class="min-w-0">
-                        <p class="text-[10px] font-mono uppercase tracking-[0.35em] text-white/45">Player Card</p>
+                        <p class="text-[10px] font-mono uppercase tracking-[0.35em] text-white/45">Perfil do usuario</p>
                         <h2 class="text-3xl md:text-5xl font-serif font-black text-white leading-none truncate mt-2">${escapeHtml(user.username)}${badges}</h2>
                         <div class="mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest" style="color:${rank.color}; border-color:${rank.color}55; background:${rank.color}14; box-shadow:0 0 22px ${rank.color}20">
                             <iconify-icon icon="${rank.icon}" class="text-sm"></iconify-icon>

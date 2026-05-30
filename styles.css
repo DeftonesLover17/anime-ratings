@@ -1250,6 +1250,17 @@ button:not(:disabled):active {
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.profile-hero-game > .relative.z-10.mt-8 {
+    display: block !important;
+}
+
+.profile-hero-game .min-w-0 > .mt-3.inline-flex,
+.profile-level-card,
+.profile-public-card,
+aside .rounded-3xl:has(.profile-style-grid) {
+    display: none !important;
+}
+
 .profile-hero-bg {
     position: absolute;
     inset: 0;
