@@ -162,6 +162,15 @@ function ratingStrength(rating) {
     return episodeCount * 3 + (Number.isFinite(overall) && overall > 0 ? 2 : 0) + (rating.status && rating.status !== 'Plan to Watch' ? 1 : 0);
 }
 
+function getRatingForProfile(ratings, userId) {
+    if (!ratings || typeof ratings !== 'object') return null;
+    const normalizedUserId = normalizeUsername(userId);
+    if (!normalizedUserId) return null;
+    if (ratings[normalizedUserId]) return ratings[normalizedUserId];
+    const aliasEntry = Object.entries(ratings).find(([key]) => normalizeUsername(key) === normalizedUserId);
+    return aliasEntry ? aliasEntry[1] : null;
+}
+
 function animeRecoveryKeys(anime) {
     if (!anime || typeof anime !== 'object') return [];
     const keys = new Set();
@@ -191,7 +200,7 @@ function findLocalRatingForAnime(localAnimes, serverAnime, loggedInId) {
     (localAnimes || []).forEach(localAnime => {
         if (!localAnime || !localAnime.ratings) return;
         if (!animeRecoveryKeys(localAnime).some(key => targetKeys.has(key))) return;
-        const localRating = localAnime.ratings[loggedInId] || localAnime.ratings['1'];
+        const localRating = getRatingForProfile(localAnime.ratings, loggedInId) || localAnime.ratings['1'];
         if (!hasMeaningfulRating(localRating)) return;
         if (!bestRating || ratingStrength(localRating) > ratingStrength(bestRating)) {
             bestRating = localRating;
@@ -318,7 +327,8 @@ function sanitizeRatings(ratings) {
                 safeEpisodeRatings[safeEpisode] = Number.isFinite(numericScore) ? numericScore : 0;
             });
         }
-        safeRatings[escapeHtml(friendId, 80)] = {
+        const safeFriendId = normalizeUsername(friendId) || escapeHtml(friendId, 80);
+        const nextRating = {
             ...rating,
             animation: Number.isFinite(Number(rating.animation)) ? Number(rating.animation) : 0,
             story: Number.isFinite(Number(rating.story)) ? Number(rating.story) : 0,
@@ -328,6 +338,9 @@ function sanitizeRatings(ratings) {
             episodesWatched: Number.isFinite(Number(rating.episodesWatched)) ? Number(rating.episodesWatched) : 0,
             episodeRatings: safeEpisodeRatings
         };
+        safeRatings[safeFriendId] = ratingStrength(safeRatings[safeFriendId]) >= ratingStrength(nextRating)
+            ? { ...nextRating, ...safeRatings[safeFriendId] }
+            : { ...safeRatings[safeFriendId], ...nextRating };
     });
     return safeRatings;
 }

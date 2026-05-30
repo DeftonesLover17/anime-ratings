@@ -1125,6 +1125,36 @@ function ratingStrength(rating) {
     return episodeCount * 3 + (!isNaN(overall) && overall > 0 ? 2 : 0) + (rating.status && rating.status !== 'Plan to Watch' ? 1 : 0);
 }
 
+function normalizeRatingMapKeys(ratings) {
+    if (!ratings || typeof ratings !== 'object') return false;
+    let changed = false;
+
+    Object.keys(ratings).forEach(rawKey => {
+        const normalizedKey = normalizeProfileId(rawKey);
+        if (!normalizedKey || normalizedKey === rawKey) return;
+
+        const rawRating = ratings[rawKey];
+        const existingRating = ratings[normalizedKey];
+        ratings[normalizedKey] = ratingStrength(existingRating) >= ratingStrength(rawRating)
+            ? { ...rawRating, ...existingRating }
+            : { ...existingRating, ...rawRating };
+        delete ratings[rawKey];
+        changed = true;
+    });
+
+    return changed;
+}
+
+function getRatingForProfile(ratings, userId) {
+    if (!ratings || typeof ratings !== 'object') return null;
+    const normalizedUserId = normalizeProfileId(userId);
+    if (!normalizedUserId) return null;
+    if (ratings[normalizedUserId]) return ratings[normalizedUserId];
+
+    const aliasEntry = Object.entries(ratings).find(([key]) => normalizeProfileId(key) === normalizedUserId);
+    return aliasEntry ? aliasEntry[1] : null;
+}
+
 function animeRecoveryKeys(anime) {
     if (!anime || typeof anime !== 'object') return [];
     const keys = new Set();
@@ -1153,7 +1183,7 @@ function mergeLocalOwnRatings(serverAnimes, localAnimes, userId) {
 
     const localRatingsByKey = new Map();
     localAnimes.forEach(localAnime => {
-        const localRating = localAnime?.ratings?.[normalizedUserId] || localAnime?.ratings?.['1'];
+        const localRating = getRatingForProfile(localAnime?.ratings, normalizedUserId) || localAnime?.ratings?.['1'];
         if (!hasMeaningfulRating(localRating)) return;
         animeRecoveryKeys(localAnime).forEach(key => {
             const current = localRatingsByKey.get(key);
@@ -1958,6 +1988,7 @@ class AppState {
 
         this.animes.forEach(anime => {
             if (!anime || !anime.ratings) return;
+            if (normalizeRatingMapKeys(anime.ratings)) changed = true;
             Object.values(anime.ratings).forEach(rating => {
                 if (!rating || typeof rating !== 'object') return;
                 if (!rating.episodeRatings || typeof rating.episodeRatings !== 'object') {
@@ -2383,7 +2414,7 @@ class AppState {
             // When sorting by personal score, only show animes the user actually rated
             const friendRatingForSort = anime.ratings?.[this.currentFriendId];
             const hasPersonalScore = friendRatingForSort && parseFloat(friendRatingForSort.overall) > 0;
-            const matchesMyScore = this.sortBy !== 'my-score' || hasPersonalScore;
+            const matchesMyScore = this.sortBy !== 'my-score' || hasPersonalScore || this.searchQuery.trim().length > 0;
 
             return matchesSearch && matchesSeason && matchesGenre && matchesMALStatus && matchesMyScore;
         }).sort((a, b) => {
