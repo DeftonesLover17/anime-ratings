@@ -2611,7 +2611,7 @@ function getProfileDisplayUser(profileId = state.currentFriendId) {
     if (friend || registered) {
         return {
             id: cleanId,
-            username: registered?.username || friend?.name?.replace(' (Voce)', '').replace(' (VocÃª)', '') || cleanId || 'Usuario',
+            username: registered?.username || friend?.name?.replace(' (Voce)', '').replace(' (Voc\u00ea)', '') || cleanId || 'Usu\u00e1rio',
             name: friend?.name || registered?.username || cleanId || 'Usuario',
             avatar: registered?.avatar || friend?.avatar || DEFAULT_AVATAR_SVG,
             color: registered?.color || friend?.color || '#FF4500',
@@ -2895,12 +2895,12 @@ function buildPersonalRecommendations(limit = 3) {
             if (score <= 0) return null;
 
             const reason = friendAvg >= 8
-                ? `amigos deram media ${friendAvg.toFixed(1)}`
+                ? 'Amigos deram nota alta'
                 : genreBoost > 0
-                    ? 'combina com seus generos fortes'
+                    ? 'Combina com seus g\u00eaneros fortes'
                     : studioBoost > 0
-                        ? `voce costuma curtir ${anime.studio}`
-                        : 'boa aposta para testar';
+                        ? `Voc\u00ea costuma curtir ${anime.studio}`
+                        : 'Boa aposta para testar';
             return { anime, score, friendAvg, reason };
         })
         .filter(Boolean)
@@ -2922,6 +2922,17 @@ function renderRecommendationsRail() {
     list.innerHTML = recs.map(rec => {
         const avg = rec.friendAvg > 0 ? rec.friendAvg.toFixed(1) : state.calculateAverageScore(rec.anime.id).toFixed(1);
         const color = getScoreColor(avg);
+        const scoreCallout = rec.friendAvg > 0 ? `
+                        <div class="recommendation-score-callout mt-3" style="--rec-score-color:${color.text}; --rec-score-glow:${color.glow}">
+                            <span>M&eacute;dia dos amigos</span>
+                            <strong>&#9733; ${avg}</strong>
+                        </div>
+        ` : `
+                        <div class="recommendation-score-callout recommendation-score-callout--muted mt-3" style="--rec-score-color:${color.text}; --rec-score-glow:${color.glow}">
+                            <span>Nota geral</span>
+                            <strong>&#9733; ${avg}</strong>
+                        </div>
+        `;
         return `
             <button class="recommendation-card tilt-card group text-left rounded-3xl overflow-hidden border border-white/8 bg-white/[0.035] hover:bg-white/[0.055] transition-all" data-anime-id="${escapeHtml(rec.anime.id)}">
                 <div class="flex gap-4 p-4">
@@ -2932,10 +2943,10 @@ function renderRecommendationsRail() {
                             Recomendado
                         </div>
                         <h4 class="text-sm font-serif font-bold text-white line-clamp-2">${escapeHtml(rec.anime.title)}</h4>
-                        <p class="text-[10px] text-gray-500 font-mono mt-1">${escapeHtml(rec.reason)}</p>
-                        <div class="mt-3 flex items-center gap-2 text-[10px] font-mono">
+                        <p class="recommendation-reason text-[10px] font-mono mt-1">${escapeHtml(rec.reason)}</p>
+                        ${scoreCallout}
+                        <div class="mt-2 flex items-center gap-2 text-[10px] font-mono">
                             <span class="text-white/40">${escapeHtml(rec.anime.studio || 'Studio')}</span>
-                            <span style="color:${color.text}; text-shadow:0 0 10px ${color.glow}">★ ${avg}</span>
                         </div>
                     </div>
                 </div>
@@ -3145,7 +3156,7 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
 
     const achievementCards = [
         { icon: 'lucide:clapperboard', label: 'Maratonista', value: `${stats.totalEpisodes} eps`, active: stats.totalEpisodes >= 50 },
-        { icon: 'lucide:star', label: 'Critico', value: `${stats.ratingCount} notas`, active: stats.ratingCount >= 10 },
+        { icon: 'lucide:star', label: 'Cr\u00edtico', value: `${stats.ratingCount} notas`, active: stats.ratingCount >= 10 },
         { icon: 'lucide:message-square', label: 'Voz do grupo', value: `${stats.commentsCount} reviews`, active: stats.commentsCount >= 3 },
         { icon: 'lucide:trophy', label: 'Finalizador', value: `${completed} completos`, active: completed >= 5 }
     ].map(card => `
@@ -3167,14 +3178,14 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
             </div>
             <div class="profile-meter-track"><span style="width:${Math.min(100, genre.avg * 10)}%; background:${getScoreColor(genre.avg).text}"></span></div>
         </div>
-    `).join('') : `<p class="text-[11px] text-gray-500 italic">Sem generos fortes ainda.</p>`;
+    `).join('') : `<p class="text-[11px] text-gray-500 italic">Sem g\u00eaneros fortes ainda.</p>`;
 
     const studioRows = stats.topStudios.length ? stats.topStudios.map(studio => `
         <button class="profile-studio-row rounded-xl border border-white/5 bg-white/[0.03] p-3 flex justify-between items-center hover:bg-white/[0.055] transition-colors" data-studio="${escapeHtml(studio.name)}">
             <span class="text-[11px] text-white font-mono truncate">${escapeHtml(studio.name)}</span>
             <span class="text-[11px] font-mono font-bold" style="color:${getScoreColor(studio.avg).text}">★ ${studio.avg.toFixed(1)}</span>
         </button>
-    `).join('') : `<p class="text-[11px] text-gray-500 italic">Sem estudios favoritos ainda.</p>`;
+    `).join('') : `<p class="text-[11px] text-gray-500 italic">Sem est\u00fadios favoritos ainda.</p>`;
 
     const activityRows = stats.recentActivities.length ? stats.recentActivities.map(activity => {
         const meta = getActivityMeta(activity);
@@ -3216,17 +3227,17 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
             <div class="relative z-10 mt-8 grid grid-cols-1 lg:grid-cols-[1.25fr_0.75fr] gap-6">
                 <div class="space-y-5">
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div class="profile-stat-card"><span>Media</span><b style="color:${scoreColor.text}; text-shadow:0 0 16px ${scoreColor.glow}">${stats.avgScore > 0 ? stats.avgScore.toFixed(1) : '-'}</b></div>
+                        <div class="profile-stat-card"><span>M&eacute;dia</span><b style="color:${scoreColor.text}; text-shadow:0 0 16px ${scoreColor.glow}">${stats.avgScore > 0 ? stats.avgScore.toFixed(1) : '-'}</b></div>
                         <div class="profile-stat-card"><span>Animes</span><b>${stats.ratingCount}</b></div>
-                        <div class="profile-stat-card"><span>Episodios</span><b>${stats.totalEpisodes}</b></div>
-                        <div class="profile-stat-card"><span>Concluidos</span><b>${completed}</b></div>
+                        <div class="profile-stat-card"><span>Epis&oacute;dios</span><b>${stats.totalEpisodes}</b></div>
+                        <div class="profile-stat-card"><span>Conclu&iacute;dos</span><b>${completed}</b></div>
                     </div>
 
                     <div class="profile-level-card rounded-3xl border border-white/10 bg-black/30 p-5">
                         <div class="flex items-center justify-between gap-3 mb-3">
                             <div>
-                                <p class="text-[9px] font-mono uppercase tracking-widest text-white/40">Nivel de conta</p>
-                                <h3 class="text-xl font-serif text-white">Nivel ${stats.level}</h3>
+                                <p class="text-[9px] font-mono uppercase tracking-widest text-white/40">N&iacute;vel de conta</p>
+                                <h3 class="text-xl font-serif text-white">N&iacute;vel ${stats.level}</h3>
                             </div>
                             <div class="text-right">
                                 <p class="text-[9px] font-mono uppercase tracking-widest text-white/40">XP</p>
@@ -3252,7 +3263,7 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
                         <div class="rounded-2xl bg-white/[0.04] border border-white/5 p-3"><b class="block text-lg text-white">${watching}</b><span class="text-[9px] text-gray-500 font-mono uppercase">assistindo</span></div>
                         <div class="rounded-2xl bg-white/[0.04] border border-white/5 p-3"><b class="block text-lg text-white">${completionRate}%</b><span class="text-[9px] text-gray-500 font-mono uppercase">clear rate</span></div>
                     </div>
-                    <p class="text-[11px] text-gray-400 leading-relaxed">Cartao rapido para comparar gosto, ritmo e conquistas quando voce abre o perfil de alguem.</p>
+                    <p class="text-[11px] text-gray-400 leading-relaxed">Cart&atilde;o r&aacute;pido para comparar gosto, ritmo e conquistas quando voc&ecirc; abre o perfil de algu&eacute;m.</p>
                 </div>
             </div>
         </div>
@@ -3281,7 +3292,7 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
             <aside class="space-y-4">
                 <div class="rounded-3xl border border-white/8 bg-white/[0.025] p-5 space-y-3">
                     <div class="flex items-center justify-between">
-                        <h3 class="text-xs font-mono uppercase tracking-widest text-white/70">Historico recente</h3>
+                        <h3 class="text-xs font-mono uppercase tracking-widest text-white/70">Hist&oacute;rico recente</h3>
                         <iconify-icon icon="lucide:activity" class="text-brand"></iconify-icon>
                     </div>
                     ${activityRows}
@@ -4308,7 +4319,7 @@ function renderAnimeGrid() {
                         <b class="block text-2xl font-serif leading-none mt-1" style="color: ${hasProfileScore ? myScoreColorInfo.text : '#6b7280'}; text-shadow: ${hasProfileScore ? `0 0 12px ${myScoreColorInfo.glow}` : 'none'}">${hasProfileScore ? myScore : '-'}</b>
                     </div>
                     <div class="rounded-xl border px-3 py-2.5" style="background: ${hasOwnScore ? `${ownScoreColorInfo.text}12` : 'rgba(255,255,255,0.035)'}; border-color: ${hasOwnScore ? `${ownScoreColorInfo.text}55` : 'rgba(255,255,255,0.1)'}; box-shadow: ${hasOwnScore ? `0 0 16px ${ownScoreColorInfo.glow}` : 'none'}">
-                        <span class="block text-[8px] font-mono uppercase tracking-widest text-white/45">Voce</span>
+                        <span class="block text-[8px] font-mono uppercase tracking-widest text-white/45">Voc&ecirc;</span>
                         <b class="block text-2xl font-serif leading-none mt-1" style="color: ${hasOwnScore ? ownScoreColorInfo.text : '#6b7280'}; text-shadow: ${hasOwnScore ? `0 0 12px ${ownScoreColorInfo.glow}` : 'none'}">${hasOwnScore ? ownScore : '-'}</b>
                     </div>
                 </div>
@@ -5022,7 +5033,7 @@ function renderStudiosDirectory() {
                     <div class="studio-score-badge" style="--score-color: ${scoreCfg.text}; --score-glow: ${scoreCfg.glow};">
                         <span class="studio-score-star">&#9733;</span>
                         <span class="studio-score-value">${avg}</span>
-                        <span class="studio-score-label">Media</span>
+                        <span class="studio-score-label">M&eacute;dia</span>
                     </div>
                 ` : ''}
 
@@ -7298,7 +7309,7 @@ function initRegistrationOptions() {
                 }
                 if (data.user && data.token) {
                     completeAuthenticatedLogin(data, newPassword);
-                    alert('Senha atualizada. Voce ja esta conectado.');
+                    alert('Senha atualizada. Voc\u00ea j\u00e1 est\u00e1 conectado.');
                     return;
                 }
                 const passwordInput = document.getElementById('login-password');
@@ -8864,8 +8875,8 @@ function getActivityMeta(activity) {
     const details = String(activity?.details || '').toLowerCase();
 
     if (type === 'rating' || details.includes('avaliou')) return { icon: 'lucide:star', emoji: '&#11088;', label: 'Nota', color: '#facc15' };
-    if (type === 'progress' || details.includes('episodio') || details.includes('episÃ³dio')) return { icon: 'lucide:play-circle', emoji: '&#9654;', label: 'Episodio', color: '#38bdf8' };
-    if (type === 'comment_add' || details.includes('critica') || details.includes('crÃ­tica')) return { icon: 'lucide:message-circle', emoji: '&#128172;', label: 'Critica', color: '#c084fc' };
+    if (type === 'progress' || details.includes('episodio') || details.includes('epis\u00f3dio')) return { icon: 'lucide:play-circle', emoji: '&#9654;', label: 'Epis\u00f3dio', color: '#38bdf8' };
+    if (type === 'comment_add' || details.includes('critica') || details.includes('cr\u00edtica')) return { icon: 'lucide:message-circle', emoji: '&#128172;', label: 'Cr\u00edtica', color: '#c084fc' };
     if (type === 'comment_edit') return { icon: 'lucide:pencil', emoji: '&#9999;', label: 'Editou', color: '#fb923c' };
     if (type === 'comment_delete') return { icon: 'lucide:trash-2', emoji: '&#128465;', label: 'Removeu', color: '#f87171' };
     if (type === 'reply_add' || details.includes('respondeu')) return { icon: 'lucide:reply', emoji: '&#8617;', label: 'Resposta', color: '#a78bfa' };
@@ -8873,8 +8884,8 @@ function getActivityMeta(activity) {
     if (details.includes('lista')) return { icon: 'lucide:bookmark-plus', emoji: '&#128278;', label: 'Lista', color: '#fb7185' };
     if (details.includes('espera')) return { icon: 'lucide:pause-circle', emoji: '&#9208;', label: 'Espera', color: '#f59e0b' };
     if (details.includes('abandonou')) return { icon: 'lucide:x-circle', emoji: '&#10060;', label: 'Dropou', color: '#ef4444' };
-    if (type === 'catalog' || details.includes('catalogo') || details.includes('catÃ¡logo')) return { icon: 'lucide:sparkles', emoji: '&#10024;', label: 'Catalogo', color: '#2dd4bf' };
-    return { icon: 'lucide:zap', emoji: '&#9889;', label: 'Acao', color: '#22d3ee' };
+    if (type === 'catalog' || details.includes('catalogo') || details.includes('cat\u00e1logo')) return { icon: 'lucide:sparkles', emoji: '&#10024;', label: 'Cat\u00e1logo', color: '#2dd4bf' };
+    return { icon: 'lucide:zap', emoji: '&#9889;', label: 'A\u00e7\u00e3o', color: '#22d3ee' };
 }
 
 function renderActivitiesFeed() {

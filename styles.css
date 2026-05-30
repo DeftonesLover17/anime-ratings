@@ -1428,6 +1428,49 @@ aside .rounded-3xl:has(.profile-style-grid) {
     min-height: 150px;
 }
 
+.recommendation-reason {
+    color: rgba(255, 255, 255, 0.66);
+}
+
+.recommendation-score-callout {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    max-width: 100%;
+    padding: 6px 9px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--rec-score-color, #22c55e) 44%, rgba(255, 255, 255, 0.12));
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--rec-score-color, #22c55e) 16%, rgba(255, 255, 255, 0.035)), rgba(255, 255, 255, 0.025));
+    box-shadow:
+        0 0 18px color-mix(in srgb, var(--rec-score-glow, rgba(34, 197, 94, 0.55)) 48%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.recommendation-score-callout span {
+    color: rgba(255, 255, 255, 0.62);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.recommendation-score-callout strong {
+    color: var(--rec-score-color, #22c55e);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1;
+    text-shadow: 0 0 12px var(--rec-score-glow, rgba(34, 197, 94, 0.55));
+    white-space: nowrap;
+}
+
+.recommendation-score-callout--muted {
+    opacity: 0.82;
+}
+
 .like-comment-btn.active {
     color: var(--accent, #FF4500) !important;
     text-shadow: 0 0 12px color-mix(in srgb, var(--accent, #FF4500) 55%, transparent);
