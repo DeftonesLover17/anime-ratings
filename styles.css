@@ -910,6 +910,69 @@ button:not(:disabled):active {
     filter: drop-shadow(0 16px 34px rgba(0, 0, 0, 0.45));
 }
 
+.studio-score-badge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 6;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+        "star value"
+        "label label";
+    align-items: center;
+    column-gap: 0.35rem;
+    min-width: 4.4rem;
+    padding: 0.48rem 0.64rem 0.42rem;
+    border-radius: 0.9rem;
+    border: 1px solid color-mix(in srgb, var(--score-color, #facc15) 55%, rgba(255, 255, 255, 0.12));
+    background: linear-gradient(145deg, rgba(5, 5, 5, 0.92), rgba(18, 18, 18, 0.72));
+    box-shadow:
+        0 0 24px color-mix(in srgb, var(--score-color, #facc15) 28%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    color: var(--score-color, #facc15);
+    backdrop-filter: blur(14px);
+    transform: translateZ(58px);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.studio-landing-card:hover .studio-score-badge {
+    transform: translateZ(68px) scale(1.06);
+    box-shadow:
+        0 0 32px color-mix(in srgb, var(--score-color, #facc15) 38%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.studio-score-star {
+    grid-area: star;
+    font-size: 0.72rem;
+    line-height: 1;
+    filter: drop-shadow(0 0 7px color-mix(in srgb, var(--score-color, #facc15) 70%, transparent));
+}
+
+.studio-score-value {
+    grid-area: value;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.06rem;
+    line-height: 1;
+    font-weight: 900;
+    letter-spacing: 0;
+    color: #fff;
+    text-shadow: 0 0 12px color-mix(in srgb, var(--score-color, #facc15) 85%, transparent);
+}
+
+.studio-score-label {
+    grid-area: label;
+    margin-top: 0.18rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.48rem;
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--score-color, #facc15) 68%, rgba(255, 255, 255, 0.5));
+}
+
 .studio-landing-card .studio-name-overlay {
     transform: translateZ(28px) translateY(4px);
 }

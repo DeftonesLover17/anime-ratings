@@ -3808,6 +3808,13 @@ function renderStudiosDirectory() {
 
             card.innerHTML = `
                 <div class="studio-logo-bg"></div>
+                ${avg ? `
+                    <div class="studio-score-badge" style="--score-color: ${hoverCfg.text}; --score-glow: ${hoverCfg.glow};">
+                        <span class="studio-score-star">&#9733;</span>
+                        <span class="studio-score-value">${avg}</span>
+                        <span class="studio-score-label">Media</span>
+                    </div>
+                ` : ''}
 
                 <!-- Logo image or initials fallback (transparent, borderless, clean on themed radial spotlight glow) -->
                 <div class="w-full h-[80%] flex flex-col items-center justify-center p-2 relative">
@@ -3838,6 +3845,9 @@ function renderStudiosDirectory() {
                     </div>
                 </div>
             `;
+
+            const legacyInlineScore = card.querySelector('.studio-name-overlay span[style*="color"]');
+            if (legacyInlineScore) legacyInlineScore.remove();
 
             card.addEventListener('click', () => {
                 triggerStudioTransition(studioName, () => {
