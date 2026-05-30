@@ -6989,11 +6989,17 @@ function initAddFriendModalOptions() {
             const queries = [];
             const normalized = normalizeAnimeSearchText(query);
             const isAttackOnTitan = normalized.includes('attack on titan') ||
+                normalized.includes('attack titan') ||
                 normalized.includes('shingeki no kyojin') ||
+                normalized.includes('shingeki') ||
+                /\baot\b/.test(normalized) ||
                 /\bsnk\b/.test(normalized);
             const wantsFinalSeason = normalized.includes('final season') ||
                 normalized.includes('temporada final') ||
                 normalized.includes('ultima temporada') ||
+                normalized.includes('season 4') ||
+                normalized.includes('4 temporada') ||
+                normalized.includes('temporada 4') ||
                 normalized.includes('kanketsu') ||
                 normalized.includes('capitulos finais') ||
                 normalized.includes('parte final');
@@ -7025,11 +7031,48 @@ function initAddFriendModalOptions() {
             return queries.slice(0, 4);
         };
 
+        const getPinnedAnimeIdsForSearch = (query) => {
+            const normalized = normalizeAnimeSearchText(query);
+            const isAttackOnTitan = normalized.includes('attack on titan') ||
+                normalized.includes('attack titan') ||
+                normalized.includes('shingeki no kyojin') ||
+                normalized.includes('shingeki') ||
+                /\baot\b/.test(normalized) ||
+                /\bsnk\b/.test(normalized);
+            const wantsFinalSeason = normalized.includes('final season') ||
+                normalized.includes('temporada final') ||
+                normalized.includes('ultima temporada') ||
+                normalized.includes('season 4') ||
+                normalized.includes('4 temporada') ||
+                normalized.includes('temporada 4') ||
+                normalized.includes('kanketsu') ||
+                normalized.includes('capitulos finais') ||
+                normalized.includes('parte final');
+            const wantsPartTwo = /\b(part|parte)\s*2\b/.test(normalized);
+            const wantsFinalChapters = /\b(part|parte)\s*3\b/.test(normalized) ||
+                normalized.includes('final chapters') ||
+                normalized.includes('capitulos finais') ||
+                normalized.includes('parte final') ||
+                normalized.includes('kanketsu');
+
+            if (!isAttackOnTitan || !wantsFinalSeason) return [];
+            if (wantsPartTwo) return [48583, 40028, 51535];
+            if (wantsFinalChapters) return [51535, 40028, 48583];
+            return [40028, 48583, 51535];
+        };
+
         const fetchAnimeMAL = async (query) => {
             const response = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=12`);
             if (!response.ok) throw new Error('API request failed');
             const json = await response.json();
             return json.data || [];
+        };
+
+        const fetchAnimeMALById = async (malId) => {
+            const response = await fetch(`https://api.jikan.moe/v4/anime/${malId}`);
+            if (!response.ok) throw new Error('API request failed');
+            const json = await response.json();
+            return json.data || null;
         };
 
         // Fetch anime data from Jikan with a few smart aliases for titles MAL stores differently.
@@ -7038,6 +7081,23 @@ function initAddFriendModalOptions() {
                 const seen = new Set();
                 const mergedResults = [];
                 const queries = buildAnimeSearchQueries(query);
+                const pinnedIds = getPinnedAnimeIdsForSearch(query);
+                const addResult = (anime) => {
+                    if (!anime) return;
+                    const key = anime.mal_id || `${anime.title}-${anime.url}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        mergedResults.push(anime);
+                    }
+                };
+
+                for (const malId of pinnedIds) {
+                    try {
+                        addResult(await fetchAnimeMALById(malId));
+                    } catch (pinError) {
+                        console.warn('MAL pinned anime lookup failed:', malId, pinError);
+                    }
+                }
 
                 for (const searchQuery of queries) {
                     let results = [];
@@ -7047,13 +7107,7 @@ function initAddFriendModalOptions() {
                         console.warn('MAL search fallback failed:', searchQuery, queryError);
                         continue;
                     }
-                    results.forEach(anime => {
-                        const key = anime.mal_id || `${anime.title}-${anime.url}`;
-                        if (!seen.has(key)) {
-                            seen.add(key);
-                            mergedResults.push(anime);
-                        }
-                    });
+                    results.forEach(addResult);
                     if (mergedResults.length >= 10) break;
                 }
 
