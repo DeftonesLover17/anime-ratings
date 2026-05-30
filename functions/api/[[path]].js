@@ -619,13 +619,16 @@ function isBogusAnime(anime) {
     return bogusIds.has(id) || id.includes('debug') || id.startsWith('sample-anime') || id.includes('-test-') || id.startsWith('test-');
 }
 
-function mergeCommentsForUser(serverAnime, localAnime, loggedInId) {
+function mergeCommentsForUser(serverAnime, localAnime, loggedInId, onActivity = () => {}) {
     if (!serverAnime.comments) serverAnime.comments = [];
     const localComments = Array.isArray(localAnime.comments) ? localAnime.comments : [];
     const localCommentIds = new Set(localComments.map(comment => comment && comment.id).filter(Boolean));
 
     serverAnime.comments = serverAnime.comments.filter(comment => {
         const isAuthor = comment.friendId && comment.friendId.toLowerCase() === loggedInId;
+        if (isAuthor && !localCommentIds.has(comment.id)) {
+            onActivity('comment_delete', 'removeu uma critica');
+        }
         return !isAuthor || localCommentIds.has(comment.id);
     });
 
@@ -636,6 +639,9 @@ function mergeCommentsForUser(serverAnime, localAnime, loggedInId) {
 
         if (isAuthor) {
             if (index >= 0) {
+                if (String(serverAnime.comments[index].comment || '') !== String(localComment.comment || '')) {
+                    onActivity('comment_edit', 'editou uma critica');
+                }
                 const repliesMap = {};
                 (serverAnime.comments[index].replies || []).forEach(reply => { if (reply && reply.id) repliesMap[reply.id] = reply; });
                 (localComment.replies || []).forEach(reply => { if (reply && reply.id) repliesMap[reply.id] = reply; });
@@ -645,6 +651,7 @@ function mergeCommentsForUser(serverAnime, localAnime, loggedInId) {
                     replies: Object.values(repliesMap).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
                 };
             } else {
+                onActivity('comment_add', 'escreveu uma critica');
                 serverAnime.comments.push({ ...localComment, replies: localComment.replies || [] });
             }
             return;
@@ -653,9 +660,14 @@ function mergeCommentsForUser(serverAnime, localAnime, loggedInId) {
         if (index >= 0) {
             const repliesMap = {};
             (serverAnime.comments[index].replies || []).forEach(reply => { if (reply && reply.id) repliesMap[reply.id] = reply; });
+            let addedReply = false;
             (localComment.replies || []).forEach(reply => {
-                if (reply && reply.id && reply.friendId && reply.friendId.toLowerCase() === loggedInId) repliesMap[reply.id] = reply;
+                if (reply && reply.id && reply.friendId && reply.friendId.toLowerCase() === loggedInId) {
+                    if (!repliesMap[reply.id]) addedReply = true;
+                    repliesMap[reply.id] = reply;
+                }
             });
+            if (addedReply) onActivity('reply_add', 'respondeu uma critica');
             serverAnime.comments[index] = {
                 ...serverAnime.comments[index],
                 replies: Object.values(repliesMap).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
@@ -666,14 +678,57 @@ function mergeCommentsForUser(serverAnime, localAnime, loggedInId) {
     serverAnime.comments.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 }
 
+function createActivity(authorUser, type, anime, details) {
+    return {
+        id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+        username: authorUser.username,
+        userColor: authorUser.color || '#FF4500',
+        userAvatar: authorUser.avatar || '👤',
+        type,
+        animeId: anime.id,
+        animeTitle: anime.title || 'Anime',
+        details,
+        timestamp: new Date().toISOString()
+    };
+}
+
+function compactActivities(activities, limit = 80) {
+    const seenIds = new Set();
+    const seenEvents = new Set();
+    return (Array.isArray(activities) ? activities : [])
+        .filter(activity => activity && activity.id && activity.username && activity.animeId && activity.details)
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .filter(activity => {
+            if (seenIds.has(activity.id)) return false;
+            seenIds.add(activity.id);
+            const minuteBucket = Math.floor(new Date(activity.timestamp).getTime() / 60000);
+            const eventKey = [activity.username, activity.type, activity.animeId, activity.details, minuteBucket].join('|');
+            if (seenEvents.has(eventKey)) return false;
+            seenEvents.add(eventKey);
+            return true;
+        })
+        .slice(0, limit);
+}
+
 function mergeStates(localState, serverState, loggedInUser) {
+    const authorUser = findRegisteredUser(serverState, loggedInUser) || {
+        username: loggedInUser || 'Desconhecido',
+        color: '#FF4500',
+        avatar: '👤'
+    };
+    const mergedActivities = Array.isArray(serverState.activities) ? [...serverState.activities] : [];
+    const pushActivity = (type, anime, details) => {
+        if (!loggedInUser || !anime || !anime.id) return;
+        mergedActivities.push(createActivity(authorUser, type, anime, details));
+    };
+
     const nextState = {
         friends: Array.isArray(serverState.friends) ? [...serverState.friends] : [],
         animes: Array.isArray(serverState.animes) ? serverState.animes.filter(anime => !isBogusAnime(anime)).map(anime => ({ ...anime })) : [],
         studioLogos: { ...(serverState.studioLogos && typeof serverState.studioLogos === 'object' ? serverState.studioLogos : {}) },
         registeredUsers: Array.isArray(serverState.registeredUsers) ? serverState.registeredUsers.map(user => ({ ...user })) : [],
         featuredAnimeId: serverState.featuredAnimeId || null,
-        activities: Array.isArray(serverState.activities) ? [...serverState.activities] : []
+        activities: mergedActivities
     };
 
     const loggedInId = normalizeUsername(loggedInUser);
@@ -709,6 +764,18 @@ function mergeStates(localState, serverState, loggedInUser) {
             let serverAnime = nextState.animes.find(anime => anime.id === localAnime.id);
             if (!serverAnime) {
                 nextState.animes.push({ ...localAnime });
+                const ownRating = localAnime.ratings && localAnime.ratings[loggedInId];
+                const hasOwnRating = ownRating && (
+                    (ownRating.overall && parseFloat(ownRating.overall) > 0) ||
+                    (ownRating.episodeRatings && Object.keys(ownRating.episodeRatings).length > 0) ||
+                    (ownRating.status && ownRating.status !== 'Plan to Watch')
+                );
+                const hasOwnComment = (localAnime.comments || []).some(comment =>
+                    comment && comment.friendId && comment.friendId.toLowerCase() === loggedInId
+                );
+                if (hasOwnRating || hasOwnComment) {
+                    pushActivity('catalog', localAnime, 'adicionou esta obra ao catalogo');
+                }
                 return;
             }
 
@@ -729,16 +796,41 @@ function mergeStates(localState, serverState, loggedInUser) {
                 const hasEpisodeRatings = localRating.episodeRatings && Object.keys(localRating.episodeRatings).length > 0;
                 const hasRealStatus = localRating.status && localRating.status !== 'Plan to Watch';
                 if (hasRealOverall || hasEpisodeRatings || hasRealStatus || serverAnime.ratings[loggedInId]) {
+                    const serverRating = serverAnime.ratings[loggedInId] || {};
+                    if (localRating.status && localRating.status !== serverRating.status && (localRating.status !== 'Plan to Watch' || serverRating.status)) {
+                        const statusPhrases = {
+                            Watching: 'comecou a assistir',
+                            Completed: 'concluiu a obra',
+                            'On Hold': 'colocou em espera',
+                            Dropped: 'abandonou a obra',
+                            'Plan to Watch': 'adicionou a lista'
+                        };
+                        pushActivity('status', localAnime, statusPhrases[localRating.status] || `marcou como ${localRating.status}`);
+                    }
+                    if (localRating.overall !== undefined && String(localRating.overall) !== String(serverRating.overall || '')) {
+                        const score = parseFloat(localRating.overall);
+                        if (Number.isFinite(score) && score > 0) {
+                            pushActivity('rating', localAnime, `avaliou com nota ${localRating.overall}`);
+                        }
+                    }
+                    const prevWatched = Number(serverRating.episodesWatched || 0);
+                    const nextWatched = Number(localRating.episodesWatched || 0);
+                    const totalEpisodes = Number(localAnime.episodes || serverAnime.episodes || 0);
+                    if (nextWatched > prevWatched && nextWatched !== totalEpisodes) {
+                        pushActivity('progress', localAnime, `assistiu ao episodio ${nextWatched}`);
+                    }
                     serverAnime.ratings[loggedInId] = { ...serverAnime.ratings[loggedInId], ...localRating };
                 }
             }
 
-            mergeCommentsForUser(serverAnime, localAnime, loggedInId);
+            mergeCommentsForUser(serverAnime, localAnime, loggedInId, (type, details) => {
+                pushActivity(type, localAnime, details);
+            });
         });
     }
 
     if (localState.featuredAnimeId !== undefined) nextState.featuredAnimeId = localState.featuredAnimeId;
-    nextState.activities = nextState.activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 50);
+    nextState.activities = compactActivities(nextState.activities, 80);
     return normalizeSocialGraph(nextState);
 }
 

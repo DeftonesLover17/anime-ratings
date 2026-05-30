@@ -1109,6 +1109,7 @@ class AppState {
         }
         sanitizeStoredRegisteredUsers();
         this.friends = [];
+        this.activities = [];
         this.knownActivityIds = new Set();
         try {
             const storedStudioLogos = JSON.parse(localStorage.getItem('anivoid_studio_logos')) || {};
@@ -1444,6 +1445,7 @@ class AppState {
                     }
                 });
                 this.activities = serverState.activities;
+                renderActivitiesFeed();
             }
 
             // Check new friend requests/acceptances before updating localStorage
@@ -7345,15 +7347,23 @@ function renderActivitiesFeed() {
     const list = document.getElementById('activities-feed-list');
     if (!list) return;
 
-    // Filter activities to show only those from user themselves or their added friends
-    const activeFriendsIds = state.friends.map(f => f.id);
+    const normalizeActivityUser = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const visibleUserIds = new Set((state.friends || []).map(friend => friend && friend.id).filter(Boolean));
+    const loggedInUsername = localStorage.getItem('anivoid_logged_in_username') || '';
+    if (loggedInUsername) visibleUserIds.add(normalizeActivityUser(loggedInUsername));
+
+    const seen = new Set();
     const filteredActivities = (state.activities || []).filter(act => {
         if (!act.username) return false;
-        const actUserId = act.username.toLowerCase().replace(/[^a-z0-9]/g, '');
-        return activeFriendsIds.includes(actUserId);
-    });
+        const actUserId = normalizeActivityUser(act.username);
+        if (!visibleUserIds.has(actUserId)) return false;
+        const key = act.id || `${act.username}|${act.type}|${act.animeId}|${act.details}|${act.timestamp}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-    const activities = filteredActivities.slice(0, 3);
+    const activities = filteredActivities.slice(0, 6);
     if (activities.length === 0) {
         list.innerHTML = `
             <div class="py-8 text-center text-gray-500 font-light text-[10px] italic col-span-full">
