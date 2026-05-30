@@ -3222,11 +3222,18 @@ const STUDIO_LOGOS = {
     'Studio M2': 'logos/studio_m2.png',
     'Asread': 'logos/asread.png',
     'asread': 'logos/asread.png',
-    'asread.': 'logos/asread.png'
+    'asread.': 'logos/asread.png',
+    'P.A. Works': 'https://cdn.myanimelist.net/s/common/company_logos/20be7c87-65ec-4db4-9754-4054c9a31293_600x600_i?s=68da4c6576bee3a9a7aa622a86a2609c',
+    'P.A.Works': 'https://cdn.myanimelist.net/s/common/company_logos/20be7c87-65ec-4db4-9754-4054c9a31293_600x600_i?s=68da4c6576bee3a9a7aa622a86a2609c',
+    'PA Works': 'https://cdn.myanimelist.net/s/common/company_logos/20be7c87-65ec-4db4-9754-4054c9a31293_600x600_i?s=68da4c6576bee3a9a7aa622a86a2609c'
 };
 
 function normalizeStudioName(name) {
     return String(name || '').trim().toLowerCase();
+}
+
+function normalizeStudioLookupKey(name) {
+    return normalizeStudioName(name).replace(/[^a-z0-9]/g, '');
 }
 
 function sanitizeStudioLogoUrl(url) {
@@ -3240,7 +3247,10 @@ function sanitizeStudioLogoUrl(url) {
 
 function findLogoInMap(studioName, map) {
     const key = normalizeStudioName(studioName);
-    const entry = Object.entries(map || {}).find(([name]) => normalizeStudioName(name) === key);
+    const looseKey = normalizeStudioLookupKey(studioName);
+    const entry = Object.entries(map || {}).find(([name]) =>
+        normalizeStudioName(name) === key || normalizeStudioLookupKey(name) === looseKey
+    );
     return entry ? entry[1] : '';
 }
 
@@ -3261,6 +3271,36 @@ function rememberStudioLogo(studioName, logoUrl) {
     };
     localStorage.setItem('anivoid_studio_logos', JSON.stringify(state.studioLogos));
     return logo;
+}
+
+async function fetchStudioLogoFromMal(studioName) {
+    const studio = String(studioName || '').trim();
+    if (!studio || studio.toLowerCase() === 'desconhecido') return '';
+
+    const existing = getStudioLogo(studio);
+    if (existing) return existing;
+
+    try {
+        const response = await fetch(`https://api.jikan.moe/v4/producers?q=${encodeURIComponent(studio)}&limit=5`);
+        if (!response.ok) return '';
+        const json = await response.json();
+        const producers = Array.isArray(json.data) ? json.data : [];
+        const lookupKey = normalizeStudioLookupKey(studio);
+        const producer = producers.find(item =>
+            (item.titles || []).some(title => normalizeStudioLookupKey(title.title) === lookupKey) ||
+            normalizeStudioLookupKey(item.title) === lookupKey ||
+            normalizeStudioLookupKey(item.name) === lookupKey
+        ) || producers[0];
+        const logo = sanitizeStudioLogoUrl(
+            producer?.images?.webp?.image_url ||
+            producer?.images?.jpg?.image_url ||
+            ''
+        );
+        return logo ? rememberStudioLogo(studio, logo) : '';
+    } catch (err) {
+        console.warn('Unable to fetch studio logo from MAL:', studio, err);
+        return '';
+    }
 }
 
 function hydrateStudioLogosFromAnimes(animes) {
@@ -5298,11 +5338,19 @@ function setupFormSubmissions() {
         const studioLogoInput = document.getElementById('form-studio-logo');
         if (studioInput && studioLogoInput && !studioInput.dataset.logoHooked) {
             studioInput.dataset.logoHooked = 'true';
-            const fillKnownLogo = () => {
+            const fillKnownLogo = async () => {
+                if (studioLogoInput.value.trim()) return;
                 const knownLogo = getStudioLogo(studioInput.value);
-                if (knownLogo && !studioLogoInput.value.trim()) {
+                if (knownLogo) {
                     studioLogoInput.value = knownLogo;
+                    return;
                 }
+
+                const originalPlaceholder = studioLogoInput.placeholder;
+                studioLogoInput.placeholder = 'Buscando logo no MyAnimeList...';
+                const malLogo = await fetchStudioLogoFromMal(studioInput.value);
+                if (malLogo && !studioLogoInput.value.trim()) studioLogoInput.value = malLogo;
+                studioLogoInput.placeholder = originalPlaceholder;
             };
             studioInput.addEventListener('change', fillKnownLogo);
             studioInput.addEventListener('blur', fillKnownLogo);
@@ -6904,7 +6952,18 @@ function initAddFriendModalOptions() {
                     if (studioInput) studioInput.value = studioName;
 
                     const studioLogoInput = document.getElementById('form-studio-logo');
-                    if (studioLogoInput) studioLogoInput.value = getStudioLogo(studioName) || '';
+                    if (studioLogoInput) {
+                        studioLogoInput.value = getStudioLogo(studioName) || '';
+                        if (!studioLogoInput.value && studioName) {
+                            const originalPlaceholder = studioLogoInput.placeholder;
+                            studioLogoInput.placeholder = 'Buscando logo no MyAnimeList...';
+                            fetchStudioLogoFromMal(studioName).then((logo) => {
+                                if (logo && !studioLogoInput.value.trim()) studioLogoInput.value = logo;
+                            }).finally(() => {
+                                studioLogoInput.placeholder = originalPlaceholder;
+                            });
+                        }
+                    }
 
                     const episodesInput = document.getElementById('form-anime-episodes');
                     if (episodesInput) episodesInput.value = anime.episodes || '';
