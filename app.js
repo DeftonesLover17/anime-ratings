@@ -2248,6 +2248,39 @@ class AppState {
 
 // Initialise Global State
 const state = new AppState();
+const tiltBoundCards = new WeakSet();
+
+function initSoftTiltCards(root = document) {
+    if (!root || !window.matchMedia || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const cards = root.querySelectorAll ? root.querySelectorAll('.tilt-card') : [];
+    cards.forEach(card => {
+        if (tiltBoundCards.has(card)) return;
+        tiltBoundCards.add(card);
+
+        card.addEventListener('pointermove', (event) => {
+            const rect = card.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+            const x = (event.clientX - rect.left) / rect.width;
+            const y = (event.clientY - rect.top) / rect.height;
+            const rotateY = (x - 0.5) * 5.5;
+            const rotateX = (0.5 - y) * 5.5;
+            card.style.setProperty('--tilt-y', `${rotateY.toFixed(2)}deg`);
+            card.style.setProperty('--tilt-x', `${rotateX.toFixed(2)}deg`);
+        }, { passive: true });
+
+        card.addEventListener('pointerleave', () => {
+            card.style.setProperty('--tilt-y', '0deg');
+            card.style.setProperty('--tilt-x', '0deg');
+        });
+    });
+}
+
+function markViewEntered(element) {
+    if (!element) return;
+    element.classList.remove('view-enter-soft');
+    void element.offsetWidth;
+    element.classList.add('view-enter-soft');
+}
 
 // --- DOM ELEMENTS AND EVENT LISTENERS ---
 function startApp() {
@@ -2262,6 +2295,7 @@ function startApp() {
 
     window.initObserver = () => {
         document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+        initSoftTiltCards();
     };
 
     // 2. Loading Splash Screen Setup
@@ -2609,6 +2643,8 @@ function updateProfileIndicator() {
     
     // Style borders and text with user theme
     if (profileIndicator) {
+        profileIndicator.classList.add('profile-orbit-control');
+        profileIndicator.style.setProperty('--profile-color', friend.color || '#FF4500');
         profileIndicator.style.borderColor = friend.color;
         profileIndicator.style.boxShadow = `0 0 15px ${friend.color}40`;
     }
@@ -2640,7 +2676,8 @@ function renderFriendsDropdown() {
     state.friends.forEach(friend => {
         const activeClass = friend.id === state.currentFriendId ? 'bg-white/10 text-white font-semibold' : 'text-gray-400 hover:text-white hover:bg-white/5';
         const item = document.createElement('button');
-        item.className = `w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-sm transition-colors duration-200 ${activeClass}`;
+        item.className = `profile-switch-card tilt-card w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-sm transition-colors duration-200 ${activeClass}`;
+        item.style.setProperty('--profile-color', friend.color || '#FF4500');
         const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
             ? `<img src="${friend.avatar}" class="w-6 h-6 rounded-full object-cover shrink-0" alt="">`
             : `<span class="text-lg">${friend.avatar || '👤'}</span>`;
@@ -2672,6 +2709,7 @@ function renderFriendsDropdown() {
 
         container.appendChild(item);
     });
+    initSoftTiltCards(container);
 }
 
 function renderFilters() {
@@ -2889,7 +2927,7 @@ function renderFeaturedBanner() {
     const posterCardHtml = isPinned
         ? `
         <!-- Pinned Highlight Poster Card -->
-        <div class="relative shrink-0 w-56 sm:w-64 lg:w-72 aspect-[3/4] rounded-3xl overflow-hidden border-2 shadow-[0_0_35px_${highlightGlow}] transition-all duration-500 hover:scale-[1.04] hover:shadow-[0_0_50px_${highlightGlow}] animate-[pulse-glow_4s_infinite_ease-in-out] self-center z-10" style="border-color: ${highlightColor}">
+        <div class="featured-poster-3d tilt-card relative shrink-0 w-56 sm:w-64 lg:w-72 aspect-[3/4] rounded-3xl overflow-hidden border-2 shadow-[0_0_35px_${highlightGlow}] transition-all duration-500 hover:scale-[1.04] hover:shadow-[0_0_50px_${highlightGlow}] animate-[pulse-glow_4s_infinite_ease-in-out] self-center z-10" style="border-color: ${highlightColor}">
             <img src="${featuredAnime.coverUrl}" class="w-full h-full object-cover" alt="${featuredAnime.title}">
             <div class="absolute top-4 right-4 bg-brand text-white text-[9px] font-bold font-mono tracking-widest px-2.5 py-1 rounded-full border border-brand/50 shadow-[0_4px_12px_rgba(255,69,0,0.4)] uppercase flex items-center gap-1 select-none">
                 <iconify-icon icon="lucide:pin" class="text-[10px] animate-bounce"></iconify-icon>
@@ -2901,7 +2939,7 @@ function renderFeaturedBanner() {
         `
         : `
         <!-- Normal Highlight Poster Card -->
-        <div class="relative shrink-0 w-48 sm:w-56 lg:w-60 aspect-[3/4] rounded-2xl overflow-hidden border border-white/10 shadow-2xl transition-all duration-300 hover:scale-[1.02] self-center z-10">
+        <div class="featured-poster-3d tilt-card relative shrink-0 w-48 sm:w-56 lg:w-60 aspect-[3/4] rounded-2xl overflow-hidden border border-white/10 shadow-2xl transition-all duration-300 hover:scale-[1.02] self-center z-10">
             <img src="${featuredAnime.coverUrl}" class="w-full h-full object-cover" alt="${featuredAnime.title}">
         </div>
         `;
@@ -2948,7 +2986,7 @@ function renderFeaturedBanner() {
                 </div>
 
                 <div class="flex flex-wrap items-center gap-4">
-                    <button onclick="openAnimeDetail('${featuredAnime.id}')" class="px-8 py-3.5 rounded-full text-xs uppercase tracking-widest font-bold bg-white text-black hover:scale-105 transition-all duration-300 shadow-xl cursor-pointer">
+                    <button onclick="openAnimeDetail('${featuredAnime.id}')" class="anivoid-action px-8 py-3.5 rounded-full text-xs uppercase tracking-widest font-bold bg-white text-black hover:scale-105 transition-all duration-300 shadow-xl cursor-pointer">
                         Detalhes e Notas
                     </button>
                     <div class="flex items-center bg-white/5 border border-white/10 rounded-2xl px-5 py-3 gap-3 transition-all duration-300" style="${boxStyle}">
@@ -2965,6 +3003,8 @@ function renderFeaturedBanner() {
             ${posterCardHtml}
         </div>
     `;
+    initSoftTiltCards(bannerContainer);
+    markViewEntered(bannerContainer);
 }
 
 function renderAnimeGrid() {
@@ -3069,14 +3109,14 @@ function renderAnimeGrid() {
         const scoreBadgeLabel = isViewingOtherProfile ? 'Nota Perfil' : 'Sua Nota';
         // Personal score badge on image (bottom-right overlay)
         const myScoreBadgeHtml = myScore
-            ? `<div class="absolute bottom-10 right-3 flex flex-col items-center justify-center gap-0" style="z-index:2">
+            ? `<div class="poster-depth-badge absolute bottom-10 right-3 flex flex-col items-center justify-center gap-0" style="z-index:2">
                 <div class="flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold font-mono" style="background: rgba(0,0,0,0.75); border: 2px solid ${myScoreColorInfo.text}; color: ${myScoreColorInfo.text}; font-size:18px; text-shadow: 0 0 16px ${myScoreColorInfo.glow}; box-shadow: 0 0 28px ${myScoreColorInfo.glow}, 0 0 10px ${myScoreColorInfo.glow}60, inset 0 1px 0 ${myScoreColorInfo.text}40">
                     <span style="font-size:13px">★</span>
                     <span>${myScore}</span>
                 </div>
                 <span class="text-[8px] font-mono font-bold uppercase tracking-widest mt-1" style="color: ${myScoreColorInfo.text}; text-shadow: 0 0 8px ${myScoreColorInfo.glow}">${scoreBadgeLabel}</span>
                </div>`
-            : `<div class="absolute bottom-10 right-3 flex flex-col items-center justify-center gap-0" style="z-index:2">
+            : `<div class="poster-depth-badge absolute bottom-10 right-3 flex flex-col items-center justify-center gap-0" style="z-index:2">
                 <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold font-mono backdrop-blur-md" style="font-size:16px; background: rgba(255,255,255,0.04); border: 2px dashed rgba(255,255,255,0.18); color: rgba(255,255,255,0.25)">
                     <span style="font-size:12px">★</span>
                     <span>—</span>
@@ -3085,14 +3125,14 @@ function renderAnimeGrid() {
                </div>`;
 
         const card = document.createElement('div');
-        card.className = 'glass-card rounded-2xl overflow-hidden flex flex-col justify-between h-full reveal';
+        card.className = 'glass-card anime-card-3d tilt-card rounded-2xl overflow-hidden flex flex-col justify-between h-full reveal';
         card.innerHTML = `
             <div class="relative w-full aspect-[2/3] overflow-hidden group cursor-pointer" onclick="openAnimeDetail('${anime.id}')">
-                <img src="${anime.coverUrl}" alt="${anime.title}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                <img src="${anime.coverUrl}" alt="${anime.title}" class="poster-parallax w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent"></div>
                 
                 <!-- Group Average Score Badge (top-right) -->
-                <div class="absolute top-4 right-4 flex flex-col items-center gap-0.5 group" style="z-index:3">
+                <div class="poster-depth-badge absolute top-4 right-4 flex flex-col items-center gap-0.5 group" style="z-index:3">
                     <div class="flex items-center justify-center gap-1 bg-[#050505]/90 backdrop-blur-sm border px-2.5 py-1 rounded-full text-xs font-semibold transition-all duration-300" style="${avgBadgeStyle}; border-width: 1.5px;">
                         <span class="${avgScore > 0 ? '' : 'text-yellow-400'}">★</span>
                         <span>${avgScore > 0 ? avgScore : 'S/N'}</span>
@@ -3101,14 +3141,14 @@ function renderAnimeGrid() {
                 </div>
 
                 <!-- Personal Status Badge (top-left) -->
-                <div class="absolute top-4 left-4 flex items-center justify-center gap-1 ${myStatusObj.bg} ${myStatusObj.border} border backdrop-blur-sm px-2.5 py-1 rounded-full text-[9px] font-mono font-semibold uppercase tracking-wider ${myStatusObj.text}">
+                <div class="poster-depth-chip absolute top-4 left-4 flex items-center justify-center gap-1 ${myStatusObj.bg} ${myStatusObj.border} border backdrop-blur-sm px-2.5 py-1 rounded-full text-[9px] font-mono font-semibold uppercase tracking-wider ${myStatusObj.text}">
                     ${myStatusObj.label}
                 </div>
                 
                 <!-- Personal Score Badge (bottom-right overlay) -->
                 ${myScoreBadgeHtml}
 
-                <span onclick="event.stopPropagation(); window.switchTabToStudio('${anime.studio}')" class="absolute bottom-3 left-4 text-[10px] uppercase font-mono tracking-wider text-white/60 bg-black/40 hover:bg-brand/20 hover:border-brand/40 hover:text-white transition-all px-2 py-0.5 rounded border border-white/5 cursor-pointer hover:scale-105">
+                <span onclick="event.stopPropagation(); window.switchTabToStudio('${anime.studio}')" class="poster-depth-chip absolute bottom-3 left-4 text-[10px] uppercase font-mono tracking-wider text-white/60 bg-black/40 hover:bg-brand/20 hover:border-brand/40 hover:text-white transition-all px-2 py-0.5 rounded border border-white/5 cursor-pointer hover:scale-105">
                     ${anime.studio}
                 </span>
             </div>
@@ -3156,6 +3196,8 @@ function renderAnimeGrid() {
     });
 
     if (window.initObserver) window.initObserver();
+    initSoftTiltCards(grid);
+    markViewEntered(grid);
     renderActivitiesFeed();
 }
 
@@ -3755,7 +3797,7 @@ function renderStudiosDirectory() {
             const countText = count === 1 ? '1 Anime' : `${count} Animes`;
 
             const card = document.createElement('div');
-            card.className = 'studio-landing-card studio-card-animate h-72 group';
+            card.className = 'studio-landing-card studio-card-animate tilt-card h-72 group';
             card.style.animationDelay = `${i * 80}ms`;
 
             const hoverCfg = STUDIO_BRAND_COLORS[studioName] || { border: 'rgba(255, 69, 0, 0.4)', glow: 'rgba(255, 69, 0, 0.15)', text: '#FF4500' };
@@ -3781,9 +3823,9 @@ function renderStudiosDirectory() {
                                 'CloverWorks':    'max-w-[280px] max-h-[170px]',
                             };
                             const maxWCls = logoSizes[studioName] || 'max-w-[250px] max-h-[155px]';
-                            return `<img src="${logoSrc}" alt="${studioName}" class="${maxWCls} h-auto object-contain select-none relative z-10 transition-transform duration-500 group-hover:scale-105" style="">`;
+                            return `<img src="${logoSrc}" alt="${studioName}" class="studio-logo-mark ${maxWCls} h-auto object-contain select-none relative z-10 transition-transform duration-500 group-hover:scale-105" style="">`;
                           })()
-                        : `<div class="w-24 h-24 rounded-full flex items-center justify-center text-4xl font-serif font-black transition-all duration-300 relative z-10" style="color:${hoverCfg.text}; background:${hoverCfg.text}10; border:1px solid ${hoverCfg.border}; text-shadow:0 0 15px ${hoverCfg.border}">${initials}</div>`
+                        : `<div class="studio-logo-mark w-24 h-24 rounded-full flex items-center justify-center text-4xl font-serif font-black transition-all duration-300 relative z-10" style="color:${hoverCfg.text}; background:${hoverCfg.text}10; border:1px solid ${hoverCfg.border}; text-shadow:0 0 15px ${hoverCfg.border}">${initials}</div>`
                     }
                 </div>
 
@@ -3809,6 +3851,8 @@ function renderStudiosDirectory() {
 
         container.appendChild(grid);
         if (window.initObserver) window.initObserver();
+        initSoftTiltCards(grid);
+        markViewEntered(grid);
         return;
     }
 
@@ -3896,7 +3940,7 @@ function renderStudiosDirectory() {
         </button>
 
         <!-- Hero Header -->
-        <div class="relative rounded-3xl overflow-hidden border border-white/10">
+        <div class="studio-profile-hero relative rounded-3xl overflow-hidden border border-white/10">
             <div class="absolute inset-0 z-0 pointer-events-none">
                 <div class="absolute inset-0 bg-gradient-to-br from-[#121212] via-[#070707] to-[#050505]"></div>
                 <div class="absolute top-0 left-0 w-72 h-72 rounded-full bg-brand opacity-5 blur-[100px]"></div>
@@ -3918,9 +3962,9 @@ function renderStudiosDirectory() {
                                 'CloverWorks':    'max-w-[340px] max-h-[230px]'
                             };
                             const maxWCls = logoSizes[activeStudioName] || 'max-w-[320px] max-h-[210px]';
-                            return `<img src="${logoSrc}" alt="${activeStudioName}" class="${maxWCls} h-auto object-contain select-none relative z-10" style="">`;
+                            return `<img src="${logoSrc}" alt="${activeStudioName}" class="studio-logo-mark ${maxWCls} h-auto object-contain select-none relative z-10" style="">`;
                           })()
-                        : `<div class="w-44 h-44 rounded-full flex items-center justify-center text-7xl font-serif font-black text-brand relative z-10" style="background:rgba(255,69,0,0.12); border:1px solid rgba(255,69,0,0.25)">
+                        : `<div class="studio-logo-mark w-44 h-44 rounded-full flex items-center justify-center text-7xl font-serif font-black text-brand relative z-10" style="background:rgba(255,69,0,0.12); border:1px solid rgba(255,69,0,0.25)">
                                 ${initials}
                            </div>`
                     }
@@ -3959,7 +4003,7 @@ function renderStudiosDirectory() {
         <!-- Topic Highlight: Métricas de Desempenho -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <!-- Card 1: Média Geral -->
-            <div class="glass-panel border border-white/5 rounded-2xl p-6 flex flex-col justify-between hover:border-brand/20 transition-all duration-300">
+            <div class="metric-depth-card glass-panel border border-white/5 rounded-2xl p-6 flex flex-col justify-between hover:border-brand/20 transition-all duration-300">
                 <div class="flex items-center justify-between mb-3">
                     <span class="text-[10px] uppercase tracking-widest text-gray-400 font-mono">Avaliação Média</span>
                     <iconify-icon icon="lucide:star" class="text-brand text-base"></iconify-icon>
@@ -3973,7 +4017,7 @@ function renderStudiosDirectory() {
             </div>
             
             <!-- Card 2: Volume -->
-            <div class="glass-panel border border-white/5 rounded-2xl p-6 flex flex-col justify-between hover:border-brand/20 transition-all duration-300">
+            <div class="metric-depth-card glass-panel border border-white/5 rounded-2xl p-6 flex flex-col justify-between hover:border-brand/20 transition-all duration-300">
                 <div class="flex items-center justify-between mb-3">
                     <span class="text-[10px] uppercase tracking-widest text-gray-400 font-mono">Volume de Obras</span>
                     <iconify-icon icon="lucide:clapperboard" class="text-brand text-base"></iconify-icon>
@@ -3987,7 +4031,7 @@ function renderStudiosDirectory() {
             </div>
             
             <!-- Card 3: Especialidades -->
-            <div class="glass-panel border border-white/5 rounded-2xl p-6 flex flex-col justify-between hover:border-brand/20 transition-all duration-300">
+            <div class="metric-depth-card glass-panel border border-white/5 rounded-2xl p-6 flex flex-col justify-between hover:border-brand/20 transition-all duration-300">
                 <div class="flex items-center justify-between mb-3">
                     <span class="text-[10px] uppercase tracking-widest text-gray-400 font-mono">Foco de Gêneros</span>
                     <iconify-icon icon="lucide:tags" class="text-brand text-base"></iconify-icon>
@@ -4015,7 +4059,7 @@ function renderStudiosDirectory() {
                     const avgBorderStyle = animeAvg > 0 ? `border-color: ${animeColor.text}30; box-shadow: 0 0 10px ${animeColor.glow}` : '';
 
                     return `
-                        <div onclick="openAnimeDetail('${anime.id}')" class="glass-panel border border-white/5 hover:border-brand/25 rounded-2xl cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_12px_30px_rgba(0,0,0,0.5),_0_0_20px_rgba(255,69,0,0.08)] overflow-hidden group flex flex-col h-full">
+                        <div onclick="openAnimeDetail('${anime.id}')" class="studio-catalog-card glass-panel border border-white/5 hover:border-brand/25 rounded-2xl cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_12px_30px_rgba(0,0,0,0.5),_0_0_20px_rgba(255,69,0,0.08)] overflow-hidden group flex flex-col h-full">
                             <div class="relative w-full aspect-[2/3] overflow-hidden">
                                 <img src="${anime.coverUrl}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="${anime.title}">
                                 <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent"></div>
@@ -4038,6 +4082,8 @@ function renderStudiosDirectory() {
 
     container.appendChild(profile);
     if (window.initObserver) window.initObserver();
+    initSoftTiltCards(profile);
+    markViewEntered(profile);
 }
 
 window.switchTabToFeatured = () => {
@@ -4502,6 +4548,7 @@ function openAnimeDetail(animeId) {
     if (detailPoster) {
         detailPoster.src = anime.coverUrl;
     }
+    if (detailPage) initSoftTiltCards(detailPage);
     document.getElementById('detail-title').textContent = anime.title;
     document.getElementById('detail-japanese-title').textContent = anime.japaneseTitle;
     document.getElementById('detail-synopsis').textContent = anime.synopsis;
@@ -4511,13 +4558,13 @@ function openAnimeDetail(animeId) {
     if (featuredBtn) {
         const isFeatured = state.featuredAnimeId === animeId;
         if (isFeatured) {
-            featuredBtn.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 border border-brand bg-brand text-white text-[10px] font-mono uppercase tracking-widest rounded-full transition-all mt-3 cursor-pointer shadow-lg';
+            featuredBtn.className = 'anivoid-action inline-flex items-center gap-1.5 px-3 py-1.5 border border-brand bg-brand text-white text-[10px] font-mono uppercase tracking-widest rounded-full transition-all mt-3 cursor-pointer shadow-lg';
             featuredBtn.innerHTML = `
                 <iconify-icon icon="lucide:check-circle" class="text-xs"></iconify-icon>
                 <span>Destaque Fixo 🌟</span>
             `;
         } else {
-            featuredBtn.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 border border-white/10 hover:border-brand/30 hover:bg-brand/5 text-gray-400 hover:text-white text-[10px] font-mono uppercase tracking-widest rounded-full transition-all mt-3 cursor-pointer';
+            featuredBtn.className = 'anivoid-action inline-flex items-center gap-1.5 px-3 py-1.5 border border-white/10 hover:border-brand/30 hover:bg-brand/5 text-gray-400 hover:text-white text-[10px] font-mono uppercase tracking-widest rounded-full transition-all mt-3 cursor-pointer';
             featuredBtn.innerHTML = `
                 <iconify-icon icon="lucide:pin" class="text-xs"></iconify-icon>
                 <span>Fixar no Destaque</span>
@@ -7432,18 +7479,18 @@ function getActivityMeta(activity) {
     const type = String(activity?.type || '').toLowerCase();
     const details = String(activity?.details || '').toLowerCase();
 
-    if (type === 'rating' || details.includes('avaliou')) return { icon: 'lucide:star', label: 'Nota', color: '#facc15' };
-    if (type === 'progress' || details.includes('episodio') || details.includes('episÃ³dio')) return { icon: 'lucide:play-circle', label: 'Episodio', color: '#38bdf8' };
-    if (type === 'comment_add' || details.includes('critica') || details.includes('crÃ­tica')) return { icon: 'lucide:message-circle', label: 'Critica', color: '#c084fc' };
-    if (type === 'comment_edit') return { icon: 'lucide:pencil', label: 'Editou', color: '#fb923c' };
-    if (type === 'comment_delete') return { icon: 'lucide:trash-2', label: 'Removeu', color: '#f87171' };
-    if (type === 'reply_add' || details.includes('respondeu')) return { icon: 'lucide:reply', label: 'Resposta', color: '#a78bfa' };
-    if (details.includes('concluiu')) return { icon: 'lucide:trophy', label: 'Concluiu', color: '#22c55e' };
-    if (details.includes('lista')) return { icon: 'lucide:bookmark-plus', label: 'Lista', color: '#fb7185' };
-    if (details.includes('espera')) return { icon: 'lucide:pause-circle', label: 'Espera', color: '#f59e0b' };
-    if (details.includes('abandonou')) return { icon: 'lucide:x-circle', label: 'Dropou', color: '#ef4444' };
-    if (type === 'catalog' || details.includes('catalogo') || details.includes('catÃ¡logo')) return { icon: 'lucide:sparkles', label: 'Catalogo', color: '#2dd4bf' };
-    return { icon: 'lucide:zap', label: 'Acao', color: '#22d3ee' };
+    if (type === 'rating' || details.includes('avaliou')) return { icon: 'lucide:star', emoji: '&#11088;', label: 'Nota', color: '#facc15' };
+    if (type === 'progress' || details.includes('episodio') || details.includes('episÃ³dio')) return { icon: 'lucide:play-circle', emoji: '&#9654;', label: 'Episodio', color: '#38bdf8' };
+    if (type === 'comment_add' || details.includes('critica') || details.includes('crÃ­tica')) return { icon: 'lucide:message-circle', emoji: '&#128172;', label: 'Critica', color: '#c084fc' };
+    if (type === 'comment_edit') return { icon: 'lucide:pencil', emoji: '&#9999;', label: 'Editou', color: '#fb923c' };
+    if (type === 'comment_delete') return { icon: 'lucide:trash-2', emoji: '&#128465;', label: 'Removeu', color: '#f87171' };
+    if (type === 'reply_add' || details.includes('respondeu')) return { icon: 'lucide:reply', emoji: '&#8617;', label: 'Resposta', color: '#a78bfa' };
+    if (details.includes('concluiu')) return { icon: 'lucide:trophy', emoji: '&#127942;', label: 'Concluiu', color: '#22c55e' };
+    if (details.includes('lista')) return { icon: 'lucide:bookmark-plus', emoji: '&#128278;', label: 'Lista', color: '#fb7185' };
+    if (details.includes('espera')) return { icon: 'lucide:pause-circle', emoji: '&#9208;', label: 'Espera', color: '#f59e0b' };
+    if (details.includes('abandonou')) return { icon: 'lucide:x-circle', emoji: '&#10060;', label: 'Dropou', color: '#ef4444' };
+    if (type === 'catalog' || details.includes('catalogo') || details.includes('catÃ¡logo')) return { icon: 'lucide:sparkles', emoji: '&#10024;', label: 'Catalogo', color: '#2dd4bf' };
+    return { icon: 'lucide:zap', emoji: '&#9889;', label: 'Acao', color: '#22d3ee' };
 }
 
 function renderActivitiesFeed() {
@@ -7469,7 +7516,10 @@ function renderActivitiesFeed() {
     const activities = filteredActivities.slice(0, 6);
     if (activities.length === 0) {
         list.innerHTML = `
-            <div class="py-8 text-center text-gray-500 font-light text-[10px] italic col-span-full">
+            <div class="activity-card-3d py-8 text-center text-gray-500 font-light text-[10px] italic col-span-full rounded-3xl border border-white/5 bg-white/[0.02]">
+                <div class="activity-icon-disc mx-auto mb-3" style="--activity-color:#22d3ee">
+                    <span class="activity-emoji">&#9889;</span>
+                </div>
                 Nenhuma atividade recente registrada.
             </div>
         `;
@@ -7481,12 +7531,24 @@ function renderActivitiesFeed() {
         const item = document.createElement('div');
         const isAdminAct = act.username && act.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
         const activityMeta = getActivityMeta(act);
-        item.className = `relative flex gap-3.5 p-4 rounded-2xl text-[11px] transition-all duration-300 animate-[fadeIn_0.3s_ease-out] ${isAdminAct ? 'bg-brand/[0.03] border border-brand/35 hover:bg-brand/[0.06] shadow-[0_0_12px_rgba(255,69,0,0.08)]' : 'bg-white/[0.02] border border-white/5 hover:bg-white/[0.04]'}`;
+        item.className = `activity-card-3d tilt-card relative flex gap-3.5 p-4 rounded-2xl text-[11px] transition-all duration-300 animate-[fadeIn_0.3s_ease-out] ${isAdminAct ? 'bg-brand/[0.03] border border-brand/35 hover:bg-brand/[0.06] shadow-[0_0_12px_rgba(255,69,0,0.08)]' : 'bg-white/[0.02] border border-white/5 hover:bg-white/[0.04]'}`;
+        item.style.setProperty('--activity-color', activityMeta.color);
         item.style.boxShadow = `${isAdminAct ? '0 0 12px rgba(255,69,0,0.08), ' : ''}inset 3px 0 0 ${activityMeta.color}`;
         
         const avatarHtml = act.userAvatar && (act.userAvatar.startsWith('data:') || act.userAvatar.startsWith('http'))
-            ? `<img src="${act.userAvatar}" class="w-8 h-8 rounded-full object-cover shrink-0 mt-0.5" alt="">`
-            : `<div class="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-xs shrink-0 mt-0.5">${act.userAvatar || '👤'}</div>`;
+            ? `<img src="${act.userAvatar}" class="w-5 h-5 rounded-full object-cover border border-black/70" alt="">`
+            : `<div class="w-5 h-5 rounded-full bg-black/80 border border-white/10 flex items-center justify-center text-[10px]">${act.userAvatar || '&#128100;'}</div>`;
+
+        const activityVisualHtml = `
+            <div class="relative shrink-0 mt-0.5">
+                <div class="activity-icon-disc">
+                    <span class="activity-emoji">${activityMeta.emoji}</span>
+                </div>
+                <div class="absolute -bottom-1 -right-1 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.65)]">
+                    ${avatarHtml}
+                </div>
+            </div>
+        `;
 
         let timeText = '';
         try {
@@ -7507,7 +7569,7 @@ function renderActivitiesFeed() {
 
         const adminBadgeHtml = getUserBadgesHtml({ username: act.username });
         const activityPillHtml = `
-            <span class="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[8px] font-mono font-bold uppercase tracking-widest mr-1.5 align-middle"
+            <span class="activity-pill inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[8px] font-mono font-bold uppercase tracking-widest mr-1.5 align-middle"
                 style="color: ${activityMeta.color}; border-color: ${activityMeta.color}55; background: ${activityMeta.color}16; box-shadow: 0 0 12px ${activityMeta.color}22">
                 <iconify-icon icon="${activityMeta.icon}" class="text-[11px]"></iconify-icon>
                 <span>${activityMeta.label}</span>
@@ -7515,8 +7577,8 @@ function renderActivitiesFeed() {
         `;
 
         item.innerHTML = `
-            ${avatarHtml}
-            <div class="flex-grow min-w-0">
+            ${activityVisualHtml}
+            <div class="activity-copy flex-grow min-w-0">
                 <div class="flex justify-between items-baseline gap-1.5">
                     <span class="font-bold truncate" style="color: ${act.userColor}">${act.username}${adminBadgeHtml}</span>
                     <span class="text-[8px] text-gray-500 font-mono shrink-0">${timeText}</span>
@@ -7542,6 +7604,8 @@ function renderActivitiesFeed() {
 
         list.appendChild(item);
     });
+    initSoftTiltCards(list);
+    markViewEntered(list);
 }
 
 // ──────────────────────────────────────────────────────────────────────────

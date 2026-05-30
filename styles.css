@@ -601,6 +601,373 @@ input[type="range"]::-webkit-slider-thumb:hover {
     background: rgba(255, 69, 0, 0.3);
 }
 
+/* Clean 3D polish and microinteractions */
+.ambient-depth-stage {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+    perspective: 900px;
+    opacity: 0.52;
+}
+
+.ambient-plane {
+    position: absolute;
+    inset: -18%;
+    transform-style: preserve-3d;
+    will-change: transform, opacity;
+    background:
+        linear-gradient(120deg, transparent 0 28%, rgba(255, 69, 0, 0.08) 42%, transparent 58% 100%),
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 86px);
+    mask-image: radial-gradient(ellipse at center, black 0 52%, transparent 78%);
+}
+
+.ambient-plane-a {
+    transform: rotateX(66deg) rotateZ(-11deg) translate3d(-8%, 12%, -180px);
+    animation: ambient-plane-drift-a 24s ease-in-out infinite;
+}
+
+.ambient-plane-b {
+    background:
+        linear-gradient(42deg, transparent 0 34%, rgba(34, 211, 238, 0.07) 47%, transparent 60% 100%),
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.026) 0 1px, transparent 1px 110px);
+    transform: rotateX(58deg) rotateZ(16deg) translate3d(10%, -8%, -260px);
+    animation: ambient-plane-drift-b 30s ease-in-out infinite;
+}
+
+.ambient-plane-c {
+    background:
+        linear-gradient(160deg, transparent 0 38%, rgba(168, 85, 247, 0.06) 50%, transparent 63% 100%);
+    transform: rotateX(70deg) rotateZ(4deg) translate3d(0, 18%, -360px);
+    animation: ambient-plane-drift-c 36s ease-in-out infinite;
+}
+
+@keyframes ambient-plane-drift-a {
+    0%, 100% { transform: rotateX(66deg) rotateZ(-11deg) translate3d(-8%, 12%, -180px); }
+    50% { transform: rotateX(66deg) rotateZ(-8deg) translate3d(-4%, 7%, -160px); }
+}
+
+@keyframes ambient-plane-drift-b {
+    0%, 100% { transform: rotateX(58deg) rotateZ(16deg) translate3d(10%, -8%, -260px); }
+    50% { transform: rotateX(58deg) rotateZ(13deg) translate3d(6%, -2%, -235px); }
+}
+
+@keyframes ambient-plane-drift-c {
+    0%, 100% { transform: rotateX(70deg) rotateZ(4deg) translate3d(0, 18%, -360px); }
+    50% { transform: rotateX(70deg) rotateZ(8deg) translate3d(3%, 12%, -335px); }
+}
+
+#main-nav,
+#featured-banner-wrapper,
+#anime-grid-section,
+#anime-detail-page,
+#registration-gate,
+#add-anime-modal,
+#add-friend-modal,
+#group-stats-modal,
+#edit-profile-modal,
+#email-modal {
+    position: relative;
+}
+
+#featured-banner-wrapper,
+#anime-grid-section,
+#anime-detail-page {
+    z-index: 1;
+}
+
+.tilt-card,
+.glass-card,
+.studio-landing-card,
+.activity-card-3d,
+.profile-switch-card {
+    transform-style: preserve-3d;
+    transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) translateY(var(--lift-y, 0));
+    will-change: transform, box-shadow, border-color;
+}
+
+.glass-card,
+.activity-card-3d,
+.studio-landing-card,
+.profile-switch-card {
+    transition:
+        transform 0.34s cubic-bezier(0.16, 1, 0.3, 1),
+        border-color 0.34s ease,
+        background 0.34s ease,
+        box-shadow 0.34s ease,
+        filter 0.34s ease;
+}
+
+.glass-card:hover,
+.anime-card-3d:hover,
+.activity-card-3d:hover,
+.profile-switch-card:hover {
+    --lift-y: -5px;
+    transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) translateY(var(--lift-y, 0));
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow:
+        0 18px 42px rgba(0, 0, 0, 0.48),
+        0 0 26px color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
+.anime-card-3d {
+    border-radius: 1rem;
+    position: relative;
+    isolation: isolate;
+}
+
+.anime-card-3d::before,
+.studio-landing-card::before,
+.activity-card-3d::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.13), transparent 34%, rgba(255, 69, 0, 0.12));
+    mix-blend-mode: screen;
+    z-index: 4;
+}
+
+.anime-card-3d:hover::before,
+.studio-landing-card:hover::before,
+.activity-card-3d:hover::before {
+    opacity: 0.42;
+}
+
+.poster-parallax {
+    transform: translateZ(28px) scale(1.01);
+    transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), filter 0.45s ease;
+}
+
+.group:hover .poster-parallax,
+.anime-card-3d:hover .poster-parallax {
+    transform: translateZ(48px) scale(1.08);
+    filter: saturate(1.08) contrast(1.04);
+}
+
+.poster-depth-badge,
+.poster-depth-chip {
+    transform: translateZ(62px);
+}
+
+.featured-poster-3d,
+.detail-poster-frame {
+    transform-style: preserve-3d;
+    box-shadow:
+        0 24px 70px rgba(0, 0, 0, 0.55),
+        0 0 32px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.featured-poster-3d:hover,
+.detail-poster-frame:hover {
+    --lift-y: -7px;
+    transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) translateY(var(--lift-y, 0));
+}
+
+.featured-poster-3d img,
+.detail-poster-frame img {
+    transform: translateZ(22px) scale(1.01);
+    transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), filter 0.45s ease;
+}
+
+.featured-poster-3d:hover img,
+.detail-poster-frame:hover img {
+    transform: translateZ(42px) scale(1.045);
+    filter: saturate(1.08) contrast(1.04);
+}
+
+.anivoid-action,
+button:not(:disabled) {
+    transition:
+        transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+        box-shadow 0.22s ease,
+        border-color 0.22s ease,
+        background 0.22s ease,
+        color 0.22s ease;
+}
+
+button:not(:disabled):active {
+    transform: translateY(1px) scale(0.985);
+}
+
+.bg-brand:hover,
+.anivoid-action:hover {
+    box-shadow:
+        0 10px 26px color-mix(in srgb, var(--accent) 28%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.profile-orbit-control {
+    --profile-color: var(--accent);
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.03)),
+        radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--profile-color) 24%, transparent), transparent 42%);
+    box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--profile-color) 42%, transparent),
+        0 0 22px color-mix(in srgb, var(--profile-color) 24%, transparent);
+}
+
+.profile-orbit-control:hover {
+    transform: translateY(-1px) scale(1.015);
+    box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--profile-color) 65%, transparent),
+        0 0 30px color-mix(in srgb, var(--profile-color) 34%, transparent);
+}
+
+.profile-switch-card {
+    --profile-color: var(--accent);
+    position: relative;
+    overflow: hidden;
+}
+
+.profile-switch-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--profile-color) 16%, transparent), transparent 48%);
+    transition: opacity 0.25s ease;
+}
+
+.profile-switch-card:hover::after {
+    opacity: 1;
+}
+
+.activity-card-3d {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.activity-icon-disc {
+    width: 2.35rem;
+    height: 2.35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    transform: translateZ(52px);
+    border: 1px solid color-mix(in srgb, var(--activity-color, #22d3ee) 55%, transparent);
+    background:
+        radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.2), transparent 34%),
+        color-mix(in srgb, var(--activity-color, #22d3ee) 13%, rgba(255, 255, 255, 0.03));
+    box-shadow: 0 0 18px color-mix(in srgb, var(--activity-color, #22d3ee) 30%, transparent);
+}
+
+.activity-emoji {
+    font-size: 1rem;
+    line-height: 1;
+    filter: drop-shadow(0 0 7px color-mix(in srgb, var(--activity-color, #22d3ee) 50%, transparent));
+}
+
+.activity-pill {
+    transform: translateZ(36px);
+}
+
+.activity-copy {
+    transform: translateZ(18px);
+}
+
+.studio-landing-card {
+    border-radius: 1.15rem;
+}
+
+.studio-landing-card:hover {
+    --lift-y: -8px;
+    transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) translateY(var(--lift-y)) scale(1.01);
+}
+
+.studio-landing-card .studio-logo-bg {
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.06), transparent 45%),
+        radial-gradient(ellipse at center, var(--studio-glow-color, rgba(255,69,0,0.12)) 0%, transparent 70%);
+}
+
+.studio-logo-mark {
+    transform: translateZ(45px);
+    filter: drop-shadow(0 16px 34px rgba(0, 0, 0, 0.45));
+}
+
+.studio-landing-card .studio-name-overlay {
+    transform: translateZ(28px) translateY(4px);
+}
+
+.studio-landing-card:hover .studio-name-overlay {
+    transform: translateZ(34px) translateY(0);
+}
+
+.studio-profile-hero,
+.metric-depth-card,
+.studio-catalog-card,
+.user-panel-depth {
+    transform-style: preserve-3d;
+    animation: view-layer-in 0.54s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.metric-depth-card:hover,
+.studio-catalog-card:hover,
+.user-panel-depth:hover {
+    transform: translateY(-4px);
+    border-color: color-mix(in srgb, var(--accent) 28%, rgba(255, 255, 255, 0.08)) !important;
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.35), 0 0 24px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.view-enter-soft {
+    animation: view-layer-in 0.46s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes view-layer-in {
+    from {
+        opacity: 0;
+        transform: translateY(18px) scale(0.985);
+        filter: blur(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ambient-plane,
+    .view-enter-soft,
+    .studio-profile-hero,
+    .metric-depth-card,
+    .studio-catalog-card,
+    .user-panel-depth {
+        animation: none !important;
+    }
+
+    .tilt-card,
+    .glass-card,
+    .studio-landing-card,
+    .activity-card-3d,
+    .profile-switch-card,
+    .poster-parallax {
+        transform: none !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .ambient-depth-stage {
+        opacity: 0.32;
+    }
+
+    .glass-card:hover,
+    .anime-card-3d:hover,
+    .activity-card-3d:hover,
+    .studio-landing-card:hover {
+        --lift-y: -2px;
+    }
+}
+
 /* Pulse animation for the live feed indicator */
 .animate-pulse {
     animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
