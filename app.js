@@ -2868,6 +2868,22 @@ function getScoreColor(score) {
     };
 }
 
+function getStudioScoreColor(score) {
+    const numScore = parseFloat(score);
+    if (isNaN(numScore) || numScore <= 0) {
+        return { text: '#facc15', glow: 'hsla(45, 95%, 55%, 0.45)' };
+    }
+
+    const clampedScore = Math.min(10, Math.max(0, numScore));
+    const normalizedScore = Math.min(1, Math.max(0, (clampedScore - 5) / 5));
+    const hue = Math.round(45 + normalizedScore * 85);
+
+    return {
+        text: `hsl(${hue}, 95%, 52%)`,
+        glow: `hsla(${hue}, 95%, 55%, 0.5)`
+    };
+}
+
 function renderFeaturedBanner() {
     const bannerContainer = document.getElementById('featured-banner-wrapper');
     if (!bannerContainer || state.animes.length === 0) return;
@@ -3793,6 +3809,7 @@ function renderStudiosDirectory() {
             const initials = getStudioInitials(studioName);
             const scores = animes.map(a => state.calculateAverageScore(a.id)).filter(s => s > 0);
             const avg = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : null;
+            const scoreCfg = getStudioScoreColor(avg);
             const count = animes.length;
             const countText = count === 1 ? '1 Anime' : `${count} Animes`;
 
@@ -3809,7 +3826,7 @@ function renderStudiosDirectory() {
             card.innerHTML = `
                 <div class="studio-logo-bg"></div>
                 ${avg ? `
-                    <div class="studio-score-badge" style="--score-color: ${hoverCfg.text}; --score-glow: ${hoverCfg.glow};">
+                    <div class="studio-score-badge" style="--score-color: ${scoreCfg.text}; --score-glow: ${scoreCfg.glow};">
                         <span class="studio-score-star">&#9733;</span>
                         <span class="studio-score-value">${avg}</span>
                         <span class="studio-score-label">Media</span>
