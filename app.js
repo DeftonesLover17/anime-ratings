@@ -7369,6 +7369,24 @@ function showToast(title, message, avatarOrEmoji = '🔔', colorTheme = '#FF4500
 // ──────────────────────────────────────────────────────────────────────────
 // GROUP ACTIVITIES FEED
 // ──────────────────────────────────────────────────────────────────────────
+function getActivityMeta(activity) {
+    const type = String(activity?.type || '').toLowerCase();
+    const details = String(activity?.details || '').toLowerCase();
+
+    if (type === 'rating' || details.includes('avaliou')) return { icon: 'lucide:star', label: 'Nota', color: '#facc15' };
+    if (type === 'progress' || details.includes('episodio') || details.includes('episÃ³dio')) return { icon: 'lucide:play-circle', label: 'Episodio', color: '#38bdf8' };
+    if (type === 'comment_add' || details.includes('critica') || details.includes('crÃ­tica')) return { icon: 'lucide:message-circle', label: 'Critica', color: '#c084fc' };
+    if (type === 'comment_edit') return { icon: 'lucide:pencil', label: 'Editou', color: '#fb923c' };
+    if (type === 'comment_delete') return { icon: 'lucide:trash-2', label: 'Removeu', color: '#f87171' };
+    if (type === 'reply_add' || details.includes('respondeu')) return { icon: 'lucide:reply', label: 'Resposta', color: '#a78bfa' };
+    if (details.includes('concluiu')) return { icon: 'lucide:trophy', label: 'Concluiu', color: '#22c55e' };
+    if (details.includes('lista')) return { icon: 'lucide:bookmark-plus', label: 'Lista', color: '#fb7185' };
+    if (details.includes('espera')) return { icon: 'lucide:pause-circle', label: 'Espera', color: '#f59e0b' };
+    if (details.includes('abandonou')) return { icon: 'lucide:x-circle', label: 'Dropou', color: '#ef4444' };
+    if (type === 'catalog' || details.includes('catalogo') || details.includes('catÃ¡logo')) return { icon: 'lucide:sparkles', label: 'Catalogo', color: '#2dd4bf' };
+    return { icon: 'lucide:zap', label: 'Acao', color: '#22d3ee' };
+}
+
 function renderActivitiesFeed() {
     const list = document.getElementById('activities-feed-list');
     if (!list) return;
@@ -7403,7 +7421,9 @@ function renderActivitiesFeed() {
     activities.forEach(act => {
         const item = document.createElement('div');
         const isAdminAct = act.username && act.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
-        item.className = `flex gap-3.5 p-4 rounded-2xl text-[11px] transition-all duration-300 animate-[fadeIn_0.3s_ease-out] ${isAdminAct ? 'bg-brand/[0.03] border border-brand/35 hover:bg-brand/[0.06] shadow-[0_0_12px_rgba(255,69,0,0.08)]' : 'bg-white/[0.02] border border-white/5 hover:bg-white/[0.04]'}`;
+        const activityMeta = getActivityMeta(act);
+        item.className = `relative flex gap-3.5 p-4 rounded-2xl text-[11px] transition-all duration-300 animate-[fadeIn_0.3s_ease-out] ${isAdminAct ? 'bg-brand/[0.03] border border-brand/35 hover:bg-brand/[0.06] shadow-[0_0_12px_rgba(255,69,0,0.08)]' : 'bg-white/[0.02] border border-white/5 hover:bg-white/[0.04]'}`;
+        item.style.boxShadow = `${isAdminAct ? '0 0 12px rgba(255,69,0,0.08), ' : ''}inset 3px 0 0 ${activityMeta.color}`;
         
         const avatarHtml = act.userAvatar && (act.userAvatar.startsWith('data:') || act.userAvatar.startsWith('http'))
             ? `<img src="${act.userAvatar}" class="w-8 h-8 rounded-full object-cover shrink-0 mt-0.5" alt="">`
@@ -7427,6 +7447,13 @@ function renderActivitiesFeed() {
         }
 
         const adminBadgeHtml = getUserBadgesHtml({ username: act.username });
+        const activityPillHtml = `
+            <span class="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[8px] font-mono font-bold uppercase tracking-widest mr-1.5 align-middle"
+                style="color: ${activityMeta.color}; border-color: ${activityMeta.color}55; background: ${activityMeta.color}16; box-shadow: 0 0 12px ${activityMeta.color}22">
+                <iconify-icon icon="${activityMeta.icon}" class="text-[11px]"></iconify-icon>
+                <span>${activityMeta.label}</span>
+            </span>
+        `;
 
         item.innerHTML = `
             ${avatarHtml}
@@ -7436,7 +7463,8 @@ function renderActivitiesFeed() {
                     <span class="text-[8px] text-gray-500 font-mono shrink-0">${timeText}</span>
                 </div>
                 <p class="text-gray-400 font-light mt-0.5 leading-relaxed">
-                    ${act.details} em 
+                    ${activityPillHtml}
+                    <span>${act.details}</span> em 
                     <a href="#anime-grid-section" class="font-mono text-white/90 hover:text-brand font-semibold select-anime-trigger border-b border-dashed border-white/20 hover:border-brand/40 transition-colors" data-id="${act.animeId}">
                         ${act.animeTitle}
                     </a>
