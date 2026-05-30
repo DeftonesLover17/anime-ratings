@@ -430,6 +430,14 @@ function sanitizeState(state, viewerUsername = '') {
     };
 }
 
+function sanitizeRegisteredUsersOnly(state, viewerUsername = '') {
+    const users = Array.isArray(state && state.registeredUsers) ? state.registeredUsers : [];
+    return users
+        .map(sanitizeUserRecord)
+        .filter(Boolean)
+        .map(user => sanitizeUser(user, viewerUsername));
+}
+
 function base64ToBytes(base64) {
     const binary = atob(String(base64 || ''));
     const bytes = new Uint8Array(binary.length);
@@ -1228,6 +1236,12 @@ async function route(request, env) {
         const state = await readState(env);
         const authUser = await getAuthenticatedUser(request, env, state);
         return json(sanitizeState(state, authUser ? authUser.username : ''));
+    }
+    if (path === '/api/users' && request.method === 'GET') {
+        const state = await readState(env);
+        normalizeSocialGraph(state);
+        const authUser = await getAuthenticatedUser(request, env, state);
+        return json({ registeredUsers: sanitizeRegisteredUsersOnly(state, authUser ? authUser.username : '') });
     }
     if (path === '/api/login-challenge' && request.method === 'POST') return handleLoginChallenge(request, env);
     if (path === '/api/login' && request.method === 'POST') return handleLogin(request, env);

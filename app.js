@@ -1079,6 +1079,59 @@ function storeRegisteredUsers(users) {
     localStorage.setItem('anivoid_registered_users', JSON.stringify(users.map(stripSensitiveUserFields)));
 }
 
+let registeredUsersRefreshPromise = null;
+let registeredUsersLastRefreshAt = 0;
+
+function normalizeUserSearchText(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+async function refreshRegisteredUsersFromServer({ force = false } = {}) {
+    const now = Date.now();
+    if (!force && now - registeredUsersLastRefreshAt < 15000) return true;
+    if (registeredUsersRefreshPromise) return registeredUsersRefreshPromise;
+
+    registeredUsersRefreshPromise = (async () => {
+        try {
+            let response = await fetch(API_BASE_URL + '/api/users', {
+                method: 'GET',
+                headers: authHeaders(),
+                cache: 'no-store'
+            });
+            if (response.status === 404) {
+                response = await fetch(API_BASE_URL + '/api/get-state', {
+                    method: 'GET',
+                    headers: authHeaders(),
+                    cache: 'no-store'
+                });
+            }
+            if (response.status === 401 || response.status === 403) return false;
+            if (!response.ok) throw new Error('Failed to refresh registered users');
+            const serverState = await response.json();
+            if (Array.isArray(serverState.registeredUsers)) {
+                storeRegisteredUsers(serverState.registeredUsers);
+                if (typeof state !== 'undefined' && state && state.loggedInUser) {
+                    state.loadLocalSession();
+                }
+                registeredUsersLastRefreshAt = Date.now();
+                return true;
+            }
+        } catch (err) {
+            console.warn('Could not refresh registered users:', err);
+        } finally {
+            registeredUsersRefreshPromise = null;
+        }
+        return false;
+    })();
+
+    return registeredUsersRefreshPromise;
+}
+
 function sanitizeStoredRegisteredUsers() {
     try {
         const users = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
@@ -2737,10 +2790,12 @@ function initUI() {
     const logoutBtn = document.getElementById('logout-btn');
 
     if (openAddFriendBtn && addFriendModal) {
-        openAddFriendBtn.addEventListener('click', () => {
+        openAddFriendBtn.addEventListener('click', async () => {
             addFriendModal.classList.remove('hidden');
             addFriendModal.classList.add('flex');
             renderCentralDeAmigos();
+            const refreshed = await refreshRegisteredUsersFromServer({ force: true });
+            if (refreshed) renderCentralDeAmigos();
         });
     }
     if (logoutBtn && !logoutBtn.dataset.listenerHooked) {
@@ -7137,6 +7192,9 @@ function initAddFriendModalOptions() {
     // Search query listener
     searchInput.addEventListener('input', () => {
         renderRegisteredUsersSuggestions();
+        refreshRegisteredUsersFromServer().then((refreshed) => {
+            if (refreshed) renderRegisteredUsersSuggestions();
+        });
     });
 
     // Reset suggestion list on click-outside search input
@@ -7473,7 +7531,7 @@ function renderRegisteredUsersSuggestions() {
     const searchInput = document.getElementById('form-friend-search');
     if (!listContainer) return;
 
-    const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+    const query = searchInput ? normalizeUserSearchText(searchInput.value) : '';
 
     let registeredUsers = [];
     try {
@@ -7494,10 +7552,11 @@ function renderRegisteredUsersSuggestions() {
     );
 
     // Filter by query
-    const matched = filteredUsers.filter(u => 
-        (u && u.username && u.username.toLowerCase().includes(query)) || 
-        (u && u.email && u.email.toLowerCase().includes(query))
-    );
+    const matched = filteredUsers.filter(u => {
+        const usernameText = normalizeUserSearchText(u && u.username);
+        const emailText = normalizeUserSearchText(u && u.email);
+        return usernameText.includes(query) || emailText.includes(query);
+    });
 
     listContainer.innerHTML = '';
     if (!query) {
