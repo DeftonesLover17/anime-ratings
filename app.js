@@ -1287,6 +1287,9 @@ function applyServerStateSnapshot(serverState) {
     if (serverState.studioLogos && typeof serverState.studioLogos === 'object') {
         localStorage.setItem('anivoid_studio_logos', JSON.stringify(serverState.studioLogos));
     }
+    if (Array.isArray(serverState.activities)) {
+        localStorage.setItem('anivoid_activities_v1', JSON.stringify(serverState.activities));
+    }
 }
 
 class AppState {
@@ -1301,6 +1304,12 @@ class AppState {
         this.friends = [];
         this.activities = [];
         this.knownActivityIds = new Set();
+        try {
+            const cachedActivities = JSON.parse(localStorage.getItem('anivoid_activities_v1')) || [];
+            this.activities = Array.isArray(cachedActivities) ? cachedActivities : [];
+        } catch (e) {
+            this.activities = [];
+        }
         try {
             const storedStudioLogos = JSON.parse(localStorage.getItem('anivoid_studio_logos')) || {};
             this.studioLogos = storedStudioLogos && typeof storedStudioLogos === 'object' && !Array.isArray(storedStudioLogos)
@@ -1515,6 +1524,7 @@ class AppState {
                 registeredUsers: registeredUsers,
                 animes: this.animes,
                 studioLogos: this.studioLogos || {},
+                activities: this.activities || [],
                 friends: [],
                 featuredAnimeId: this.featuredAnimeId
             };
@@ -1660,6 +1670,7 @@ class AppState {
                     }
                 });
                 this.activities = serverState.activities;
+                localStorage.setItem('anivoid_activities_v1', JSON.stringify(this.activities));
                 renderActivitiesFeed();
                 renderRecommendationsRail();
             }
@@ -1791,6 +1802,7 @@ class AppState {
         } else {
             localStorage.removeItem('anivoid_featured_anime_id');
         }
+        localStorage.setItem('anivoid_activities_v1', JSON.stringify(this.activities || []));
         // Also persist featuredAnimeId into the logged-in user's profile
         if (this.loggedInUser) {
             try {
@@ -1873,6 +1885,56 @@ class AppState {
                 }
             }
         });
+    }
+
+    recordActivity(type, anime, details, friendId = this.currentFriendId) {
+        const actorId = normalizeProfileId(this.loggedInUser || localStorage.getItem('anivoid_logged_in_username') || '');
+        const targetId = normalizeProfileId(friendId);
+        if (!actorId || !anime || !anime.id || !details || (targetId && targetId !== actorId)) return;
+
+        const profile = findRegisteredUserById(actorId) || {};
+        const friendProfile = (this.friends || []).find(friend => friend && friend.id === actorId) || {};
+        const username = profile.username || this.loggedInUser || friendProfile.name || 'Usu\u00e1rio';
+        const userColor = profile.color || friendProfile.color || '#FF4500';
+        const userAvatar = profile.avatar || friendProfile.avatar || '&#128100;';
+        const timestamp = new Date().toISOString();
+        const minuteBucket = Math.floor(Date.now() / 60000);
+        const eventKey = [normalizeProfileId(username), type, anime.id, details, minuteBucket].join('|');
+
+        const hasSameRecentActivity = (this.activities || []).some(activity => {
+            if (!activity) return false;
+            const activityTime = new Date(activity.timestamp || 0).getTime();
+            const activityMinute = Number.isFinite(activityTime) ? Math.floor(activityTime / 60000) : 0;
+            const currentKey = [normalizeProfileId(activity.username), activity.type, activity.animeId, activity.details, activityMinute].join('|');
+            return currentKey === eventKey;
+        });
+        if (hasSameRecentActivity) return;
+
+        const nextActivity = {
+            id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+            username,
+            userColor,
+            userAvatar,
+            type,
+            animeId: anime.id,
+            animeTitle: anime.title || 'Anime',
+            details,
+            timestamp
+        };
+
+        const seen = new Set();
+        this.activities = [nextActivity, ...(this.activities || [])]
+            .filter(activity => {
+                if (!activity || !activity.id) return false;
+                if (seen.has(activity.id)) return false;
+                seen.add(activity.id);
+                return true;
+            })
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+            .slice(0, 80);
+
+        localStorage.setItem('anivoid_activities_v1', JSON.stringify(this.activities));
+        if (typeof renderActivitiesFeed === 'function') renderActivitiesFeed();
     }
 
     async sendFriendRequest(targetUsername) {
@@ -2143,6 +2205,9 @@ class AppState {
                 r.overall = catAvg > 0 ? catAvg : 0;
             }
             r.updatedAt = new Date().toISOString();
+            if (parseFloat(ratingVal) > 0) {
+                this.recordActivity('rating', anime, `avaliou com nota ${r.overall}`, friendId);
+            }
             
             this.save();
         }
@@ -2169,6 +2234,7 @@ class AppState {
             r.overall = epOverall > 0 ? epOverall : score;
         }
         r.updatedAt = new Date().toISOString();
+        this.recordActivity('rating', anime, `avaliou com nota ${r.overall}`, friendId);
         this.save();
     }
 
@@ -2245,6 +2311,9 @@ class AppState {
             // Auto calculate overall
             r.overall = parseFloat(((r.animation + r.story + r.sound) / 3).toFixed(1));
             r.updatedAt = new Date().toISOString();
+            if (Number.isFinite(Number(r.overall)) && Number(r.overall) > 0) {
+                this.recordActivity('rating', anime, `avaliou com nota ${r.overall}`, friendId);
+            }
             this.save();
         }
     }
@@ -2254,6 +2323,7 @@ class AppState {
         if (anime) {
             this.initFriendRatingIfMissing(anime, friendId);
             const r = anime.ratings[friendId];
+            const previousStatus = r.status || 'Plan to Watch';
             r.status = statusVal;
             
             // Auto episodes watched on completed
@@ -2262,6 +2332,16 @@ class AppState {
                 r.episodesWatched = totalEps;
             }
             r.updatedAt = new Date().toISOString();
+            if (statusVal !== previousStatus) {
+                const statusPhrases = {
+                    Watching: 'comecou a assistir',
+                    Completed: 'concluiu a obra',
+                    'On Hold': 'colocou em espera',
+                    Dropped: 'abandonou a obra',
+                    'Plan to Watch': 'adicionou a lista'
+                };
+                this.recordActivity('status', anime, statusPhrases[statusVal] || `marcou como ${statusVal}`, friendId);
+            }
             this.save();
         }
     }
@@ -2272,6 +2352,8 @@ class AppState {
             this.initFriendRatingIfMissing(anime, friendId);
             const r = anime.ratings[friendId];
             const maxEps = parseInt(anime.episodes) || 0;
+            const previousWatched = Number(r.episodesWatched || 0);
+            const previousStatus = r.status || 'Plan to Watch';
             let val = Math.max(0, epCount);
             if (maxEps > 0) val = Math.min(val, maxEps);
             r.episodesWatched = val;
@@ -2283,6 +2365,19 @@ class AppState {
                 r.status = 'Watching';
             }
             r.updatedAt = new Date().toISOString();
+            if (val > previousWatched && val !== maxEps) {
+                this.recordActivity('progress', anime, `assistiu ao episodio ${val}`, friendId);
+            }
+            if (r.status !== previousStatus) {
+                const statusPhrases = {
+                    Watching: 'comecou a assistir',
+                    Completed: 'concluiu a obra',
+                    'On Hold': 'colocou em espera',
+                    Dropped: 'abandonou a obra',
+                    'Plan to Watch': 'adicionou a lista'
+                };
+                this.recordActivity('status', anime, statusPhrases[r.status] || `marcou como ${r.status}`, friendId);
+            }
             this.save();
         }
     }
@@ -2356,6 +2451,7 @@ class AppState {
                 likes: [],
                 replies: []
             });
+            this.recordActivity('comment_add', anime, 'escreveu uma critica', friendId);
             this.save();
         }
     }
@@ -2385,6 +2481,7 @@ class AppState {
             reply: text.trim(),
             timestamp: new Date().toISOString()
         });
+        this.recordActivity('reply_add', anime, 'respondeu uma critica', friendId);
         this.save();
     }
 
@@ -2414,6 +2511,7 @@ class AppState {
             comments: []
         };
         this.animes.push(newAnime);
+        this.recordActivity('catalog', newAnime, 'adicionou esta obra ao catalogo', getLoggedInProfileId());
         this.save();
         return newAnime;
     }
@@ -2602,6 +2700,43 @@ function getLoggedInProfileId() {
 function findRegisteredUserById(profileId) {
     const cleanId = normalizeProfileId(profileId);
     return getRegisteredUsersSafe().find(user => normalizeProfileId(user?.username) === cleanId) || null;
+}
+
+function getRecommendationPeerIds(profileId) {
+    const cleanId = normalizeProfileId(profileId);
+    const peerIds = new Set();
+    const users = getRegisteredUsersSafe();
+    const profileUser = users.find(user => normalizeProfileId(user?.username) === cleanId);
+
+    (profileUser?.friends || []).forEach(friendName => {
+        const friendId = normalizeProfileId(friendName);
+        if (friendId && friendId !== cleanId) peerIds.add(friendId);
+    });
+
+    if (!peerIds.size && cleanId === getLoggedInProfileId()) {
+        (state.friends || []).forEach(friend => {
+            const friendId = normalizeProfileId(friend?.id || friend?.name);
+            if (friendId && friendId !== cleanId) peerIds.add(friendId);
+        });
+    }
+
+    if (!peerIds.size) {
+        users.forEach(user => {
+            const userId = normalizeProfileId(user?.username);
+            if (userId && userId !== cleanId) peerIds.add(userId);
+        });
+    }
+
+    return peerIds;
+}
+
+function recommendationTieBreak(profileId, animeId) {
+    const key = `${normalizeProfileId(profileId)}:${animeId || ''}`;
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) {
+        hash = ((hash << 5) - hash + key.charCodeAt(i)) | 0;
+    }
+    return (Math.abs(hash) % 1000) / 1000;
 }
 
 function getProfileDisplayUser(profileId = state.currentFriendId) {
@@ -2857,11 +2992,19 @@ function clearNotifications() {
     renderNotificationsModal();
 }
 
-function buildPersonalRecommendations(limit = 3) {
-    const myId = getLoggedInProfileId();
+function buildPersonalRecommendations(limit = 3, profileId = state.currentFriendId || getLoggedInProfileId()) {
+    const myId = normalizeProfileId(profileId || getLoggedInProfileId());
     if (!myId) return [];
+    const profileUser = findRegisteredUserById(myId);
     const preferredGenres = {};
     const preferredStudios = {};
+
+    (profileUser?.favoriteGenres || []).forEach(genre => {
+        preferredGenres[genre] = (preferredGenres[genre] || 0) + 12;
+    });
+    (profileUser?.favoriteStudios || []).forEach(studio => {
+        preferredStudios[studio] = (preferredStudios[studio] || 0) + 12;
+    });
 
     (state.animes || []).forEach(anime => {
         const rating = anime?.ratings?.[myId];
@@ -2874,8 +3017,7 @@ function buildPersonalRecommendations(limit = 3) {
         }
     });
 
-    const groupIds = new Set((state.friends || []).map(friend => normalizeProfileId(friend.id)).filter(Boolean));
-    groupIds.delete(myId);
+    const groupIds = getRecommendationPeerIds(myId);
 
     return (state.animes || [])
         .map(anime => {
@@ -2891,7 +3033,8 @@ function buildPersonalRecommendations(limit = 3) {
             const friendAvg = friendScores.length ? friendScores.reduce((sum, score) => sum + score, 0) / friendScores.length : 0;
             const genreBoost = (anime.genres || []).reduce((sum, genre) => sum + (preferredGenres[genre] || 0), 0) / 10;
             const studioBoost = (preferredStudios[anime.studio] || 0) / 12;
-            const score = friendAvg * 1.35 + genreBoost + studioBoost;
+            const tasteSeed = recommendationTieBreak(myId, anime.id) * 0.42;
+            const score = friendAvg * 1.35 + genreBoost + studioBoost + tasteSeed;
             if (score <= 0) return null;
 
             const reason = friendAvg >= 8
@@ -2912,7 +3055,7 @@ function renderRecommendationsRail() {
     const rail = document.getElementById('recommendations-rail');
     const list = document.getElementById('recommendations-rail-list');
     if (!rail || !list) return;
-    const recs = buildPersonalRecommendations(3);
+    const recs = buildPersonalRecommendations(3, state.currentFriendId || getLoggedInProfileId());
     if (recs.length === 0) {
         rail.classList.add('hidden');
         return;
@@ -8898,17 +9041,16 @@ function renderActivitiesFeed() {
     if (loggedInUsername) visibleUserIds.add(normalizeActivityUser(loggedInUsername));
 
     const seen = new Set();
-    const filteredActivities = (state.activities || []).filter(act => {
+    const allActivities = (state.activities || []).filter(act => {
         if (!act.username) return false;
-        const actUserId = normalizeActivityUser(act.username);
-        if (!visibleUserIds.has(actUserId)) return false;
         const key = act.id || `${act.username}|${act.type}|${act.animeId}|${act.details}|${act.timestamp}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
     }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const filteredActivities = allActivities.filter(act => visibleUserIds.has(normalizeActivityUser(act.username)));
 
-    const activities = filteredActivities.slice(0, 6);
+    const activities = (filteredActivities.length ? filteredActivities : allActivities).slice(0, 6);
     if (activities.length === 0) {
         list.innerHTML = `
             <div class="activity-card-3d py-8 text-center text-gray-500 font-light text-[10px] italic col-span-full rounded-3xl border border-white/5 bg-white/[0.02]">
@@ -8931,7 +9073,7 @@ function renderActivitiesFeed() {
         item.style.boxShadow = `${isAdminAct ? '0 0 12px rgba(255,69,0,0.08), ' : ''}inset 3px 0 0 ${activityMeta.color}`;
         
         const avatarHtml = act.userAvatar && (act.userAvatar.startsWith('data:') || act.userAvatar.startsWith('http'))
-            ? `<img src="${act.userAvatar}" class="w-5 h-5 rounded-full object-cover border border-black/70" alt="">`
+            ? `<img src="${escapeHtml(act.userAvatar)}" class="w-5 h-5 rounded-full object-cover border border-black/70" alt="">`
             : `<div class="w-5 h-5 rounded-full bg-black/80 border border-white/10 flex items-center justify-center text-[10px]">${act.userAvatar || '&#128100;'}</div>`;
 
         const activityVisualHtml = `
@@ -8975,14 +9117,14 @@ function renderActivitiesFeed() {
             ${activityVisualHtml}
             <div class="activity-copy flex-grow min-w-0">
                 <div class="flex justify-between items-baseline gap-1.5">
-                    <span class="font-bold truncate" style="color: ${act.userColor}">${act.username}${adminBadgeHtml}</span>
+                    <span class="font-bold truncate" style="color: ${escapeHtml(act.userColor || '#FF4500')}">${escapeHtml(act.username)}${adminBadgeHtml}</span>
                     <span class="text-[8px] text-gray-500 font-mono shrink-0">${timeText}</span>
                 </div>
                 <p class="text-gray-400 font-light mt-0.5 leading-relaxed">
                     ${activityPillHtml}
-                    <span>${act.details}</span> em 
-                    <a href="#anime-grid-section" class="font-mono text-white/90 hover:text-brand font-semibold select-anime-trigger border-b border-dashed border-white/20 hover:border-brand/40 transition-colors" data-id="${act.animeId}">
-                        ${act.animeTitle}
+                    <span>${escapeHtml(act.details)}</span> em
+                    <a href="#anime-grid-section" class="font-mono text-white/90 hover:text-brand font-semibold select-anime-trigger border-b border-dashed border-white/20 hover:border-brand/40 transition-colors" data-id="${escapeHtml(act.animeId)}">
+                        ${escapeHtml(act.animeTitle)}
                     </a>
                 </p>
             </div>

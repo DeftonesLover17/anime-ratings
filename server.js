@@ -703,6 +703,33 @@ function mergeStates(localState, serverState, loggedInUser) {
         return 'act_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     }
 
+    function mergeClientActivities() {
+        const loggedInId = normalizeUsername(loggedInUser);
+        if (!loggedInId || !Array.isArray(localState.activities)) return;
+
+        localState.activities.slice(0, 100).forEach(activity => {
+            if (!activity || !activity.animeId || !activity.details) return;
+            const activityUserId = normalizeUsername(activity.username);
+            if (activityUserId && activityUserId !== loggedInId) return;
+
+            mergedActivities.push({
+                id: activity.id ? String(activity.id).slice(0, 120) : generateActivityId(),
+                username: authorUser.username,
+                userColor: authorUser.color || '#FF4500',
+                userAvatar: authorUser.avatar || '&#128100;',
+                type: String(activity.type || 'activity').slice(0, 60),
+                animeId: String(activity.animeId).slice(0, 120),
+                animeTitle: String(activity.animeTitle || 'Anime').slice(0, 180),
+                details: String(activity.details).slice(0, 300),
+                timestamp: activity.timestamp && !Number.isNaN(new Date(activity.timestamp).getTime())
+                    ? String(activity.timestamp).slice(0, 40)
+                    : new Date().toISOString()
+            });
+        });
+    }
+
+    mergeClientActivities();
+
     // 1. Merge registered users by username
     const mergedUsers = [...serverState.registeredUsers];
     if (localState.registeredUsers && Array.isArray(localState.registeredUsers)) {
