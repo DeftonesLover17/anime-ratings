@@ -7586,25 +7586,17 @@ function renderRegisteredUsersSuggestions() {
         const isFriend = curUser.friends && curUser.friends.some(f => user && user.username && f.toLowerCase() === user.username.toLowerCase());
         const hasSentRequest = user && user.friendRequests && user.friendRequests.some(r => r.from && r.from.toLowerCase() === loggedInUsername.toLowerCase());
         const hasReceivedRequest = curUser.friendRequests && curUser.friendRequests.some(r => r.from && user && user.username && r.from.toLowerCase() === user.username.toLowerCase());
-        const canAdminConfirm = loggedInUsername.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
 
         if (isFriend) {
             actionBtnHtml = `<span class="text-[10px] text-gray-500 font-mono uppercase tracking-wider font-semibold">Amigos</span>`;
-        } else if (hasSentRequest && canAdminConfirm) {
-            actionBtnHtml = `
-                <button type="button" class="btn-confirm-friend px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-mono font-semibold flex items-center gap-1 transition-all shrink-0">
-                    <iconify-icon icon="lucide:check" class="text-xs"></iconify-icon>
-                    <span>Confirmar</span>
-                </button>
-            `;
-        } else if (hasSentRequest) {
-            actionBtnHtml = `<span class="text-[10px] text-amber-500/70 font-mono uppercase tracking-wider font-semibold flex items-center gap-1"><iconify-icon icon="lucide:clock" class="text-xs"></iconify-icon> Pendente</span>`;
         } else if (hasReceivedRequest) {
             actionBtnHtml = `
                 <button type="button" class="btn-accept px-2.5 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg text-[10px] font-mono font-semibold flex items-center justify-center transition-all shrink-0">
                     Aceitar
                 </button>
             `;
+        } else if (hasSentRequest) {
+            actionBtnHtml = `<span class="text-[10px] text-amber-500/70 font-mono uppercase tracking-wider font-semibold flex items-center gap-1"><iconify-icon icon="lucide:clock" class="text-xs"></iconify-icon> Pendente</span>`;
         } else {
             actionBtnHtml = `
                 <button type="button" class="btn-add px-2.5 py-1 bg-brand text-white hover:bg-brand/80 rounded-lg text-[10px] font-mono font-semibold flex items-center gap-1 transition-all shrink-0">
