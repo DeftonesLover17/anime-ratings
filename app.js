@@ -8200,14 +8200,27 @@ function setupEditProfileModal() {
                 friendsDropdown.classList.remove('flex');
             }
 
-            const loggedInUsername = localStorage.getItem('anivoid_logged_in_username') || '';
+            const loggedInUsername = state.loggedInUser || localStorage.getItem('anivoid_logged_in_username') || '';
             let registeredUsers = [];
             try {
                 registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
             } catch (err) {}
             
-            const user = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === loggedInUsername.toLowerCase());
-            if (!user) return;
+            let user = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === loggedInUsername.toLowerCase());
+            if (!user) {
+                const loggedInFriendObj = state.friends.find(f => f.isMe);
+                if (loggedInFriendObj) {
+                    user = {
+                        username: loggedInFriendObj.name.replace(' (Você)', ''),
+                        email: loggedInFriendObj.email || '',
+                        color: loggedInFriendObj.color || '#FF4500',
+                        avatar: loggedInFriendObj.avatar || '😎',
+                        activeTitle: loggedInFriendObj.activeTitle || 'admin'
+                    };
+                } else {
+                    return;
+                }
+            }
 
             if (nameInput) {
                 nameInput.value = user.username;
@@ -8261,7 +8274,7 @@ function setupEditProfileModal() {
         const newColor = colorInput.value;
         const newAvatar = avatarInput.value;
 
-        const loggedInUsername = localStorage.getItem('anivoid_logged_in_username') || '';
+        const loggedInUsername = state.loggedInUser || localStorage.getItem('anivoid_logged_in_username') || '';
         let registeredUsers = [];
         try {
             registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
