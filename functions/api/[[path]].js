@@ -127,6 +127,50 @@ function sameUsername(a, b) {
     return usernameKey(a) === usernameKey(b);
 }
 
+function identifierKey(identifier) {
+    return String(identifier || '').trim().toLowerCase();
+}
+
+function findRegisteredUserByIdentifier(state, identifier) {
+    const rawKey = identifierKey(identifier);
+    const normalizedKey = normalizeUsername(identifier);
+    if (!rawKey && !normalizedKey) return null;
+
+    return (state.registeredUsers || []).find(user => {
+        if (!user) return false;
+        const email = identifierKey(user.email);
+        const username = identifierKey(user.username);
+        const normalizedUsername = normalizeUsername(user.username);
+        return (email && email === rawKey)
+            || (username && username === rawKey)
+            || (normalizedUsername && normalizedUsername === normalizedKey);
+    }) || null;
+}
+
+function recoveryIdentityKeys(user, submittedIdentifier = '') {
+    return [
+        submittedIdentifier,
+        user && user.email,
+        user && user.username,
+        normalizeUsername(user && user.username)
+    ]
+        .map(identifierKey)
+        .filter(Boolean);
+}
+
+function parseRecoveryAliases(rawAliases) {
+    return String(rawAliases || '')
+        .split(',')
+        .map(pair => pair.trim())
+        .filter(Boolean)
+        .reduce((aliases, pair) => {
+            const separator = pair.includes('=') ? '=' : ':';
+            const [from, to] = pair.split(separator).map(part => part && part.trim());
+            if (from && to) aliases[identifierKey(from)] = to;
+            return aliases;
+        }, {});
+}
+
 function normalizeAnimeIdentity(value) {
     return String(value || '')
         .normalize('NFD')
@@ -1013,11 +1057,10 @@ async function parseJsonBody(request) {
 
 async function handleLogin(request, env) {
     const body = await parseJsonBody(request);
-    if (!body || !body.email || (!body.password && !body.passwordProof)) return json({ error: 'E-mail e senha são obrigatórios.' }, 400);
+    const identifier = body && (body.identifier || body.email);
+    if (!body || !identifier || (!body.password && !body.passwordProof)) return json({ error: 'E-mail ou usuario e senha sao obrigatorios.' }, 400);
     const state = await readState(env);
-    const user = (state.registeredUsers || []).find(candidate =>
-        candidate && candidate.email && candidate.email.toLowerCase() === String(body.email).toLowerCase()
-    );
+    const user = findRegisteredUserByIdentifier(state, identifier);
 
     if (body.passwordProof || body.passwordHash) {
         const challenge = await getDb(env).prepare(
@@ -1025,7 +1068,7 @@ async function handleLogin(request, env) {
         ).bind(String(body.nonce || '')).first();
         await getDb(env).prepare('DELETE FROM auth_challenges WHERE nonce = ?1').bind(String(body.nonce || '')).run();
         if (!challenge || Number(challenge.expires_at) < Date.now()) return json({ error: 'E-mail ou senha incorretos.' }, 401);
-        if (String(challenge.email).toLowerCase() !== String(body.email).toLowerCase()) return json({ error: 'E-mail ou senha incorretos.' }, 401);
+        if (identifierKey(challenge.email) !== identifierKey(identifier)) return json({ error: 'E-mail ou senha incorretos.' }, 401);
         const proofOk = user && body.passwordProof && await verifyPasswordProof(user, body.nonce, body.passwordProof);
         const hashOk = user && body.passwordHash && user.passwordHash && timingSafeEqual(body.passwordHash, user.passwordHash);
         if (!proofOk && !hashOk) return json({ error: 'E-mail ou senha incorretos.' }, 401);
@@ -1049,13 +1092,12 @@ async function handleLogin(request, env) {
 
 async function handleLoginChallenge(request, env) {
     const body = await parseJsonBody(request);
-    if (!body || !body.email) return json({ error: 'E-mail é obrigatório.' }, 400);
+    const identifier = body && (body.identifier || body.email);
+    if (!body || !identifier) return json({ error: 'E-mail ou usuario e obrigatorio.' }, 400);
     const state = await readState(env);
-    const user = (state.registeredUsers || []).find(candidate =>
-        candidate && candidate.email && candidate.email.toLowerCase() === String(body.email).toLowerCase()
-    );
+    const user = findRegisteredUserByIdentifier(state, identifier);
     const nonce = randomToken();
-    const email = String(body.email || '').toLowerCase();
+    const email = identifierKey(identifier);
     const expiresAt = Date.now() + 1000 * 60 * 5;
     await getDb(env).prepare(
         'INSERT INTO auth_challenges (nonce, email, expires_at) VALUES (?1, ?2, ?3)'
@@ -1114,25 +1156,41 @@ async function handleRecoverPassword(request, env) {
     const body = await parseJsonBody(request);
     const expectedToken = String(env.OWNER_RECOVERY_TOKEN || '').trim();
     const defaultRecoveryEmails = 'mfelipeneto5@gmail.com,yagomatthews9@gmail.com,ninjazokobr@gmail.com,dallestwl@gmail.com';
-    const allowedEmails = `${defaultRecoveryEmails},${env.OWNER_RECOVERY_EMAILS || ''}`
+    const defaultRecoveryUsers = 'Felipe!,Felipe,yamazx,ninjazokobr,nameless,vanitas';
+    const defaultRecoveryAliases = 'mfelipeneto5@gmail.com=Felipe!,yagomatthews9@gmail.com=yamazx,ninjazokobr@gmail.com=ninjazokobr,dallestwl@gmail.com=vanitas';
+    const allowedIdentifiers = `${defaultRecoveryEmails},${defaultRecoveryUsers},${env.OWNER_RECOVERY_EMAILS || ''},${env.OWNER_RECOVERY_USERS || ''}`
         .split(',')
-        .map(email => email.trim().toLowerCase())
+        .map(identifier => identifier.trim())
         .filter(Boolean);
-    if (!expectedToken) return json({ error: 'Recuperação não configurada.' }, 503);
-    if (!body || !body.email || !body.token || !isPasswordCredential(body.passwordCredential)) {
-        return json({ error: 'Dados de recuperação inválidos.' }, 400);
+    const allowedKeys = new Set(allowedIdentifiers.flatMap(identifier => [identifierKey(identifier), normalizeUsername(identifier)]).filter(Boolean));
+    const recoveryAliases = {
+        ...parseRecoveryAliases(defaultRecoveryAliases),
+        ...parseRecoveryAliases(env.OWNER_RECOVERY_ALIASES)
+    };
+    if (!expectedToken) return json({ error: 'Recuperacao nao configurada.' }, 503);
+    const submittedIdentifier = body && (body.identifier || body.email);
+    if (!body || !submittedIdentifier || !body.token || !isPasswordCredential(body.passwordCredential)) {
+        return json({ error: 'Dados de recuperacao invalidos.' }, 400);
     }
-    if (!timingSafeEqual(String(body.token), expectedToken)) return json({ error: 'Código de recuperação inválido.' }, 403);
-    const email = String(body.email).trim().toLowerCase();
-    if (!allowedEmails.includes(email)) return json({ error: 'E-mail não autorizado para recuperação.' }, 403);
+    if (!timingSafeEqual(String(body.token), expectedToken)) return json({ error: 'Codigo de recuperacao invalido.' }, 403);
+    const identifier = String(submittedIdentifier).trim();
+    const aliasTarget = recoveryAliases[identifierKey(identifier)];
 
     const state = await readState(env);
-    const user = (state.registeredUsers || []).find(candidate =>
-        candidate && candidate.email && candidate.email.toLowerCase() === email
+    const user = findRegisteredUserByIdentifier(state, identifier)
+        || (aliasTarget ? findRegisteredUserByIdentifier(state, aliasTarget) : null);
+    if (!user) return json({ error: 'Usuario nao encontrado. Tente usar o nome de usuario da conta.' }, 404);
+
+    const isAllowed = recoveryIdentityKeys(user, identifier).some(key =>
+        allowedKeys.has(key) || allowedKeys.has(normalizeUsername(key))
     );
-    if (!user) return json({ error: 'Usuário não encontrado.' }, 404);
+    if (!isAllowed) return json({ error: 'Conta nao autorizada para recuperacao.' }, 403);
 
     setPasswordFromCredential(user, body.passwordCredential);
+    if (identifier.includes('@') && user.email !== identifier) {
+        user.email = identifier;
+        user.emailVerified = true;
+    }
     await writeState(env, state);
     await getDb(env).prepare('DELETE FROM sessions WHERE username = ?1').bind(user.username).run();
     const token = await createSession(env, user.username);

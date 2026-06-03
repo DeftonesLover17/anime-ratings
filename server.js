@@ -444,8 +444,28 @@ function sameUsername(a, b) {
     return usernameKey(a) === usernameKey(b);
 }
 
+function identifierKey(identifier) {
+    return String(identifier || '').trim().toLowerCase();
+}
+
 function findRegisteredUser(state, username) {
     return (state.registeredUsers || []).find(user => user && user.username && sameUsername(user.username, username));
+}
+
+function findRegisteredUserByIdentifier(state, identifier) {
+    const rawKey = identifierKey(identifier);
+    const normalizedKey = normalizeUsername(identifier);
+    if (!rawKey && !normalizedKey) return null;
+
+    return (state.registeredUsers || []).find(user => {
+        if (!user) return false;
+        const email = identifierKey(user.email);
+        const username = identifierKey(user.username);
+        const normalizedUsername = normalizeUsername(user.username);
+        return (email && email === rawKey)
+            || (username && username === rawKey)
+            || (normalizedUsername && normalizedUsername === normalizedKey);
+    }) || null;
 }
 
 function hasFriend(user, friendName) {
@@ -1199,9 +1219,10 @@ const server = http.createServer((req, res) => {
         req.on('data', chunk => { body += chunk; });
         req.on('end', () => {
             try {
-                const { email, password } = JSON.parse(body);
-                if (!email || !password) {
-                    sendJson(res, 400, { error: 'E-mail e senha são obrigatórios.' });
+                const { email, identifier, password } = JSON.parse(body);
+                const loginIdentifier = identifier || email;
+                if (!loginIdentifier || !password) {
+                    sendJson(res, 400, { error: 'E-mail ou usuario e senha sao obrigatorios.' });
                     return;
                 }
                 readState((err, data) => {
@@ -1209,9 +1230,7 @@ const server = http.createServer((req, res) => {
                     if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
                     if (!state.registeredUsers) state.registeredUsers = [];
 
-                    const user = state.registeredUsers.find(u =>
-                        u && u.email && u.email.toLowerCase() === String(email).toLowerCase()
-                    );
+                    const user = findRegisteredUserByIdentifier(state, loginIdentifier);
 
                     if (!user || !verifyPassword(user, password)) {
                         sendJson(res, 401, { error: 'E-mail ou senha incorretos.' });

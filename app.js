@@ -1055,11 +1055,11 @@ async function createPasswordChallengeResponse(password, challenge) {
     };
 }
 
-async function submitLogin(email, password) {
+async function submitLogin(identifier, password) {
     const submitPasswordLogin = () => fetch(API_BASE_URL + '/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email: identifier, identifier, password })
     });
 
     if (USE_CLIENT_PASSWORD_PROOF) {
@@ -1067,7 +1067,7 @@ async function submitLogin(email, password) {
             const challengeResp = await fetch(API_BASE_URL + '/api/login-challenge', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
+                body: JSON.stringify({ email: identifier, identifier })
             });
             const challenge = await challengeResp.json().catch(() => ({}));
             if (challengeResp.ok && challenge.nonce && challenge.passwordSalt) {
@@ -1076,7 +1076,8 @@ async function submitLogin(email, password) {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        email,
+                        email: identifier,
+                        identifier,
                         nonce: challenge.nonce,
                         passwordProof: challengeResponse.passwordProof,
                         passwordHash: challengeResponse.passwordHash
@@ -7557,7 +7558,9 @@ function initRegistrationOptions() {
     if (recoverAccessBtn && !recoverAccessBtn.dataset.listenerHooked) {
         recoverAccessBtn.dataset.listenerHooked = 'true';
         recoverAccessBtn.addEventListener('click', async () => {
-            const emailVal = document.getElementById('login-email')?.value.trim() || 'mfelipeneto5@gmail.com';
+            const identifierVal = document.getElementById('login-email')?.value.trim()
+                || prompt('Digite o e-mail ou nome de usuario da conta:');
+            if (!identifierVal) return;
             const recoveryToken = prompt('Digite o código temporário de recuperação configurado no Cloudflare:');
             if (!recoveryToken) return;
             const rawPassword = prompt('Digite a nova senha para esta conta:');
@@ -7576,7 +7579,8 @@ function initRegistrationOptions() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        email: emailVal,
+                        email: identifierVal,
+                        identifier: identifierVal,
                         token: recoveryToken,
                         passwordCredential
                     })
