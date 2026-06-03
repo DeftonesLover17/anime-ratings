@@ -3642,6 +3642,15 @@ function markViewEntered(element) {
     element.classList.add('view-enter-soft');
 }
 
+function bindElementOnce(element, key, event, handler) {
+    if (!element) return false;
+    const attr = `bound${key.replace(/[^a-z0-9]/gi, '')}`;
+    if (element.dataset[attr]) return false;
+    element.dataset[attr] = 'true';
+    element.addEventListener(event, handler);
+    return true;
+}
+
 function hideRegistrationGate() {
     const regGate = document.getElementById('registration-gate');
     if (regGate) {
@@ -3718,8 +3727,9 @@ function startApp() {
         initUI();
     });
 
-    // Polling every 6 seconds for real-time multiplayer updates (ratings, comments, user edits)
+    // Polling leve para atualizações multiplayer. Evita re-render pesado em sequência.
     setInterval(() => {
+        if (document.hidden) return;
         state.syncWithServer().then((hasChanged) => {
             if (!hasChanged) return;
             
@@ -3792,7 +3802,7 @@ function startApp() {
                 }
             }
         });
-    }, 6000);
+    }, 25000);
 }
 
 // App execution trigger moved to the bottom of the file to prevent TDZ ReferenceErrors
@@ -3870,7 +3880,7 @@ function initUI() {
     // Event Listeners for Filters
     const searchInput = document.getElementById('search-anime');
     if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
+        bindElementOnce(searchInput, 'animeSearchInput', 'input', (e) => {
             state.searchQuery = e.target.value;
             renderAnimeGrid();
         });
@@ -3882,7 +3892,7 @@ function initUI() {
     const toggleFiltersBtn = document.getElementById('toggle-filters-btn');
     const advancedFiltersPanel = document.getElementById('advanced-filters-panel');
     if (toggleFiltersBtn && advancedFiltersPanel) {
-        toggleFiltersBtn.addEventListener('click', () => {
+        bindElementOnce(toggleFiltersBtn, 'advancedFiltersToggle', 'click', () => {
             const isHidden = advancedFiltersPanel.classList.contains('hidden');
             if (isHidden) {
                 advancedFiltersPanel.classList.remove('hidden');
@@ -3899,7 +3909,7 @@ function initUI() {
     // Detail Page Back Button Control
     const backToHomeBtn = document.getElementById('back-to-home-btn');
     if (backToHomeBtn) {
-        backToHomeBtn.addEventListener('click', () => {
+        bindElementOnce(backToHomeBtn, 'backToHome', 'click', () => {
             closeAnimeDetail();
         });
     }
@@ -3909,13 +3919,13 @@ function initUI() {
     const openAddAnimeBtn = document.getElementById('open-add-anime');
     const closeAddAnimeBtn = document.getElementById('close-add-anime');
     if (openAddAnimeBtn && addAnimeModal) {
-        openAddAnimeBtn.addEventListener('click', () => {
+        bindElementOnce(openAddAnimeBtn, 'openAddAnime', 'click', () => {
             addAnimeModal.classList.remove('hidden');
             addAnimeModal.classList.add('flex');
         });
     }
     if (closeAddAnimeBtn && addAnimeModal) {
-        closeAddAnimeBtn.addEventListener('click', () => {
+        bindElementOnce(closeAddAnimeBtn, 'closeAddAnime', 'click', () => {
             addAnimeModal.classList.add('hidden');
             addAnimeModal.classList.remove('flex');
         });
@@ -3928,7 +3938,7 @@ function initUI() {
     const logoutBtn = document.getElementById('logout-btn');
 
     if (openAddFriendBtn && addFriendModal) {
-        openAddFriendBtn.addEventListener('click', async () => {
+        bindElementOnce(openAddFriendBtn, 'openAddFriend', 'click', async () => {
             addFriendModal.classList.remove('hidden');
             addFriendModal.classList.add('flex');
             renderCentralDeAmigos();
@@ -3949,7 +3959,7 @@ function initUI() {
         });
     }
     if (closeAddFriendBtn && addFriendModal) {
-        closeAddFriendBtn.addEventListener('click', () => {
+        bindElementOnce(closeAddFriendBtn, 'closeAddFriend', 'click', () => {
             addFriendModal.classList.add('hidden');
             addFriendModal.classList.remove('flex');
         });
@@ -3968,7 +3978,7 @@ function initUI() {
     Object.entries(malTabs).forEach(([id, status]) => {
         const btn = document.getElementById(id);
         if (btn) {
-            btn.addEventListener('click', () => {
+            bindElementOnce(btn, `malTab${id}`, 'click', () => {
                 state.filterMALStatus = status;
                 
                 // Update active tab visual state
@@ -6840,7 +6850,7 @@ function setupCommentForm() {
     const commentInput = document.getElementById('comment-textarea');
 
     if (submitBtn && commentInput) {
-        submitBtn.addEventListener('click', () => {
+        bindElementOnce(submitBtn, 'submitComment', 'click', () => {
             const commentText = commentInput.value;
             if (!commentText.trim() || !state.activeDetailAnimeId) return;
 
@@ -6885,7 +6895,7 @@ function setupFormSubmissions() {
             studioInput.addEventListener('blur', fillKnownLogo);
         }
 
-        addAnimeForm.addEventListener('submit', (e) => {
+        bindElementOnce(addAnimeForm, 'addAnimeSubmit', 'submit', (e) => {
             e.preventDefault();
             
             const title = document.getElementById('form-anime-title').value;
@@ -8515,7 +8525,7 @@ function initAddFriendModalOptions() {
     if (!searchInput) return;
 
     // Search query listener
-    searchInput.addEventListener('input', () => {
+    bindElementOnce(searchInput, 'friendSearchInput', 'input', () => {
         renderRegisteredUsersSuggestions();
         refreshRegisteredUsersFromServer().then((refreshed) => {
             if (refreshed) renderRegisteredUsersSuggestions();
@@ -8523,12 +8533,15 @@ function initAddFriendModalOptions() {
     });
 
     // Reset suggestion list on click-outside search input
-    document.addEventListener('click', (e) => {
+    if (!document.documentElement.dataset.friendSearchDismissHooked) {
+        document.documentElement.dataset.friendSearchDismissHooked = 'true';
+        document.addEventListener('click', (e) => {
         const listContainer = document.getElementById('registered-users-list');
         if (listContainer && !listContainer.contains(e.target) && e.target !== searchInput) {
             listContainer.classList.add('hidden');
         }
-    });
+        });
+    }
 }
 
     // --- MYANIMELIST AUTOCOMPLETE SEARCH (JIKAN API) ---
