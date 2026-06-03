@@ -1027,7 +1027,7 @@ async function handleLogin(request, env) {
         if (String(challenge.email).toLowerCase() !== String(body.email).toLowerCase()) return json({ error: 'E-mail ou senha incorretos.' }, 401);
         if (!user || !(await verifyPasswordProof(user, body.nonce, body.passwordProof))) return json({ error: 'E-mail ou senha incorretos.' }, 401);
     } else {
-        if (user && user.passwordHash) {
+        if (body.authChallengeOnly && user && user.passwordHash) {
             return json({
                 error: 'Atualize a página e tente entrar novamente.',
                 authChallengeRequired: true

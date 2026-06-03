@@ -935,11 +935,21 @@ function getAuthToken() {
 function setAuthSession(username, token) {
     if (username) localStorage.setItem('anivoid_logged_in_username', username);
     if (token) localStorage.setItem(AUTH_TOKEN_KEY, token);
+    const activeState = window.__anivoidState;
+    if (activeState) {
+        if (username) activeState.loggedInUser = username;
+        if (token) activeState.authToken = token;
+    }
 }
 
 function clearAuthSession() {
     localStorage.removeItem('anivoid_logged_in_username');
     localStorage.removeItem(AUTH_TOKEN_KEY);
+    const activeState = window.__anivoidState;
+    if (activeState) {
+        activeState.loggedInUser = null;
+        activeState.authToken = '';
+    }
 }
 
 function authHeaders(extraHeaders = {}) {
@@ -1026,29 +1036,35 @@ async function createPasswordProof(password, challenge) {
 }
 
 async function submitLogin(email, password) {
-    if (USE_CLIENT_PASSWORD_PROOF) {
-        const challengeResp = await fetch(API_BASE_URL + '/api/login-challenge', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-        });
-        const challenge = await challengeResp.json().catch(() => ({}));
-        if (!challengeResp.ok || !challenge.nonce || !challenge.passwordSalt) {
-            return challengeResp;
-        }
-        const passwordProof = await createPasswordProof(password, challenge);
-        return fetch(API_BASE_URL + '/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, nonce: challenge.nonce, passwordProof })
-        });
-    }
-
-    return fetch(API_BASE_URL + '/api/login', {
+    const submitPasswordLogin = () => fetch(API_BASE_URL + '/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
     });
+
+    if (USE_CLIENT_PASSWORD_PROOF) {
+        try {
+            const challengeResp = await fetch(API_BASE_URL + '/api/login-challenge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            const challenge = await challengeResp.json().catch(() => ({}));
+            if (challengeResp.ok && challenge.nonce && challenge.passwordSalt) {
+                const passwordProof = await createPasswordProof(password, challenge);
+                const proofResp = await fetch(API_BASE_URL + '/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, nonce: challenge.nonce, passwordProof })
+                });
+                if (proofResp.ok) return proofResp;
+            }
+        } catch (err) {
+            console.warn('Password proof login failed, falling back to password login:', err);
+        }
+    }
+
+    return submitPasswordLogin();
 }
 
 async function buildRegisterPayload(userRecord, password) {
@@ -1436,6 +1452,8 @@ class AppState {
         this.filterMALStatus = 'All'; // 'All', 'Watching', 'Completed', 'On Hold', 'Dropped', 'Plan to Watch'
         this.searchQuery = '';
         this.sortBy = 'group-score'; // 'group-score', 'my-score', 'title'
+        this.syncInFlight = null;
+        this.needsFollowUpSync = false;
         
         this.activeDetailAnimeId = null;
 
@@ -1514,6 +1532,24 @@ class AppState {
     }
 
     async syncWithServer() {
+        if (this.syncInFlight) {
+            this.needsFollowUpSync = true;
+            return this.syncInFlight.then(() => {
+                if (!this.needsFollowUpSync) return false;
+                this.needsFollowUpSync = false;
+                return this.syncWithServer();
+            });
+        }
+
+        this.syncInFlight = this.syncWithServerNow();
+        try {
+            return await this.syncInFlight;
+        } finally {
+            this.syncInFlight = null;
+        }
+    }
+
+    async syncWithServerNow() {
         try {
             let registeredUsers = [];
             try {
@@ -2671,6 +2707,7 @@ class AppState {
 
 // Initialise Global State
 const state = new AppState();
+window.__anivoidState = state;
 const tiltBoundCards = new WeakSet();
 
 const NOTIFICATIONS_KEY = 'anivoid_notifications_v1';
@@ -3569,6 +3606,25 @@ function markViewEntered(element) {
     element.classList.add('view-enter-soft');
 }
 
+function hideRegistrationGate() {
+    const regGate = document.getElementById('registration-gate');
+    if (regGate) {
+        regGate.classList.add('hidden');
+        regGate.classList.remove('flex');
+    }
+    document.body.classList.remove('overflow-hidden');
+}
+
+function showRegistrationGate() {
+    document.body.classList.add('overflow-hidden');
+    const regGate = document.getElementById('registration-gate');
+    if (regGate) {
+        regGate.classList.remove('hidden');
+        regGate.classList.add('flex');
+        initRegistrationOptions();
+    }
+}
+
 // --- DOM ELEMENTS AND EVENT LISTENERS ---
 function startApp() {
     // 1. Reveal Elements on Scroll
@@ -3728,16 +3784,10 @@ function setupSplashScreen() {
             splashScreen.style.display = 'none';
             
             // Check registration
-            if (state.friends.length === 0) {
-                document.body.classList.add('overflow-hidden');
-                const regGate = document.getElementById('registration-gate');
-                if (regGate) {
-                    regGate.classList.remove('hidden');
-                    regGate.classList.add('flex');
-                    initRegistrationOptions();
-                }
+            if (state.friends.length === 0 && !state.loggedInUser) {
+                showRegistrationGate();
             } else {
-                document.body.classList.remove('overflow-hidden');
+                hideRegistrationGate();
             }
             if (window.initObserver) window.initObserver();
         }, 1500);
@@ -3757,15 +3807,15 @@ function setupSplashScreen() {
 function initUI() {
     // If no friends, show registration gate and stop
     if (state.friends.length === 0) {
-        document.body.classList.add('overflow-hidden');
-        const regGate = document.getElementById('registration-gate');
-        if (regGate) {
-            regGate.classList.remove('hidden');
-            regGate.classList.add('flex');
-            initRegistrationOptions();
+        if (state.loggedInUser && getAuthToken()) {
+            hideRegistrationGate();
+        } else {
+            showRegistrationGate();
         }
         return;
     }
+
+    hideRegistrationGate();
 
     // Render current selection
     const currentFriend = state.getCurrentFriend();
