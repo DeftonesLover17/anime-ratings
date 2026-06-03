@@ -1035,6 +1035,26 @@ async function createPasswordProof(password, challenge) {
     return bytesToBase64(new Uint8Array(signature));
 }
 
+async function createPasswordChallengeResponse(password, challenge) {
+    const hashBytes = await derivePasswordHashBytes(
+        password,
+        challenge.passwordSalt,
+        Number(challenge.passwordIterations) || 310000
+    );
+    const key = await window.crypto.subtle.importKey(
+        'raw',
+        hashBytes,
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+    );
+    const signature = await window.crypto.subtle.sign('HMAC', key, new TextEncoder().encode(challenge.nonce));
+    return {
+        passwordHash: bytesToBase64(hashBytes),
+        passwordProof: bytesToBase64(new Uint8Array(signature))
+    };
+}
+
 async function submitLogin(email, password) {
     const submitPasswordLogin = () => fetch(API_BASE_URL + '/api/login', {
         method: 'POST',
@@ -1051,16 +1071,22 @@ async function submitLogin(email, password) {
             });
             const challenge = await challengeResp.json().catch(() => ({}));
             if (challengeResp.ok && challenge.nonce && challenge.passwordSalt) {
-                const passwordProof = await createPasswordProof(password, challenge);
-                const proofResp = await fetch(API_BASE_URL + '/api/login', {
+                const challengeResponse = await createPasswordChallengeResponse(password, challenge);
+                return fetch(API_BASE_URL + '/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, nonce: challenge.nonce, passwordProof })
+                    body: JSON.stringify({
+                        email,
+                        nonce: challenge.nonce,
+                        passwordProof: challengeResponse.passwordProof,
+                        passwordHash: challengeResponse.passwordHash
+                    })
                 });
-                if (proofResp.ok) return proofResp;
             }
+            return challengeResp;
         } catch (err) {
-            console.warn('Password proof login failed, falling back to password login:', err);
+            console.warn('Password proof login failed:', err);
+            throw err;
         }
     }
 

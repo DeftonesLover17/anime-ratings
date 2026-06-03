@@ -1018,14 +1018,16 @@ async function handleLogin(request, env) {
         candidate && candidate.email && candidate.email.toLowerCase() === String(body.email).toLowerCase()
     );
 
-    if (body.passwordProof) {
+    if (body.passwordProof || body.passwordHash) {
         const challenge = await getDb(env).prepare(
             'SELECT email, expires_at FROM auth_challenges WHERE nonce = ?1'
         ).bind(String(body.nonce || '')).first();
         await getDb(env).prepare('DELETE FROM auth_challenges WHERE nonce = ?1').bind(String(body.nonce || '')).run();
         if (!challenge || Number(challenge.expires_at) < Date.now()) return json({ error: 'E-mail ou senha incorretos.' }, 401);
         if (String(challenge.email).toLowerCase() !== String(body.email).toLowerCase()) return json({ error: 'E-mail ou senha incorretos.' }, 401);
-        if (!user || !(await verifyPasswordProof(user, body.nonce, body.passwordProof))) return json({ error: 'E-mail ou senha incorretos.' }, 401);
+        const proofOk = user && body.passwordProof && await verifyPasswordProof(user, body.nonce, body.passwordProof);
+        const hashOk = user && body.passwordHash && user.passwordHash && timingSafeEqual(body.passwordHash, user.passwordHash);
+        if (!proofOk && !hashOk) return json({ error: 'E-mail ou senha incorretos.' }, 401);
     } else {
         if (body.authChallengeOnly && user && user.passwordHash) {
             return json({
