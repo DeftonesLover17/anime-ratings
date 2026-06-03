@@ -1155,6 +1155,9 @@ async function refreshRegisteredUsersFromServer({ force = false } = {}) {
             if (response.status === 401 || response.status === 403) return false;
             if (!response.ok) throw new Error('Failed to refresh registered users');
             const serverState = await response.json();
+            if (serverState.viewerUsername && getAuthToken()) {
+                setAuthSession(serverState.viewerUsername, getAuthToken());
+            }
             if (Array.isArray(serverState.registeredUsers)) {
                 storeRegisteredUsers(serverState.registeredUsers);
                 if (typeof state !== 'undefined' && state && state.loggedInUser) {
@@ -1313,6 +1316,9 @@ function mergeLocalOwnRatings(serverAnimes, localAnimes, userId) {
 
 function applyServerStateSnapshot(serverState) {
     if (!serverState || typeof serverState !== 'object') return;
+    if (serverState.viewerUsername && getAuthToken()) {
+        setAuthSession(serverState.viewerUsername, getAuthToken());
+    }
     let previousAnimes = [];
     try {
         previousAnimes = JSON.parse(localStorage.getItem('anivoid_list_v2')) || [];
@@ -1632,6 +1638,10 @@ class AppState {
             }
             if (!response.ok) throw new Error('API sync request failed');
             const serverState = await response.json();
+            if (serverState.viewerUsername && getAuthToken()) {
+                setAuthSession(serverState.viewerUsername, getAuthToken());
+                this.loggedInUser = serverState.viewerUsername;
+            }
 
             // Update local memory and localStorage with the merged server state
             if (serverState.animes && Array.isArray(serverState.animes)) {
@@ -8213,6 +8223,46 @@ window.selectAdminTitle = function(title) {
     });
 };
 
+function getSessionUsername() {
+    return state.loggedInUser || localStorage.getItem('anivoid_logged_in_username') || '';
+}
+
+function getCachedRegisteredUsers() {
+    try {
+        const users = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+        return Array.isArray(users) ? users : [];
+    } catch (err) {
+        return [];
+    }
+}
+
+function findCachedUserByUsername(users, username) {
+    const targetId = normalizeProfileId(username);
+    if (!targetId) return null;
+    return users.find(user => user && normalizeProfileId(user.username) === targetId) || null;
+}
+
+function getEditableProfileUserFromCache() {
+    const registeredUsers = getCachedRegisteredUsers();
+    const sessionUsername = getSessionUsername();
+    const user = findCachedUserByUsername(registeredUsers, sessionUsername);
+    if (user) return { user, registeredUsers };
+
+    const loggedInFriendObj = state.friends.find(friend => friend && friend.isMe);
+    if (!loggedInFriendObj) return { user: null, registeredUsers };
+
+    return {
+        registeredUsers,
+        user: {
+            username: String(loggedInFriendObj.name || sessionUsername || '').replace(/\s*\([^)]*\)\s*$/, ''),
+            email: loggedInFriendObj.email || '',
+            color: loggedInFriendObj.color || '#FF4500',
+            avatar: loggedInFriendObj.avatar || '👤',
+            activeTitle: loggedInFriendObj.activeTitle || ''
+        }
+    };
+}
+
 function setupEditProfileModal() {
 
     const openBtn = document.getElementById('open-edit-profile');
@@ -8232,7 +8282,8 @@ function setupEditProfileModal() {
 
     if (!modal || !form) return;
 
-    if (avatarTrigger && avatarFileInput) {
+    if (avatarTrigger && avatarFileInput && !avatarTrigger.dataset.editProfileHooked) {
+        avatarTrigger.dataset.editProfileHooked = 'true';
         avatarTrigger.addEventListener('click', (e) => {
             e.stopPropagation();
             avatarFileInput.click();
@@ -8240,11 +8291,15 @@ function setupEditProfileModal() {
     }
 
     // Hook custom photo upload
-    if (avatarUploadBtn && avatarFileInput) {
+    if (avatarUploadBtn && avatarFileInput && !avatarUploadBtn.dataset.editProfileHooked) {
+        avatarUploadBtn.dataset.editProfileHooked = 'true';
         avatarUploadBtn.addEventListener('click', () => {
             avatarFileInput.click();
         });
-        
+    }
+
+    if (avatarFileInput && !avatarFileInput.dataset.editProfileHooked) {
+        avatarFileInput.dataset.editProfileHooked = 'true';
         avatarFileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
@@ -8266,8 +8321,9 @@ function setupEditProfileModal() {
     }
 
     // Open modal
-    if (openBtn) {
-        openBtn.addEventListener('click', (e) => {
+    if (openBtn && !openBtn.dataset.editProfileHooked) {
+        openBtn.dataset.editProfileHooked = 'true';
+        openBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
             // Close the dropdown list first
             const friendsDropdown = document.getElementById('friends-dropdown');
@@ -8276,7 +8332,14 @@ function setupEditProfileModal() {
                 friendsDropdown.classList.remove('flex');
             }
 
-            const loggedInUsername = state.loggedInUser || localStorage.getItem('anivoid_logged_in_username') || '';
+            try {
+                await refreshRegisteredUsersFromServer({ force: true });
+                await state.syncWithServer();
+            } catch (err) {
+                console.warn('Could not refresh profile before edit:', err);
+            }
+
+            const loggedInUsername = getSessionUsername();
             let registeredUsers = [];
             try {
                 registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
@@ -8297,6 +8360,14 @@ function setupEditProfileModal() {
                     return;
                 }
             }
+
+            const editableProfile = getEditableProfileUserFromCache();
+            if (!editableProfile.user || !editableProfile.user.username) {
+                alert('Nao foi possivel identificar sua sessao. Entre novamente antes de editar o perfil.');
+                return;
+            }
+            user = editableProfile.user;
+            modal.dataset.editUsername = user.username;
 
             if (nameInput) {
                 nameInput.value = user.username;
@@ -8340,23 +8411,36 @@ function setupEditProfileModal() {
         document.body.classList.remove('overflow-hidden');
     };
 
-    if (closeBtn) closeBtn.addEventListener('click', closeModal);
-    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+    if (closeBtn && !closeBtn.dataset.editProfileHooked) {
+        closeBtn.dataset.editProfileHooked = 'true';
+        closeBtn.addEventListener('click', closeModal);
+    }
+    if (cancelBtn && !cancelBtn.dataset.editProfileHooked) {
+        cancelBtn.dataset.editProfileHooked = 'true';
+        cancelBtn.addEventListener('click', closeModal);
+    }
 
     // Form submit
-    form.addEventListener('submit', (e) => {
+    if (form.dataset.editProfileHooked) return;
+    form.dataset.editProfileHooked = 'true';
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const newEmail = emailInput.value.trim();
         const newColor = colorInput.value;
         const newAvatar = avatarInput.value;
 
-        const loggedInUsername = state.loggedInUser || localStorage.getItem('anivoid_logged_in_username') || '';
-        let registeredUsers = [];
-        try {
-            registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
-        } catch (err) {}
-        
-        const userRecord = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === loggedInUsername.toLowerCase());
+        const editUsername = modal.dataset.editUsername || getSessionUsername();
+        if (!editUsername) {
+            alert('Nao foi possivel identificar sua sessao. Entre novamente antes de editar o perfil.');
+            return;
+        }
+        const registeredUsers = getCachedRegisteredUsers();
+        const userRecord = findCachedUserByUsername(registeredUsers, editUsername);
+        const fields = {
+            email: newEmail,
+            color: newColor,
+            avatar: newAvatar
+        };
         if (userRecord) {
             userRecord.email = newEmail;
             userRecord.color = newColor;
@@ -8366,14 +8450,36 @@ function setupEditProfileModal() {
             const isFelipe = userRecord.username && userRecord.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
             if (isFelipe && editTitleSelect) {
                 userRecord.activeTitle = editTitleSelect.value;
+                fields.activeTitle = editTitleSelect.value;
             }
             
             storeRegisteredUsers(registeredUsers);
         }
 
+        try {
+            const response = await fetch(API_BASE_URL + '/api/patch-user', {
+                method: 'POST',
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ username: editUsername, fields })
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data.success) {
+                alert(data.error || 'Nao foi possivel salvar seu perfil. Entre novamente e tente outra vez.');
+                return;
+            }
+            if (data.registeredUsers) storeRegisteredUsers(data.registeredUsers);
+            if (data.user && data.user.username) {
+                setAuthSession(data.user.username, getAuthToken());
+            }
+        } catch (err) {
+            console.error('Profile update failed:', err);
+            alert('Nao foi possivel salvar seu perfil agora. Tente novamente em instantes.');
+            return;
+        }
+
         // Reconstruct friends and save/sync
         state.loadLocalSession();
-        state.save();
+        await state.syncWithServer();
         
         applyUserThemeColor(newColor);
         closeModal();

@@ -428,6 +428,7 @@ function sanitizeState(state, viewerUsername = '') {
     const storageSafeState = sanitizeStateForStorage(state);
     return {
         ...storageSafeState,
+        viewerUsername: viewerUsername || '',
         registeredUsers: Array.isArray(storageSafeState.registeredUsers)
             ? storageSafeState.registeredUsers.map(user => sanitizeUser(user, viewerUsername))
             : []
@@ -1298,7 +1299,10 @@ async function route(request, env) {
         const state = await readState(env);
         normalizeSocialGraph(state);
         const authUser = await getAuthenticatedUser(request, env, state);
-        return json({ registeredUsers: sanitizeRegisteredUsersOnly(state, authUser ? authUser.username : '') });
+        return json({
+            viewerUsername: authUser ? authUser.username : '',
+            registeredUsers: sanitizeRegisteredUsersOnly(state, authUser ? authUser.username : '')
+        });
     }
     if (path === '/api/login-challenge' && request.method === 'POST') return handleLoginChallenge(request, env);
     if (path === '/api/login' && request.method === 'POST') return handleLogin(request, env);

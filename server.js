@@ -351,6 +351,7 @@ function sanitizeState(state, viewerUsername = '') {
     const storageSafeState = sanitizeStateForStorage(state);
     const safeState = {
         ...storageSafeState,
+        viewerUsername: viewerUsername || '',
         registeredUsers: Array.isArray(storageSafeState.registeredUsers)
             ? storageSafeState.registeredUsers.map(user => sanitizeUser(user, viewerUsername))
             : []
