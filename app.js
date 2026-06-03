@@ -3612,33 +3612,58 @@ function setupUtilityModals() {
 
 function initSoftTiltCards(root = document) {
     if (!root || !window.matchMedia || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const cards = root.querySelectorAll ? root.querySelectorAll('.tilt-card') : [];
+    if (window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 1024) return;
+
+    // Keep pointer-driven 3D only on the large hero/detail posters. Binding it to
+    // every grid card makes the browser recalculate layout on every mouse move.
+    const cards = root.querySelectorAll ? root.querySelectorAll('.featured-poster-3d, .detail-poster-frame') : [];
     cards.forEach(card => {
         if (tiltBoundCards.has(card)) return;
         tiltBoundCards.add(card);
 
-        card.addEventListener('pointermove', (event) => {
-            const rect = card.getBoundingClientRect();
+        let rect = null;
+        let frameId = null;
+        let latestEvent = null;
+
+        const updateTilt = () => {
+            frameId = null;
+            if (!latestEvent) return;
+            rect = rect || card.getBoundingClientRect();
             if (!rect.width || !rect.height) return;
-            const x = (event.clientX - rect.left) / rect.width;
-            const y = (event.clientY - rect.top) / rect.height;
+            const x = (latestEvent.clientX - rect.left) / rect.width;
+            const y = (latestEvent.clientY - rect.top) / rect.height;
             const rotateY = (x - 0.5) * 5.5;
             const rotateX = (0.5 - y) * 5.5;
             card.style.setProperty('--tilt-y', `${rotateY.toFixed(2)}deg`);
             card.style.setProperty('--tilt-x', `${rotateX.toFixed(2)}deg`);
+        };
+
+        card.addEventListener('pointerenter', () => {
+            rect = card.getBoundingClientRect();
+        }, { passive: true });
+
+        card.addEventListener('pointermove', (event) => {
+            latestEvent = event;
+            if (frameId === null) {
+                frameId = requestAnimationFrame(updateTilt);
+            }
         }, { passive: true });
 
         card.addEventListener('pointerleave', () => {
+            if (frameId !== null) cancelAnimationFrame(frameId);
+            frameId = null;
+            latestEvent = null;
+            rect = null;
             card.style.setProperty('--tilt-y', '0deg');
             card.style.setProperty('--tilt-x', '0deg');
-        });
+        }, { passive: true });
     });
 }
 
 function markViewEntered(element) {
     if (!element) return;
-    element.classList.remove('view-enter-soft');
-    void element.offsetWidth;
+    if (element.dataset.viewEntered) return;
+    element.dataset.viewEntered = 'true';
     element.classList.add('view-enter-soft');
 }
 
@@ -7119,6 +7144,34 @@ function initRegistrationOptions() {
     let tooltipTransitionToken = 0;
     
     function setupTooltipHover(element, title, filterFn) {
+        let tooltipFrameId = null;
+        let latestPointer = null;
+
+        const positionTooltip = () => {
+            tooltipFrameId = null;
+            if (!tooltip || !latestPointer) return;
+            const x = latestPointer.clientX + 15;
+            const y = latestPointer.clientY + 15;
+
+            const tooltipWidth = tooltip.offsetWidth || 350;
+            const tooltipHeight = tooltip.offsetHeight || 220;
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+
+            let posX = x;
+            let posY = y;
+
+            if (x + tooltipWidth > windowWidth) {
+                posX = latestPointer.clientX - tooltipWidth - 15;
+            }
+            if (y + tooltipHeight > windowHeight) {
+                posY = latestPointer.clientY - tooltipHeight - 15;
+            }
+
+            tooltip.style.left = `${posX}px`;
+            tooltip.style.top = `${posY}px`;
+        };
+
         element.addEventListener('mouseenter', () => {
             if (!tooltip) return;
             const matchingAnimes = state.animes.filter(a => filterFn(a) && a.id !== 'a20' && a.id !== 'a20_s2').slice(0, 4);
@@ -7191,30 +7244,17 @@ function initRegistrationOptions() {
         
         element.addEventListener('mousemove', (e) => {
             if (!tooltip) return;
-            const x = e.clientX + 15;
-            const y = e.clientY + 15;
-            
-            const tooltipWidth = tooltip.offsetWidth || 350;
-            const tooltipHeight = tooltip.offsetHeight || 220;
-            const windowWidth = window.innerWidth;
-            const windowHeight = window.innerHeight;
-            
-            let posX = x;
-            let posY = y;
-            
-            if (x + tooltipWidth > windowWidth) {
-                posX = e.clientX - tooltipWidth - 15;
+            latestPointer = e;
+            if (tooltipFrameId === null) {
+                tooltipFrameId = requestAnimationFrame(positionTooltip);
             }
-            if (y + tooltipHeight > windowHeight) {
-                posY = e.clientY - tooltipHeight - 15;
-            }
-            
-            tooltip.style.left = `${posX}px`;
-            tooltip.style.top = `${posY}px`;
         });
         
         element.addEventListener('mouseleave', () => {
             if (!tooltip) return;
+            if (tooltipFrameId !== null) cancelAnimationFrame(tooltipFrameId);
+            tooltipFrameId = null;
+            latestPointer = null;
             tooltip.style.opacity = '0';
             tooltip.style.transform = 'scale(0.95) translateY(12px)';
             
