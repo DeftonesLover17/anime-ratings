@@ -1084,10 +1084,10 @@ async function submitLogin(identifier, password) {
                     })
                 });
             }
-            return challengeResp;
+            return submitPasswordLogin();
         } catch (err) {
             console.warn('Password proof login failed:', err);
-            throw err;
+            return submitPasswordLogin();
         }
     }
 
@@ -3848,10 +3848,18 @@ function hideRegistrationGate() {
     document.body.classList.remove('overflow-hidden');
 }
 
+function removeLegacyRecoveryAccessLinks() {
+    document.querySelectorAll('button, a').forEach(el => {
+        const text = (el.textContent || '').trim().toLowerCase();
+        if (text.includes('recuperar acesso')) el.remove();
+    });
+}
+
 function showRegistrationGate() {
     document.body.classList.add('overflow-hidden');
     const regGate = document.getElementById('registration-gate');
     if (regGate) {
+        removeLegacyRecoveryAccessLinks();
         regGate.classList.remove('hidden');
         regGate.classList.add('flex');
         initRegistrationOptions();
@@ -4039,6 +4047,8 @@ function setupSplashScreen() {
 
 // Initialise the interface elements and logic
 function initUI() {
+    removeLegacyRecoveryAccessLinks();
+
     // If no friends, show registration gate and stop
     if (state.friends.length === 0) {
         if (state.loggedInUser && getAuthToken()) {
