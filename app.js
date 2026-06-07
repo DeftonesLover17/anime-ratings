@@ -7748,17 +7748,28 @@ function initRegistrationOptions() {
             const emailVal = document.getElementById('login-email').value.trim();
             const passwordVal = document.getElementById('login-password').value.trim();
 
+            let loginData = null;
             try {
                 const loginResp = await submitLogin(emailVal, passwordVal);
-                const loginData = await loginResp.json().catch(() => ({}));
+                loginData = await loginResp.json().catch(() => ({}));
 
                 if (!loginResp.ok || !loginData.user || !loginData.token) {
                     alert(loginData.error || 'E-mail ou senha incorretos! Por favor, tente novamente.');
                     return;
                 }
+            } catch (err) {
+                console.error('Login request failed:', err);
+                alert(err && err.message ? err.message : 'Nao foi possivel conectar ao servidor de login. Tente novamente em alguns instantes.');
+                return;
+            }
 
-                const matchedUser = stripSensitiveUserFields(loginData.user);
-                const userId = matchedUser.username.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const matchedUser = stripSensitiveUserFields(loginData.user);
+            const userId = matchedUser.username.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+            setAuthSession(matchedUser.username, loginData.token);
+            state.currentFriendId = userId;
+
+            try {
                 if (loginData.state) {
                     applyServerStateSnapshot(loginData.state);
                 }
@@ -7779,10 +7790,6 @@ function initRegistrationOptions() {
                     }
                 });
 
-                // Save logged-in username
-                setAuthSession(matchedUser.username, loginData.token);
-                state.currentFriendId = userId;
-                
                 // Reconstruct friends and save/sync
                 state.loadLocalSession();
                 state.save();
@@ -7802,8 +7809,8 @@ function initRegistrationOptions() {
 
                 // Modal only shown on new registration, not on login
             } catch (err) {
-                console.error('Login failed:', err);
-                alert('Não foi possível entrar agora. Tente novamente em alguns instantes.');
+                console.error('Post-login refresh failed:', err);
+                window.location.reload();
             }
         });
     }
