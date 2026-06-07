@@ -25,7 +25,7 @@ const headers = `/*
   Cache-Control: no-cache
 
 /app.js
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: no-cache, max-age=0, must-revalidate
 
 /styles.css
   Cache-Control: public, max-age=31536000, immutable
