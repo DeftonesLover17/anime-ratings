@@ -39,26 +39,11 @@ const DEFAULT_STATE = {
             email: 'mfelipeneto5@gmail.com',
             color: '#FF4500',
             avatar: '👤',
-            friends: ['vanitas'],
+            friends: [],
             friendRequests: [],
             isVirtual: false,
             passwordHash: 'gcsKfuu8ecVMMzNy6uOp4uyaQ7oFWbP+AODk1C6jupo=',
             passwordSalt: 'Z+YU5aMl+huYKZVolVQPVQ==',
-            passwordIterations: 310000,
-            passwordDigest: 'pbkdf2-sha256'
-        },
-        {
-            username: 'vanitas',
-            email: 'vanitas@example.com',
-            color: '#9B59B6',
-            avatar: '🌙',
-            friends: ['Felipe!'],
-            friendRequests: [],
-            isVirtual: false,
-            memberNumber: 1,
-            memberDesc: 'Você é o 1º membro a fazer parte do AniVoid. Seu nome está gravado na história desta comunidade.',
-            passwordHash: 'f+SU7ynUmFdgJMIh/duYGMbqtJd42z+XlW+It/TOmRY=',
-            passwordSalt: 'bTV0UPkEacgHYcavwmD7qA==',
             passwordIterations: 310000,
             passwordDigest: 'pbkdf2-sha256'
         },
@@ -145,30 +130,6 @@ function findRegisteredUserByIdentifier(state, identifier) {
             || (username && username === rawKey)
             || (normalizedUsername && normalizedUsername === normalizedKey);
     }) || null;
-}
-
-function recoveryIdentityKeys(user, submittedIdentifier = '') {
-    return [
-        submittedIdentifier,
-        user && user.email,
-        user && user.username,
-        normalizeUsername(user && user.username)
-    ]
-        .map(identifierKey)
-        .filter(Boolean);
-}
-
-function parseRecoveryAliases(rawAliases) {
-    return String(rawAliases || '')
-        .split(',')
-        .map(pair => pair.trim())
-        .filter(Boolean)
-        .reduce((aliases, pair) => {
-            const separator = pair.includes('=') ? '=' : ':';
-            const [from, to] = pair.split(separator).map(part => part && part.trim());
-            if (from && to) aliases[identifierKey(from)] = to;
-            return aliases;
-        }, {});
 }
 
 function normalizeAnimeIdentity(value) {
@@ -1152,51 +1113,6 @@ async function handleRegister(request, env) {
     return json({ success: true, token, user: sanitizeUser(userToAdd, userToAdd.username), state: sanitizeState(state, userToAdd.username) });
 }
 
-async function handleRecoverPassword(request, env) {
-    const body = await parseJsonBody(request);
-    const expectedToken = String(env.OWNER_RECOVERY_TOKEN || '').trim();
-    const defaultRecoveryEmails = 'mfelipeneto5@gmail.com,yagomatthews9@gmail.com,ninjazokobr@gmail.com,dallestwl@gmail.com';
-    const defaultRecoveryUsers = 'Felipe!,Felipe,yamazx,ninjazokobr,nameless,vanitas';
-    const defaultRecoveryAliases = 'mfelipeneto5@gmail.com=Felipe!,yagomatthews9@gmail.com=yamazx,ninjazokobr@gmail.com=ninjazokobr,dallestwl@gmail.com=vanitas';
-    const allowedIdentifiers = `${defaultRecoveryEmails},${defaultRecoveryUsers},${env.OWNER_RECOVERY_EMAILS || ''},${env.OWNER_RECOVERY_USERS || ''}`
-        .split(',')
-        .map(identifier => identifier.trim())
-        .filter(Boolean);
-    const allowedKeys = new Set(allowedIdentifiers.flatMap(identifier => [identifierKey(identifier), normalizeUsername(identifier)]).filter(Boolean));
-    const recoveryAliases = {
-        ...parseRecoveryAliases(defaultRecoveryAliases),
-        ...parseRecoveryAliases(env.OWNER_RECOVERY_ALIASES)
-    };
-    if (!expectedToken) return json({ error: 'Recuperacao nao configurada.' }, 503);
-    const submittedIdentifier = body && (body.identifier || body.email);
-    if (!body || !submittedIdentifier || !body.token || !isPasswordCredential(body.passwordCredential)) {
-        return json({ error: 'Dados de recuperacao invalidos.' }, 400);
-    }
-    if (!timingSafeEqual(String(body.token), expectedToken)) return json({ error: 'Codigo de recuperacao invalido.' }, 403);
-    const identifier = String(submittedIdentifier).trim();
-    const aliasTarget = recoveryAliases[identifierKey(identifier)];
-
-    const state = await readState(env);
-    const user = findRegisteredUserByIdentifier(state, identifier)
-        || (aliasTarget ? findRegisteredUserByIdentifier(state, aliasTarget) : null);
-    if (!user) return json({ error: 'Usuario nao encontrado. Tente usar o nome de usuario da conta.' }, 404);
-
-    const isAllowed = recoveryIdentityKeys(user, identifier).some(key =>
-        allowedKeys.has(key) || allowedKeys.has(normalizeUsername(key))
-    );
-    if (!isAllowed) return json({ error: 'Conta nao autorizada para recuperacao.' }, 403);
-
-    setPasswordFromCredential(user, body.passwordCredential);
-    if (identifier.includes('@') && user.email !== identifier) {
-        user.email = identifier;
-        user.emailVerified = true;
-    }
-    await writeState(env, state);
-    await getDb(env).prepare('DELETE FROM sessions WHERE username = ?1').bind(user.username).run();
-    const token = await createSession(env, user.username);
-    return json({ success: true, token, user: sanitizeUser(user, user.username), state: sanitizeState(state, user.username) });
-}
-
 async function handlePatchUser(request, env) {
     const body = await parseJsonBody(request);
     if (!body || !body.username || !body.fields) return json({ error: 'Missing username or fields' }, 400);
@@ -1365,7 +1281,6 @@ async function route(request, env) {
     if (path === '/api/login-challenge' && request.method === 'POST') return handleLoginChallenge(request, env);
     if (path === '/api/login' && request.method === 'POST') return handleLogin(request, env);
     if (path === '/api/register' && request.method === 'POST') return handleRegister(request, env);
-    if (path === '/api/recover-password' && request.method === 'POST') return handleRecoverPassword(request, env);
     if (path === '/api/patch-user' && request.method === 'POST') return handlePatchUser(request, env);
     if (path === '/api/sync-state' && request.method === 'POST') return handleSyncState(request, env);
     if (path === '/api/clear-user-ratings' && request.method === 'POST') return handleClearUserRatings(request, env);
