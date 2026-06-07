@@ -1084,10 +1084,15 @@ async function submitLogin(identifier, password) {
                     })
                 });
             }
-            return submitPasswordLogin();
+            return challengeResp;
         } catch (err) {
             console.warn('Password proof login failed:', err);
-            return submitPasswordLogin();
+            return new Response(JSON.stringify({
+                error: 'Nao foi possivel conectar ao servidor de login. Atualize a pagina e tente novamente.'
+            }), {
+                status: 503,
+                headers: { 'Content-Type': 'application/json' }
+            });
         }
     }
 

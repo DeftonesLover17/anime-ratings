@@ -1136,6 +1136,12 @@ async function handleLogin(request, env) {
         const hashOk = user && body.passwordHash && user.passwordHash && timingSafeEqual(body.passwordHash, user.passwordHash);
         if (!proofOk && !hashOk) return json({ error: 'E-mail ou senha incorretos.' }, 401);
     } else {
+        if (user && user.passwordHash) {
+            return json({
+                error: 'Atualize a página e tente entrar novamente.',
+                authChallengeRequired: true
+            }, 409);
+        }
         if (!user || !(await verifyPassword(user, body.password))) return json({ error: 'E-mail ou senha incorretos.' }, 401);
     }
 
