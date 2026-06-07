@@ -1,6 +1,7 @@
 deployed_app.js
 node_modules/
 dist/
+.wrangler/
 tmp/
 logos/*_source.jpg
 .env
