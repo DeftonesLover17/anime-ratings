@@ -1134,6 +1134,38 @@ function normalizeUserSearchText(value) {
         .trim();
 }
 
+function getAnimeSearchAliases(anime) {
+    const title = `${anime?.title || ''} ${anime?.japaneseTitle || ''}`.toLowerCase();
+    const aliases = [];
+    if (title.includes('attack on titan') || title.includes('shingeki')) {
+        aliases.push('snk shingeki no kyojin attack titan final season season 4 part 1 part 2 parte final');
+    }
+    if (title.includes('jujutsu kaisen')) aliases.push('jjk feiticeiros jujutsu temporada season shibuya');
+    if (title.includes('fullmetal alchemist')) aliases.push('fma brotherhood hagane');
+    if (title.includes('neon genesis evangelion')) aliases.push('eva evangelion');
+    return aliases;
+}
+
+function buildAnimeSearchHaystack(anime) {
+    return normalizeUserSearchText([
+        anime?.title,
+        anime?.japaneseTitle,
+        anime?.studio,
+        anime?.season,
+        anime?.status,
+        ...(anime?.genres || []),
+        ...getAnimeSearchAliases(anime)
+    ].filter(Boolean).join(' '));
+}
+
+function matchesAnimeSearch(anime, rawQuery) {
+    const query = normalizeUserSearchText(rawQuery);
+    if (!query) return true;
+    const haystack = buildAnimeSearchHaystack(anime);
+    if (haystack.includes(query)) return true;
+    return query.split(' ').filter(Boolean).every(token => haystack.includes(token));
+}
+
 async function refreshRegisteredUsersFromServer({ force = false } = {}) {
     const now = Date.now();
     if (!force && now - registeredUsersLastRefreshAt < 15000) return true;
@@ -1756,6 +1788,7 @@ class AppState {
                     const nextMe = serverState.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === this.loggedInUser.toLowerCase());
  
                     if (prevMe && nextMe) {
+                        mergeServerNotifications(nextMe.notifications || []);
                         const prevReqs = new Set((prevMe.friendRequests || []).map(r => r.from.toLowerCase()));
                         (nextMe.friendRequests || []).forEach(r => {
                             if (r.from && !prevReqs.has(r.from.toLowerCase())) {
@@ -1789,6 +1822,10 @@ class AppState {
             }
 
             if (serverState.registeredUsers && Array.isArray(serverState.registeredUsers)) {
+                if (this.loggedInUser) {
+                    const nextMeForNotifications = serverState.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === this.loggedInUser.toLowerCase());
+                    if (nextMeForNotifications) mergeServerNotifications(nextMeForNotifications.notifications || []);
+                }
                 // Preserve local friend connections: the server may have a stale version
                 // of the logged-in user's friends list. Merge to keep local additions.
                 let localRegisteredUsers = [];
@@ -2053,6 +2090,29 @@ class AppState {
         } catch (err) {
             console.error('Error responding to friend request:', err);
             return { error: 'Erro de conexão com o servidor' };
+        }
+    }
+
+    async cancelFriendRequest(targetUsername) {
+        if (!this.loggedInUser) return { error: 'Faca login primeiro' };
+        try {
+            const response = await fetch(API_BASE_URL + '/api/cancel-friend-request', {
+                method: 'POST',
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ target: targetUsername })
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                return { error: data.error || 'Erro ao cancelar solicitacao' };
+            }
+            if (data.registeredUsers) {
+                storeRegisteredUsers(data.registeredUsers);
+                this.loadLocalSession();
+            }
+            return { success: true };
+        } catch (err) {
+            console.error('Error canceling friend request:', err);
+            return { error: 'Erro de conexao com o servidor' };
         }
     }
 
@@ -2677,16 +2737,7 @@ class AppState {
             if (archivedJujutsuSeason && !shouldShowArchivedSeason) return false;
 
             // Search match
-            const query = normalizeUserSearchText(this.searchQuery);
-            const animeTitleLower = normalizeUserSearchText(anime.title || '');
-            const animeJpTitleLower = normalizeUserSearchText(anime.japaneseTitle || '');
-            const animeStudioLower = normalizeUserSearchText(anime.studio || '');
-            const animeGenreText = normalizeUserSearchText((anime.genres || []).join(' '));
-            const matchesSearch = !query ||
-                                 animeTitleLower.includes(query) ||
-                                 animeJpTitleLower.includes(query) ||
-                                 animeStudioLower.includes(query) ||
-                                 animeGenreText.includes(query);
+            const matchesSearch = matchesAnimeSearch(anime, this.searchQuery);
             
             // Season match
             const matchesSeason = this.filterSeason === 'All' || anime.season === this.filterSeason;
@@ -2985,6 +3036,50 @@ function pushNotification(notification) {
     updateNotificationBadges();
 }
 
+function mergeServerNotifications(notifications = []) {
+    if (!Array.isArray(notifications) || notifications.length === 0) return;
+    const existing = getStoredNotifications();
+    const existingByServerId = new Map(existing.filter(item => item.serverId).map(item => [item.serverId, item]));
+    const existingByDedupe = new Map(existing.filter(item => item.dedupeKey).map(item => [item.dedupeKey, item]));
+    const merged = [...existing];
+
+    notifications.forEach(notification => {
+        if (!notification || !notification.title) return;
+        const serverId = notification.id || '';
+        const timestamp = notification.timestamp || new Date().toISOString();
+        const dedupeKey = [
+            notification.type || 'system',
+            notification.title,
+            notification.message || '',
+            notification.animeId || '',
+            timestamp.slice(0, 16)
+        ].join('|');
+        const known = (serverId && existingByServerId.get(serverId)) || existingByDedupe.get(dedupeKey);
+        if (known) return;
+        merged.unshift({
+            id: serverId || `srv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            serverId,
+            type: notification.type || 'system',
+            title: notification.title,
+            message: notification.message || '',
+            avatar: notification.avatar || 'bell',
+            color: notification.color || '#FF4500',
+            animeId: notification.animeId || '',
+            timestamp,
+            read: Boolean(notification.read),
+            dedupeKey
+        });
+    });
+
+    setStoredNotifications(merged.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 100));
+    updateNotificationBadges();
+}
+
+function isCurrentUserAdmin() {
+    const id = normalizeProfileId(state.loggedInUser || localStorage.getItem('anivoid_logged_in_username') || '');
+    return id === 'felipe';
+}
+
 function updateNotificationBadges() {
     const unread = getStoredNotifications().filter(item => !item.read).length;
     const badge = document.getElementById('notifications-dropdown-badge');
@@ -3058,12 +3153,24 @@ function markNotificationsRead() {
     setStoredNotifications(items);
     updateNotificationBadges();
     renderNotificationsModal();
+    if (getAuthToken()) {
+        fetch(API_BASE_URL + '/api/notifications/read', {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' })
+        }).catch(() => {});
+    }
 }
 
 function clearNotifications() {
     setStoredNotifications([]);
     updateNotificationBadges();
     renderNotificationsModal();
+    if (getAuthToken()) {
+        fetch(API_BASE_URL + '/api/notifications/clear', {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' })
+        }).catch(() => {});
+    }
 }
 
 function buildPersonalRecommendations(limit = 3, profileId = state.currentFriendId || getLoggedInProfileId()) {
@@ -3284,8 +3391,21 @@ function toggleCommentLike(animeId, commentId) {
     renderComments(anime);
 }
 
-function exportBackupData() {
-    const payload = {
+async function exportBackupData() {
+    let payload = null;
+    if (isCurrentUserAdmin() && getAuthToken()) {
+        try {
+            const response = await fetch(API_BASE_URL + '/api/admin/export-state', {
+                method: 'GET',
+                headers: authHeaders(),
+                cache: 'no-store'
+            });
+            if (response.ok) payload = await response.json();
+        } catch (err) {
+            console.warn('Server backup export failed:', err);
+        }
+    }
+    if (!payload) payload = {
         app: 'anivoid',
         version: 2,
         exportedAt: new Date().toISOString(),
@@ -3430,9 +3550,9 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
                     <div class="min-w-0">
                         <p class="text-[10px] font-mono uppercase tracking-[0.35em] text-white/45">Perfil do usuario</p>
                         <h2 class="text-3xl md:text-5xl font-serif font-black text-white leading-none truncate mt-2">${escapeHtml(user.username)}${badges}</h2>
-                        <div class="mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest" style="color:${rank.color}; border-color:${rank.color}55; background:${rank.color}14; box-shadow:0 0 22px ${rank.color}20">
-                            <iconify-icon icon="${rank.icon}" class="text-sm"></iconify-icon>
-                            Rank ${rank.tier} · ${rank.label}
+                        <div class="mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest" style="color:${user.color}; border-color:${user.color}55; background:${user.color}14; box-shadow:0 0 22px ${user.color}20">
+                            <iconify-icon icon="lucide:sparkles" class="text-sm"></iconify-icon>
+                            Perfil publico &middot; ${stats.ratingCount} notas
                         </div>
                     </div>
                 </div>
@@ -3453,16 +3573,16 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
                     <div class="profile-level-card rounded-3xl border border-white/10 bg-black/30 p-5">
                         <div class="flex items-center justify-between gap-3 mb-3">
                             <div>
-                                <p class="text-[9px] font-mono uppercase tracking-widest text-white/40">N&iacute;vel de conta</p>
-                                <h3 class="text-xl font-serif text-white">N&iacute;vel ${stats.level}</h3>
+                                <p class="text-[9px] font-mono uppercase tracking-widest text-white/40">Resumo de atividade</p>
+                                <h3 class="text-xl font-serif text-white">${completed} concluidos &middot; ${watching} assistindo</h3>
                             </div>
                             <div class="text-right">
-                                <p class="text-[9px] font-mono uppercase tracking-widest text-white/40">XP</p>
-                                <b class="text-sm font-mono text-white">${stats.xp}</b>
+                                <p class="text-[9px] font-mono uppercase tracking-widest text-white/40">Reviews</p>
+                                <b class="text-sm font-mono text-white">${stats.commentsCount}</b>
                             </div>
                         </div>
                         <div class="h-3 rounded-full bg-white/5 overflow-hidden border border-white/5">
-                            <div class="h-full rounded-full" style="width:${stats.levelProgress}%; background:linear-gradient(90deg, ${user.color}, ${rank.color}); box-shadow:0 0 20px ${rank.color}55"></div>
+                            <div class="h-full rounded-full" style="width:${Math.min(100, Math.max(8, stats.avgScore * 10))}%; background:linear-gradient(90deg, ${user.color}, ${scoreColor.text}); box-shadow:0 0 20px ${scoreColor.glow}"></div>
                         </div>
                     </div>
 
@@ -3473,14 +3593,14 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
 
                 <div class="profile-public-card rounded-3xl border border-white/10 bg-black/35 p-5 space-y-4">
                     <div class="flex items-center justify-between">
-                        <h3 class="text-xs font-mono uppercase tracking-widest text-white/65">Painel publico</h3>
-                        <iconify-icon icon="lucide:scan-line" class="text-brand"></iconify-icon>
+                        <h3 class="text-xs font-mono uppercase tracking-widest text-white/65">Resumo publico</h3>
+                        <iconify-icon icon="lucide:user-round-check" class="text-brand"></iconify-icon>
                     </div>
                     <div class="grid grid-cols-2 gap-3 text-center">
                         <div class="rounded-2xl bg-white/[0.04] border border-white/5 p-3"><b class="block text-lg text-white">${watching}</b><span class="text-[9px] text-gray-500 font-mono uppercase">assistindo</span></div>
-                        <div class="rounded-2xl bg-white/[0.04] border border-white/5 p-3"><b class="block text-lg text-white">${completionRate}%</b><span class="text-[9px] text-gray-500 font-mono uppercase">clear rate</span></div>
+                        <div class="rounded-2xl bg-white/[0.04] border border-white/5 p-3"><b class="block text-lg text-white">${completed}</b><span class="text-[9px] text-gray-500 font-mono uppercase">concluidos</span></div>
                     </div>
-                    <p class="text-[11px] text-gray-400 leading-relaxed">Cart&atilde;o r&aacute;pido para comparar gosto, ritmo e conquistas quando voc&ecirc; abre o perfil de algu&eacute;m.</p>
+                    <p class="text-[11px] text-gray-400 leading-relaxed">Vis&atilde;o r&aacute;pida do gosto, das notas e do hist&oacute;rico vis&iacute;vel deste usu&aacute;rio.</p>
                 </div>
             </div>
         </div>
@@ -3515,11 +3635,11 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
                     ${activityRows}
                 </div>
                 <div class="rounded-3xl border border-white/8 bg-white/[0.025] p-5 space-y-3">
-                    <h3 class="text-xs font-mono uppercase tracking-widest text-white/70">Estilo de jogo</h3>
+                    <h3 class="text-xs font-mono uppercase tracking-widest text-white/70">Distribui&ccedil;&atilde;o</h3>
                     <div class="profile-style-grid">
-                        <span>Precisao <b>${stats.avgScore > 0 ? Math.min(100, Math.round(stats.avgScore * 10)) : 0}</b></span>
-                        <span>Consistencia <b>${Math.min(100, stats.ratingCount * 6)}</b></span>
-                        <span>Exploracao <b>${Math.min(100, Object.keys(stats.statusCounts).reduce((sum, key) => sum + (stats.statusCounts[key] > 0 ? 12 : 0), 0))}</b></span>
+                        <span>Assistindo <b>${watching}</b></span>
+                        <span>Concluidos <b>${completed}</b></span>
+                        <span>Reviews <b>${stats.commentsCount}</b></span>
                     </div>
                 </div>
             </aside>
@@ -3590,6 +3710,48 @@ function setupUtilityModals() {
     });
     bindOnce('mark-notifications-read', 'click', markNotificationsRead);
     bindOnce('clear-notifications', 'click', clearNotifications);
+    bindOnce('open-activity-history', 'click', () => {
+        renderActivityHistoryModal();
+        const modal = document.getElementById('activity-history-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+    });
+    bindOnce('close-activity-history', 'click', () => {
+        const modal = document.getElementById('activity-history-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    });
+    bindOnce('open-admin-center', 'click', (event) => {
+        event.stopPropagation();
+        closeDropdown();
+        if (!isCurrentUserAdmin()) return;
+        const modal = document.getElementById('admin-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            renderAdminCenter();
+        }
+    });
+    bindOnce('close-admin-center', 'click', () => {
+        const modal = document.getElementById('admin-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    });
+    bindOnce('admin-create-backup', 'click', async () => {
+        try {
+            const data = await loadAdminBackups(true);
+            renderAdminBackups(data.backups || []);
+            showToast('Backup criado', 'Snapshot do D1 salvo com sucesso.', 'backup', '#22c55e');
+        } catch (err) {
+            alert('Nao foi possivel criar backup agora.');
+        }
+    });
     bindOnce('open-backup-center', 'click', (event) => {
         event.stopPropagation();
         closeDropdown();
@@ -4062,6 +4224,16 @@ function updateProfileIndicator() {
         profileIndicator.style.setProperty('--profile-color', friend.color || '#FF4500');
         profileIndicator.style.borderColor = friend.color;
         profileIndicator.style.boxShadow = `0 0 15px ${friend.color}40`;
+    }
+    const adminBtn = document.getElementById('open-admin-center');
+    if (adminBtn) {
+        if (isCurrentUserAdmin()) {
+            adminBtn.classList.remove('hidden');
+            adminBtn.classList.add('flex');
+        } else {
+            adminBtn.classList.add('hidden');
+            adminBtn.classList.remove('flex');
+        }
     }
 
     // Update friend requests badge
@@ -8282,8 +8454,28 @@ function setupEditProfileModal() {
     const avatarTrigger = document.getElementById('edit-profile-avatar-trigger');
     const avatarUploadBtn = document.getElementById('edit-profile-avatar-upload-btn');
     const avatarFileInput = document.getElementById('edit-profile-avatar-file');
+    const currentPasswordInput = document.getElementById('edit-profile-current-password');
+    const newPasswordInput = document.getElementById('edit-profile-new-password');
+    const signOutAllBtn = document.getElementById('edit-profile-signout-all');
 
     if (!modal || !form) return;
+
+    if (signOutAllBtn && !signOutAllBtn.dataset.editProfileHooked) {
+        signOutAllBtn.dataset.editProfileHooked = 'true';
+        signOutAllBtn.addEventListener('click', async () => {
+            if (!confirm('Sair de todos os dispositivos? Voce precisara entrar de novo aqui tambem.')) return;
+            const response = await fetch(API_BASE_URL + '/api/account/signout-all', {
+                method: 'POST',
+                headers: authHeaders({ 'Content-Type': 'application/json' })
+            }).catch(() => null);
+            if (!response || !response.ok) {
+                alert('Nao foi possivel encerrar as sessoes agora.');
+                return;
+            }
+            clearAuthSession();
+            window.location.reload();
+        });
+    }
 
     if (avatarTrigger && avatarFileInput && !avatarTrigger.dataset.editProfileHooked) {
         avatarTrigger.dataset.editProfileHooked = 'true';
@@ -8381,6 +8573,8 @@ function setupEditProfileModal() {
             if (emailInput) emailInput.value = user.email || '';
             if (colorInput) colorInput.value = user.color || '#FF4500';
             if (avatarInput) avatarInput.value = user.avatar || '😎';
+            if (currentPasswordInput) currentPasswordInput.value = '';
+            if (newPasswordInput) newPasswordInput.value = '';
 
             const editTitleContainer = document.getElementById('edit-profile-title-container');
             const isFelipe = user.username && user.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
@@ -8431,11 +8625,28 @@ function setupEditProfileModal() {
         const newEmail = emailInput.value.trim();
         const newColor = colorInput.value;
         const newAvatar = avatarInput.value;
+        const currentPassword = currentPasswordInput ? currentPasswordInput.value.trim() : '';
+        const newPassword = newPasswordInput ? newPasswordInput.value.trim() : '';
 
         const editUsername = modal.dataset.editUsername || getSessionUsername();
         if (!editUsername) {
             alert('Nao foi possivel identificar sua sessao. Entre novamente antes de editar o perfil.');
             return;
+        }
+        if (newPassword) {
+            if (newPassword.length < 4) {
+                alert('A nova senha deve ter pelo menos 4 caracteres.');
+                return;
+            }
+            if (!currentPassword) {
+                alert('Digite sua senha atual para trocar a senha.');
+                return;
+            }
+            const loginCheck = await submitLogin(editUsername, currentPassword).catch(() => null);
+            if (!loginCheck || !loginCheck.ok) {
+                alert('Senha atual incorreta. A senha nova nao foi salva.');
+                return;
+            }
         }
         const registeredUsers = getCachedRegisteredUsers();
         const userRecord = findCachedUserByUsername(registeredUsers, editUsername);
@@ -8478,6 +8689,23 @@ function setupEditProfileModal() {
             console.error('Profile update failed:', err);
             alert('Nao foi possivel salvar seu perfil agora. Tente novamente em instantes.');
             return;
+        }
+
+        if (newPassword) {
+            const passwordPayload = USE_CLIENT_PASSWORD_PROOF
+                ? { passwordCredential: await createPasswordCredential(newPassword) }
+                : { password: newPassword };
+            const passwordResp = await fetch(API_BASE_URL + '/api/account/change-password', {
+                method: 'POST',
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify(passwordPayload)
+            }).catch(() => null);
+            if (!passwordResp || !passwordResp.ok) {
+                alert('Perfil salvo, mas nao foi possivel trocar a senha agora.');
+            } else {
+                if (currentPasswordInput) currentPasswordInput.value = '';
+                if (newPasswordInput) newPasswordInput.value = '';
+            }
         }
 
         // Reconstruct friends and save/sync
@@ -8854,6 +9082,7 @@ function initAddFriendModalOptions() {
 function renderCentralDeAmigos() {
     renderRegisteredUsersSuggestions();
     renderPendingRequests();
+    renderSentRequests();
     renderModalFriendsList();
 }
 
@@ -9083,6 +9312,66 @@ function renderPendingRequests() {
             }
         });
 
+        container.appendChild(item);
+    });
+}
+
+function renderSentRequests() {
+    const section = document.getElementById('sent-requests-section');
+    const container = document.getElementById('sent-requests-list');
+    if (!section || !container) return;
+
+    let registeredUsers = [];
+    try {
+        registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+    } catch (err) {}
+
+    const loggedInUsername = localStorage.getItem('anivoid_logged_in_username') || '';
+    if (!loggedInUsername) {
+        section.classList.add('hidden');
+        return;
+    }
+
+    const sent = registeredUsers
+        .filter(user => user && user.username && Array.isArray(user.friendRequests))
+        .filter(user => user.friendRequests.some(req => req && req.from && req.from.toLowerCase() === loggedInUsername.toLowerCase()));
+
+    if (sent.length === 0) {
+        section.classList.add('hidden');
+        container.innerHTML = '';
+        return;
+    }
+
+    section.classList.remove('hidden');
+    container.innerHTML = '';
+
+    sent.forEach(target => {
+        const item = document.createElement('div');
+        item.className = 'flex items-center justify-between p-2.5 bg-amber-500/[0.06] border border-amber-400/15 rounded-2xl gap-3 animate-[fadeIn_0.2s_ease-out]';
+        const avatarHtml = target.avatar && (target.avatar.startsWith('data:') || target.avatar.startsWith('http'))
+            ? `<img src="${target.avatar}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">`
+            : `<span class="text-xl shrink-0">${target.avatar || '&#128100;'}</span>`;
+        item.innerHTML = `
+            <div class="flex items-center gap-2 min-w-0 flex-grow">
+                ${avatarHtml}
+                <div class="min-w-0">
+                    <p class="font-bold text-white text-[11.5px] truncate leading-tight">${escapeHtml(target.username)}</p>
+                    <p class="text-[9px] text-amber-300/80 font-mono font-semibold">Aguardando resposta</p>
+                </div>
+            </div>
+            <button type="button" class="btn-cancel-request px-2.5 py-1.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 rounded-xl text-[9px] font-mono uppercase tracking-wider font-semibold transition-colors shrink-0">
+                Cancelar
+            </button>
+        `;
+        item.querySelector('.btn-cancel-request').addEventListener('click', async () => {
+            const res = await state.cancelFriendRequest(target.username);
+            if (res.error) {
+                alert(res.error);
+                return;
+            }
+            state.save();
+            renderCentralDeAmigos();
+        });
         container.appendChild(item);
     });
 }
@@ -9344,6 +9633,196 @@ function renderActivitiesFeed() {
     });
     initSoftTiltCards(list);
     markViewEntered(list);
+}
+
+function renderActivityHistoryModal() {
+    const list = document.getElementById('activity-history-list');
+    if (!list) return;
+    const activities = [...(state.activities || [])]
+        .filter(activity => activity && activity.username && activity.animeId)
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .slice(0, 80);
+    if (!activities.length) {
+        list.innerHTML = `<div class="col-span-full rounded-3xl border border-white/5 bg-white/[0.025] p-8 text-center text-[11px] text-gray-500 italic">Nenhuma atividade registrada ainda.</div>`;
+        return;
+    }
+    list.innerHTML = activities.map(activity => {
+        const meta = getActivityMeta(activity);
+        let timeText = '';
+        try {
+            const date = new Date(activity.timestamp);
+            timeText = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        } catch (err) {}
+        return `
+            <button class="activity-history-row text-left rounded-2xl border border-white/8 bg-white/[0.03] hover:bg-white/[0.055] p-4 flex gap-3 transition-colors" data-anime-id="${escapeHtml(activity.animeId || '')}">
+                <div class="w-10 h-10 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center shrink-0" style="color:${meta.color}; box-shadow:0 0 18px ${meta.color}22">
+                    <span class="text-lg">${meta.emoji}</span>
+                </div>
+                <div class="min-w-0 flex-grow">
+                    <div class="flex items-center justify-between gap-3">
+                        <b class="text-[11px] font-mono truncate" style="color:${escapeHtml(activity.userColor || '#FF4500')}">${escapeHtml(activity.username)}</b>
+                        <span class="text-[9px] text-gray-500 font-mono shrink-0">${escapeHtml(timeText)}</span>
+                    </div>
+                    <p class="text-[11px] text-gray-400 mt-1 leading-relaxed">
+                        <span class="font-bold" style="color:${meta.color}">${escapeHtml(meta.label)}</span>
+                        ${escapeHtml(activity.details || 'interagiu')} em
+                        <span class="text-white/85 font-semibold">${escapeHtml(activity.animeTitle || 'Anime')}</span>
+                    </p>
+                </div>
+            </button>
+        `;
+    }).join('');
+    list.querySelectorAll('[data-anime-id]').forEach(row => {
+        row.addEventListener('click', () => {
+            const modal = document.getElementById('activity-history-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+            if (row.dataset.animeId) openAnimeDetail(row.dataset.animeId);
+        });
+    });
+}
+
+async function loadAdminOverview() {
+    if (!isCurrentUserAdmin()) return null;
+    const response = await fetch(API_BASE_URL + '/api/admin/overview', {
+        method: 'GET',
+        headers: authHeaders(),
+        cache: 'no-store'
+    });
+    if (!response.ok) throw new Error('admin_overview_failed');
+    return response.json();
+}
+
+async function loadAdminBackups(create = false) {
+    const response = await fetch(API_BASE_URL + '/api/admin/backups', {
+        method: create ? 'POST' : 'GET',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        cache: 'no-store'
+    });
+    if (!response.ok) throw new Error('admin_backups_failed');
+    return response.json();
+}
+
+function renderAdminMetric(label, value, icon) {
+    return `
+        <div class="rounded-2xl border border-white/8 bg-white/[0.035] p-4">
+            <div class="flex items-center justify-between gap-3 text-white/45">
+                <span class="text-[9px] font-mono uppercase tracking-widest">${escapeHtml(label)}</span>
+                <iconify-icon icon="${icon}" class="text-brand text-sm"></iconify-icon>
+            </div>
+            <b class="block text-2xl font-serif text-white mt-3">${escapeHtml(value)}</b>
+        </div>
+    `;
+}
+
+async function renderAdminCenter() {
+    const overviewEl = document.getElementById('admin-overview');
+    const usersEl = document.getElementById('admin-users-list');
+    const backupsEl = document.getElementById('admin-backups-list');
+    if (!overviewEl || !usersEl || !backupsEl) return;
+    overviewEl.innerHTML = `<div class="col-span-full text-[11px] text-gray-500 font-mono">Carregando painel...</div>`;
+    usersEl.innerHTML = '';
+    backupsEl.innerHTML = '';
+    try {
+        const data = await loadAdminOverview();
+        const overview = data.overview || {};
+        overviewEl.innerHTML = [
+            renderAdminMetric('Usuarios', overview.users || 0, 'lucide:users'),
+            renderAdminMetric('Animes', overview.animes || 0, 'lucide:clapperboard'),
+            renderAdminMetric('Notas', overview.ratings || 0, 'lucide:star'),
+            renderAdminMetric('Backups', overview.backups || 0, 'lucide:database-backup')
+        ].join('');
+
+        usersEl.innerHTML = (data.users || []).map(user => {
+            const userId = normalizeProfileId(user.username);
+            const isMe = userId === getLoggedInProfileId();
+            const avatar = user.avatar && (user.avatar.startsWith('data:') || user.avatar.startsWith('http'))
+                ? `<img src="${escapeHtml(user.avatar)}" class="w-8 h-8 rounded-full object-cover" alt="">`
+                : `<span class="text-xl">${escapeHtml(user.avatar || '&#128100;')}</span>`;
+            return `
+                <div class="rounded-2xl border border-white/8 bg-white/[0.03] p-3 flex items-center gap-3">
+                    ${avatar}
+                    <div class="min-w-0 flex-grow">
+                        <p class="text-xs font-mono font-bold text-white truncate">${escapeHtml(user.username)}</p>
+                        <p class="text-[9px] text-gray-500 font-mono truncate">${escapeHtml(user.email || 'email privado')} &middot; ${user.friends?.length || 0} amigos</p>
+                    </div>
+                    <button class="admin-delete-user px-3 py-2 rounded-xl border border-red-500/25 text-red-300 hover:bg-red-500/10 text-[9px] font-mono uppercase tracking-widest ${isMe ? 'opacity-30 pointer-events-none' : ''}" data-username="${escapeHtml(user.username)}">Remover</button>
+                </div>
+            `;
+        }).join('') || `<p class="text-[11px] text-gray-500 italic">Sem usuarios.</p>`;
+
+        usersEl.querySelectorAll('.admin-delete-user').forEach(button => {
+            button.addEventListener('click', async () => {
+                const username = button.dataset.username;
+                if (!username || !confirm(`Remover ${username} e limpar dados ligados a essa conta?`)) return;
+                const response = await fetch(API_BASE_URL + '/api/admin/delete-user', {
+                    method: 'POST',
+                    headers: authHeaders({ 'Content-Type': 'application/json' }),
+                    body: JSON.stringify({ username })
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok || !payload.success) {
+                    alert(payload.error || 'Nao foi possivel remover usuario.');
+                    return;
+                }
+                if (payload.state) applyServerStateSnapshot(payload.state);
+                await state.syncWithServer();
+                renderAdminCenter();
+            });
+        });
+
+        const backupData = await loadAdminBackups(false);
+        renderAdminBackups(backupData.backups || []);
+    } catch (err) {
+        overviewEl.innerHTML = `<div class="col-span-full rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-[11px] text-red-300 font-mono">Nao foi possivel carregar o painel admin.</div>`;
+    }
+}
+
+function renderAdminBackups(backups) {
+    const backupsEl = document.getElementById('admin-backups-list');
+    if (!backupsEl) return;
+    if (!Array.isArray(backups) || backups.length === 0) {
+        backupsEl.innerHTML = `<p class="text-[11px] text-gray-500 italic">Nenhum snapshot ainda.</p>`;
+        return;
+    }
+    backupsEl.innerHTML = backups.map(backup => {
+        const kb = Math.max(1, Math.round((Number(backup.bytes) || 0) / 1024));
+        return `
+            <div class="rounded-2xl border border-white/8 bg-white/[0.03] p-3 flex items-center gap-3">
+                <iconify-icon icon="lucide:database-backup" class="text-brand text-lg"></iconify-icon>
+                <div class="min-w-0 flex-grow">
+                    <p class="text-xs font-mono font-bold text-white truncate">#${escapeHtml(backup.id)} &middot; ${escapeHtml(backup.reason || 'backup')}</p>
+                    <p class="text-[9px] text-gray-500 font-mono truncate">${escapeHtml(backup.createdAt || '')} &middot; ${kb} KB</p>
+                </div>
+                <button class="admin-download-backup px-3 py-2 rounded-xl border border-white/10 text-white/70 hover:bg-white/5 text-[9px] font-mono uppercase tracking-widest" data-id="${escapeHtml(backup.id)}">Baixar</button>
+            </div>
+        `;
+    }).join('');
+    backupsEl.querySelectorAll('.admin-download-backup').forEach(button => {
+        button.addEventListener('click', async () => {
+            const response = await fetch(API_BASE_URL + `/api/admin/backups/${button.dataset.id}`, {
+                method: 'GET',
+                headers: authHeaders(),
+                cache: 'no-store'
+            });
+            if (!response.ok) {
+                alert('Nao foi possivel baixar este backup.');
+                return;
+            }
+            const payload = await response.json();
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `anivoid-server-backup-${button.dataset.id}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        });
+    });
 }
 
 // ──────────────────────────────────────────────────────────────────────────

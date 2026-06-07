@@ -312,6 +312,10 @@
                         <iconify-icon icon="lucide:database-backup" class="text-base text-brand"></iconify-icon>
                         <span class="font-mono uppercase tracking-wider">Backup dos Dados</span>
                     </button>
+                    <button id="open-admin-center" class="hidden w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-white/80 hover:bg-white/5 transition-colors">
+                        <iconify-icon icon="lucide:shield-check" class="text-base text-brand"></iconify-icon>
+                        <span class="font-mono uppercase tracking-wider">Painel Admin</span>
+                    </button>
                     <div class="w-full h-px bg-white/5 my-2"></div>
                     <button id="open-group-stats" class="w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-white/80 hover:bg-white/5 transition-colors">
                         <iconify-icon icon="lucide:bar-chart-3" class="text-base text-brand"></iconify-icon>
@@ -345,7 +349,7 @@
                         <iconify-icon icon="lucide:zap" class="text-brand text-lg animate-pulse"></iconify-icon>
                         <h3 class="text-sm font-mono uppercase tracking-widest text-white/90">Mural de Atividades</h3>
                     </div>
-                    <span class="text-[9px] text-gray-500 font-mono uppercase">Últimas ações do grupo</span>
+                    <button id="open-activity-history" class="text-[9px] text-gray-500 hover:text-white font-mono uppercase tracking-widest transition-colors">Ver hist&oacute;rico completo</button>
                 </div>
                 <div id="activities-feed-list" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="activity-card-3d col-span-full py-8 text-center glass-panel rounded-3xl p-6 border border-white/5">
@@ -794,6 +798,18 @@
                 </div>
             </div>
 
+            <!-- Outgoing Requests Section -->
+            <div id="sent-requests-section" class="space-y-3 hidden">
+                <div class="h-px bg-white/10"></div>
+                <h4 class="text-xs uppercase tracking-wider font-semibold text-amber-300 font-mono flex items-center gap-1.5">
+                    <iconify-icon icon="lucide:send"></iconify-icon>
+                    <span>Solicita&ccedil;&otilde;es Enviadas</span>
+                </h4>
+                <div id="sent-requests-list" class="space-y-2 max-h-36 overflow-y-auto pr-1">
+                    <!-- Dynamically populated in JS -->
+                </div>
+            </div>
+
             <!-- Current Friends List Section -->
             <div class="space-y-3">
                 <div class="h-px bg-white/10"></div>
@@ -920,6 +936,22 @@
                 <div class="space-y-1.5">
                     <label class="text-gray-400 uppercase tracking-wider block font-semibold">E-mail</label>
                     <input type="email" id="edit-profile-email" required class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50">
+                </div>
+
+                <div class="rounded-2xl border border-white/8 bg-white/[0.025] p-4 space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <p class="text-[10px] text-gray-400 uppercase tracking-widest font-semibold">Seguranca da conta</p>
+                            <p class="text-[10px] text-gray-500 mt-1">Preencha apenas se quiser trocar a senha.</p>
+                        </div>
+                        <button type="button" id="edit-profile-signout-all" class="px-3 py-2 rounded-xl border border-red-500/25 text-red-300 hover:bg-red-500/10 text-[9px] uppercase tracking-wider font-bold">
+                            Sair de todos
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <input type="password" id="edit-profile-current-password" placeholder="Senha atual" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-xs focus:outline-none focus:border-brand/50">
+                        <input type="password" id="edit-profile-new-password" placeholder="Nova senha" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-xs focus:outline-none focus:border-brand/50">
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
@@ -1160,6 +1192,62 @@
         </div>
     </div>
 
+    <!-- ACTIVITY HISTORY MODAL -->
+    <div id="activity-history-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
+        <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl p-6 md:p-8 space-y-5 my-auto relative">
+            <div class="flex items-center justify-between border-b border-white/5 pb-4">
+                <div class="flex items-center gap-2 text-xs font-mono text-gray-400">
+                    <iconify-icon icon="lucide:activity" class="text-brand text-base"></iconify-icon>
+                    <span class="tracking-widest uppercase text-[10px]">Hist&oacute;rico completo</span>
+                </div>
+                <button id="close-activity-history" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors text-gray-400 hover:text-white border-0">
+                    <iconify-icon icon="lucide:x" class="text-lg"></iconify-icon>
+                </button>
+            </div>
+            <div id="activity-history-list" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[65vh] overflow-y-auto pr-1">
+                <!-- JS populated -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ADMIN MODAL -->
+    <div id="admin-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
+        <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl p-6 md:p-8 space-y-6 my-auto relative">
+            <div class="flex items-center justify-between border-b border-white/5 pb-4">
+                <div class="flex items-center gap-2 text-xs font-mono text-gray-400">
+                    <iconify-icon icon="lucide:shield-check" class="text-brand text-base"></iconify-icon>
+                    <span class="tracking-widest uppercase text-[10px]">Painel Admin</span>
+                </div>
+                <button id="close-admin-center" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors text-gray-400 hover:text-white border-0">
+                    <iconify-icon icon="lucide:x" class="text-lg"></iconify-icon>
+                </button>
+            </div>
+            <div id="admin-overview" class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <!-- JS populated -->
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-[1fr_0.9fr] gap-5">
+                <section class="rounded-3xl border border-white/8 bg-white/[0.025] p-5 space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <h3 class="text-xs font-mono uppercase tracking-widest text-white/70">Usu&aacute;rios</h3>
+                        <span class="text-[9px] text-gray-500 font-mono uppercase">a&ccedil;&otilde;es r&aacute;pidas</span>
+                    </div>
+                    <div id="admin-users-list" class="space-y-2 max-h-[42vh] overflow-y-auto pr-1">
+                        <!-- JS populated -->
+                    </div>
+                </section>
+                <section class="rounded-3xl border border-white/8 bg-white/[0.025] p-5 space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <h3 class="text-xs font-mono uppercase tracking-widest text-white/70">Backups D1</h3>
+                        <button id="admin-create-backup" class="px-3 py-2 rounded-full bg-white text-black text-[9px] font-mono uppercase tracking-widest font-bold">Criar snapshot</button>
+                    </div>
+                    <div id="admin-backups-list" class="space-y-2 max-h-[42vh] overflow-y-auto pr-1">
+                        <!-- JS populated -->
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
     <!-- BACKUP MODAL -->
     <div id="backup-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
         <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl p-6 md:p-8 space-y-6 my-auto relative">
@@ -1196,7 +1284,7 @@
     </div>
 
     <!-- Scripts Integration -->
-    <script src="app.js?v=67"></script>
+    <script src="app.js?v=68"></script>
     <script>
         // Custom simple trigger for profile menu opening
         const profileBtn = document.getElementById('profile-indicator');

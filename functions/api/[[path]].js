@@ -3,6 +3,8 @@ const PASSWORD_KEY_LENGTH_BITS = 256;
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const MAX_EXTERNAL_IMAGE_URL_LENGTH = 4096;
 const MAX_DATA_IMAGE_LENGTH = 2 * 1024 * 1024;
+const BACKUP_RETENTION = 20;
+const AUTO_BACKUP_INTERVAL_MS = 1000 * 60 * 30;
 
 const DEFAULT_STATE = {
     friends: [],
@@ -293,8 +295,24 @@ function sanitizeUserRecord(user) {
                 from: escapeHtml(req && req.from || '', 40),
                 timestamp: escapeHtml(req && req.timestamp || '', 40)
             }))
-            : []
+            : [],
+        notifications: sanitizeNotifications(user.notifications)
     };
+}
+
+function sanitizeNotifications(notifications) {
+    if (!Array.isArray(notifications)) return [];
+    return notifications.slice(0, 100).map(notification => ({
+        id: escapeHtml(notification && notification.id || '', 120),
+        type: escapeHtml(notification && notification.type || 'system', 60),
+        title: escapeHtml(notification && notification.title || '', 120),
+        message: escapeHtml(notification && notification.message || '', 300),
+        animeId: escapeHtml(notification && notification.animeId || '', 120),
+        color: sanitizeColor(notification && notification.color),
+        avatar: sanitizeAvatar(notification && notification.avatar),
+        read: Boolean(notification && notification.read),
+        timestamp: escapeHtml(notification && notification.timestamp || '', 40)
+    })).filter(notification => notification.title);
 }
 
 function sanitizeComment(comment) {
@@ -426,6 +444,7 @@ function sanitizeUser(user, viewerUsername = '') {
     } = user;
     if (viewerUsername && user.username && sameUsername(user.username, viewerUsername)) return safeUser;
     delete safeUser.email;
+    delete safeUser.notifications;
     return safeUser;
 }
 
@@ -641,6 +660,51 @@ function normalizeSocialGraph(state) {
     return state;
 }
 
+function pushUserNotification(user, notification) {
+    if (!user || !notification || !notification.title) return;
+    if (!Array.isArray(user.notifications)) user.notifications = [];
+    const timestamp = notification.timestamp || new Date().toISOString();
+    const dedupeKey = [
+        notification.type || 'system',
+        notification.title,
+        notification.message || '',
+        notification.animeId || '',
+        timestamp.slice(0, 16)
+    ].join('|');
+    const alreadyExists = user.notifications.some(item => item && item.dedupeKey === dedupeKey);
+    if (alreadyExists) return;
+    user.notifications.unshift({
+        id: `srv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        type: notification.type || 'system',
+        title: notification.title,
+        message: notification.message || '',
+        animeId: notification.animeId || '',
+        color: notification.color || user.color || '#FF4500',
+        avatar: notification.avatar || user.avatar || 'bell',
+        read: false,
+        timestamp,
+        dedupeKey
+    });
+    user.notifications = user.notifications.slice(0, 100);
+}
+
+function notifyFriendsOfActivity(state, authorUser, activity) {
+    if (!state || !authorUser || !activity || !Array.isArray(authorUser.friends)) return;
+    authorUser.friends.forEach(friendName => {
+        const friendUser = findRegisteredUser(state, friendName);
+        if (!friendUser || sameUsername(friendUser.username, authorUser.username)) return;
+        pushUserNotification(friendUser, {
+            type: activity.type || 'activity',
+            title: authorUser.username,
+            message: `${activity.details || 'interagiu'} em ${activity.animeTitle || 'um anime'}`,
+            animeId: activity.animeId || '',
+            color: authorUser.color || '#FF4500',
+            avatar: authorUser.avatar || 'bell',
+            timestamp: activity.timestamp
+        });
+    });
+}
+
 function isAdminUser(user, env) {
     const admins = String(env.ADMIN_USERS || 'Felipe!,Felipe')
         .split(',')
@@ -659,11 +723,46 @@ async function ensureStorage(env) {
     await db.prepare('CREATE TABLE IF NOT EXISTS app_state (id TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)').run();
     await db.prepare('CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, username TEXT NOT NULL, expires_at INTEGER NOT NULL)').run();
     await db.prepare('CREATE TABLE IF NOT EXISTS auth_challenges (nonce TEXT PRIMARY KEY, email TEXT NOT NULL, expires_at INTEGER NOT NULL)').run();
+    await db.prepare('CREATE TABLE IF NOT EXISTS state_backups (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, reason TEXT NOT NULL, state TEXT NOT NULL)').run();
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions (expires_at)').run();
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_auth_challenges_expires_at ON auth_challenges (expires_at)').run();
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_state_backups_created_at ON state_backups (created_at)').run();
     await db.prepare(
         "INSERT INTO app_state (id, state, updated_at) VALUES ('main', ?1, CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING"
     ).bind(JSON.stringify(sanitizeStateForStorage(clone(DEFAULT_STATE)))).run();
+}
+
+async function pruneBackups(env) {
+    await getDb(env).prepare(
+        'DELETE FROM state_backups WHERE id NOT IN (SELECT id FROM state_backups ORDER BY id DESC LIMIT ?1)'
+    ).bind(BACKUP_RETENTION).run();
+}
+
+async function createStateBackup(env, stateText, reason = 'manual') {
+    if (!stateText) return null;
+    const safeReason = escapeHtml(reason || 'manual', 80);
+    await getDb(env).prepare(
+        'INSERT INTO state_backups (reason, state) VALUES (?1, ?2)'
+    ).bind(safeReason, stateText).run();
+    await pruneBackups(env);
+    return true;
+}
+
+async function maybeCreateAutomaticBackup(env, reason = 'auto') {
+    try {
+        const db = getDb(env);
+        const last = await db.prepare("SELECT created_at FROM state_backups WHERE reason = 'auto' ORDER BY id DESC LIMIT 1").first();
+        if (last && last.created_at) {
+            const age = Date.now() - new Date(last.created_at).getTime();
+            if (Number.isFinite(age) && age < AUTO_BACKUP_INTERVAL_MS) return false;
+        }
+        const row = await db.prepare('SELECT state FROM app_state WHERE id = ?1').bind('main').first();
+        if (!row || !row.state) return false;
+        await createStateBackup(env, row.state, reason);
+        return true;
+    } catch (err) {
+        return false;
+    }
 }
 
 async function readState(env) {
@@ -680,6 +779,7 @@ async function readState(env) {
 async function writeState(env, state) {
     await ensureStorage(env);
     normalizeSocialGraph(state);
+    await maybeCreateAutomaticBackup(env, 'auto');
     const safeState = sanitizeStateForStorage(state);
     await getDb(env).prepare(
         "INSERT INTO app_state (id, state, updated_at) VALUES ('main', ?1, CURRENT_TIMESTAMP) ON CONFLICT(id) DO UPDATE SET state = excluded.state, updated_at = CURRENT_TIMESTAMP"
@@ -875,7 +975,9 @@ function mergeStates(localState, serverState, loggedInUser) {
     mergeClientActivities(mergedActivities, localState.activities, authorUser, loggedInUser);
     const pushActivity = (type, anime, details) => {
         if (!loggedInUser || !anime || !anime.id) return;
-        mergedActivities.push(createActivity(authorUser, type, anime, details));
+        const activity = createActivity(authorUser, type, anime, details);
+        mergedActivities.push(activity);
+        notifyFriendsOfActivity(serverState, authorUser, activity);
     };
 
     const nextState = {
@@ -1100,8 +1202,16 @@ async function handleRegister(request, env) {
         activeTitle: newUser.activeTitle || '',
         memberNumber: nextMemberNumber,
         memberDesc: `Você é o ${nextMemberNumber}º membro a fazer parte do AniVoid. Bem-vindo a esta comunidade.`,
+        notifications: [],
         isVirtual: false
     };
+    pushUserNotification(userToAdd, {
+        type: 'welcome',
+        title: 'Bem-vindo ao AniVoid',
+        message: 'Sua conta foi criada. Agora suas notas e perfil ficam sincronizados.',
+        color: userToAdd.color,
+        avatar: userToAdd.avatar
+    });
     if (isPasswordCredential(newUser.passwordCredential)) {
         setPasswordFromCredential(userToAdd, newUser.passwordCredential);
     } else {
@@ -1170,6 +1280,20 @@ async function handleFriendRequest(request, env) {
 
     if (Array.isArray(fromUser.friendRequests) && fromUser.friendRequests.some(req => req && sameUsername(req.from, toUser.username))) {
         ensureMutualFriendship(fromUser, toUser);
+        pushUserNotification(toUser, {
+            type: 'friend_accept',
+            title: 'Convite aceito',
+            message: `${fromUser.username} aceitou seu convite de amizade.`,
+            color: fromUser.color || '#22c55e',
+            avatar: fromUser.avatar || 'bell'
+        });
+        pushUserNotification(fromUser, {
+            type: 'friend_accept',
+            title: 'Nova amizade',
+            message: `${toUser.username} agora esta na sua lista.`,
+            color: toUser.color || '#22c55e',
+            avatar: toUser.avatar || 'bell'
+        });
         await writeState(env, state);
         return json({ success: true, accepted: true, registeredUsers: sanitizeState(state, auth.user.username).registeredUsers });
     }
@@ -1177,6 +1301,13 @@ async function handleFriendRequest(request, env) {
     if (!Array.isArray(toUser.friendRequests)) toUser.friendRequests = [];
     if (!toUser.friendRequests.some(req => req && sameUsername(req.from, fromUser.username))) {
         toUser.friendRequests.push({ from: fromUser.username, timestamp: new Date().toISOString() });
+        pushUserNotification(toUser, {
+            type: 'friend_request',
+            title: 'Solicitacao de amizade',
+            message: `${fromUser.username} quer te adicionar.`,
+            color: fromUser.color || '#FF4500',
+            avatar: fromUser.avatar || 'bell'
+        });
     }
     await writeState(env, state);
     return json({ success: true, registeredUsers: sanitizeState(state, auth.user.username).registeredUsers });
@@ -1193,7 +1324,38 @@ async function handleRespondFriendRequest(request, env) {
     const targetUser = findRegisteredUser(state, body.target);
     if (!user || !targetUser) return json({ error: 'User not found' }, 404);
     removeFriendRequestsBetween(user, targetUser);
-    if (body.action === 'accept') ensureMutualFriendship(user, targetUser);
+    if (body.action === 'accept') {
+        ensureMutualFriendship(user, targetUser);
+        pushUserNotification(targetUser, {
+            type: 'friend_accept',
+            title: 'Convite aceito',
+            message: `${user.username} aceitou sua solicitacao.`,
+            color: user.color || '#22c55e',
+            avatar: user.avatar || 'bell'
+        });
+        pushUserNotification(user, {
+            type: 'friend_accept',
+            title: 'Nova amizade',
+            message: `${targetUser.username} agora esta na sua lista.`,
+            color: targetUser.color || '#22c55e',
+            avatar: targetUser.avatar || 'bell'
+        });
+    }
+    await writeState(env, state);
+    return json({ success: true, registeredUsers: sanitizeState(state, auth.user.username).registeredUsers });
+}
+
+async function handleCancelFriendRequest(request, env) {
+    const body = await parseJsonBody(request);
+    if (!body || !body.target) return json({ error: 'Missing target username' }, 400);
+    const state = await readState(env);
+    const auth = await requireAuthenticatedUser(request, env, state);
+    if (auth.response) return auth.response;
+    const targetUser = findRegisteredUser(state, body.target);
+    if (!targetUser) return json({ error: 'User not found' }, 404);
+    if (Array.isArray(targetUser.friendRequests)) {
+        targetUser.friendRequests = targetUser.friendRequests.filter(req => req && !sameUsername(req.from, auth.user.username));
+    }
     await writeState(env, state);
     return json({ success: true, registeredUsers: sanitizeState(state, auth.user.username).registeredUsers });
 }
@@ -1247,6 +1409,197 @@ async function handleClearUserRatings(request, env) {
     return json({ success: true, cleared });
 }
 
+async function handleChangePassword(request, env) {
+    const body = await parseJsonBody(request);
+    if (!body || (!body.password && !isPasswordCredential(body.passwordCredential))) {
+        return json({ error: 'Nova senha obrigatoria.' }, 400);
+    }
+    if (body.password && String(body.password).length < 4) return json({ error: 'A senha deve ter pelo menos 4 caracteres.' }, 400);
+    const state = await readState(env);
+    const auth = await requireAuthenticatedUser(request, env, state);
+    if (auth.response) return auth.response;
+    const user = findRegisteredUser(state, auth.user.username);
+    if (!user) return json({ error: 'User not found' }, 404);
+    if (isPasswordCredential(body.passwordCredential)) {
+        setPasswordFromCredential(user, body.passwordCredential);
+    } else {
+        await setPassword(user, body.password);
+    }
+    pushUserNotification(user, {
+        type: 'account',
+        title: 'Senha alterada',
+        message: 'Sua senha foi atualizada com sucesso.',
+        color: user.color || '#22c55e',
+        avatar: user.avatar || 'bell'
+    });
+    await writeState(env, state);
+    return json({ success: true });
+}
+
+async function handleSignOutAll(request, env) {
+    const state = await readState(env);
+    const auth = await requireAuthenticatedUser(request, env, state);
+    if (auth.response) return auth.response;
+    await ensureStorage(env);
+    await getDb(env).prepare('DELETE FROM sessions WHERE username = ?1').bind(auth.user.username).run();
+    return json({ success: true });
+}
+
+async function handleNotificationsAction(request, env, action) {
+    const state = await readState(env);
+    const auth = await requireAuthenticatedUser(request, env, state);
+    if (auth.response) return auth.response;
+    const user = findRegisteredUser(state, auth.user.username);
+    if (!user) return json({ error: 'User not found' }, 404);
+    if (!Array.isArray(user.notifications)) user.notifications = [];
+    if (action === 'read') {
+        user.notifications = user.notifications.map(item => ({ ...item, read: true }));
+    } else if (action === 'clear') {
+        user.notifications = [];
+    }
+    await writeState(env, state);
+    return json({ success: true, notifications: sanitizeNotifications(user.notifications) });
+}
+
+function scrubUserFromState(state, targetUsername) {
+    const targetId = normalizeUsername(targetUsername);
+    const targetKey = usernameKey(targetUsername);
+    let removed = 0;
+    if (Array.isArray(state.registeredUsers)) {
+        const before = state.registeredUsers.length;
+        state.registeredUsers = state.registeredUsers.filter(user => user && !sameUsername(user.username, targetUsername));
+        removed += before - state.registeredUsers.length;
+    }
+    (state.registeredUsers || []).forEach(user => {
+        if (Array.isArray(user.friends)) user.friends = user.friends.filter(friend => !sameUsername(friend, targetUsername));
+        if (Array.isArray(user.friendRequests)) user.friendRequests = user.friendRequests.filter(req => req && !sameUsername(req.from, targetUsername));
+    });
+    (state.animes || []).forEach(anime => {
+        if (anime.ratings && typeof anime.ratings === 'object') {
+            Object.keys(anime.ratings).forEach(key => {
+                if (normalizeUsername(key) === targetId) delete anime.ratings[key];
+            });
+        }
+        if (Array.isArray(anime.comments)) {
+            anime.comments = anime.comments
+                .filter(comment => normalizeUsername(comment && comment.friendId) !== targetId)
+                .map(comment => ({
+                    ...comment,
+                    replies: Array.isArray(comment.replies)
+                        ? comment.replies.filter(reply => normalizeUsername(reply && reply.friendId) !== targetId)
+                        : []
+                }));
+        }
+    });
+    if (Array.isArray(state.activities)) {
+        state.activities = state.activities.filter(activity => {
+            const activityUser = normalizeUsername(activity && activity.username);
+            return activityUser !== targetId && usernameKey(activity && activity.username) !== targetKey;
+        });
+    }
+    return removed;
+}
+
+async function handleAdminOverview(request, env) {
+    const state = await readState(env);
+    const auth = await requireAuthenticatedUser(request, env, state);
+    if (auth.response) return auth.response;
+    if (!isAdminUser(auth.user, env)) return json({ error: 'Admin only' }, 403);
+    const users = Array.isArray(state.registeredUsers) ? state.registeredUsers : [];
+    const animes = Array.isArray(state.animes) ? state.animes : [];
+    let ratings = 0;
+    let comments = 0;
+    animes.forEach(anime => {
+        ratings += Object.keys(anime.ratings || {}).length;
+        comments += Array.isArray(anime.comments) ? anime.comments.length : 0;
+    });
+    const backupInfo = await getDb(env).prepare('SELECT COUNT(*) AS count, MAX(created_at) AS latest FROM state_backups').first();
+    return json({
+        success: true,
+        overview: {
+            users: users.length,
+            animes: animes.length,
+            ratings,
+            comments,
+            activities: Array.isArray(state.activities) ? state.activities.length : 0,
+            pendingRequests: users.reduce((sum, user) => sum + (Array.isArray(user.friendRequests) ? user.friendRequests.length : 0), 0),
+            backups: Number(backupInfo && backupInfo.count) || 0,
+            latestBackup: backupInfo && backupInfo.latest || null
+        },
+        users: users.slice(-20).reverse().map(user => sanitizeUser(user, auth.user.username))
+    });
+}
+
+async function handleAdminDeleteUser(request, env) {
+    const body = await parseJsonBody(request);
+    if (!body || !body.username) return json({ error: 'Missing username' }, 400);
+    const state = await readState(env);
+    const auth = await requireAuthenticatedUser(request, env, state);
+    if (auth.response) return auth.response;
+    if (!isAdminUser(auth.user, env)) return json({ error: 'Admin only' }, 403);
+    if (sameUsername(auth.user.username, body.username)) return json({ error: 'Nao remova sua propria conta por aqui.' }, 400);
+    await maybeCreateAutomaticBackup(env, 'auto');
+    await createStateBackup(env, JSON.stringify(sanitizeStateForStorage(state)), `before-delete-user:${normalizeUsername(body.username)}`);
+    const removed = scrubUserFromState(state, body.username);
+    await writeState(env, state);
+    await getDb(env).prepare('DELETE FROM sessions WHERE username = ?1').bind(body.username).run();
+    return json({ success: true, removed, state: sanitizeState(state, auth.user.username) });
+}
+
+async function handleAdminBackups(request, env) {
+    const state = await readState(env);
+    const auth = await requireAuthenticatedUser(request, env, state);
+    if (auth.response) return auth.response;
+    if (!isAdminUser(auth.user, env)) return json({ error: 'Admin only' }, 403);
+
+    if (request.method === 'POST') {
+        await createStateBackup(env, JSON.stringify(sanitizeStateForStorage(state)), 'manual');
+    }
+
+    const rows = await getDb(env).prepare(
+        'SELECT id, created_at, reason, length(state) AS bytes FROM state_backups ORDER BY id DESC LIMIT ?1'
+    ).bind(BACKUP_RETENTION).all();
+    return json({
+        success: true,
+        backups: (rows.results || []).map(row => ({
+            id: row.id,
+            createdAt: row.created_at,
+            reason: row.reason,
+            bytes: row.bytes
+        }))
+    });
+}
+
+async function handleAdminBackupDownload(request, env, backupId) {
+    const state = await readState(env);
+    const auth = await requireAuthenticatedUser(request, env, state);
+    if (auth.response) return auth.response;
+    if (!isAdminUser(auth.user, env)) return json({ error: 'Admin only' }, 403);
+    const row = await getDb(env).prepare('SELECT id, created_at, reason, state FROM state_backups WHERE id = ?1').bind(Number(backupId)).first();
+    if (!row) return json({ error: 'Backup not found' }, 404);
+    return json({
+        app: 'anivoid',
+        type: 'server-backup',
+        id: row.id,
+        createdAt: row.created_at,
+        reason: row.reason,
+        state: JSON.parse(row.state)
+    });
+}
+
+async function handleAdminExportState(request, env) {
+    const state = await readState(env);
+    const auth = await requireAuthenticatedUser(request, env, state);
+    if (auth.response) return auth.response;
+    if (!isAdminUser(auth.user, env)) return json({ error: 'Admin only' }, 403);
+    return json({
+        app: 'anivoid',
+        type: 'server-state-export',
+        exportedAt: new Date().toISOString(),
+        state: sanitizeStateForStorage(state)
+    });
+}
+
 async function route(request, env) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, '') || '/';
@@ -1282,11 +1635,22 @@ async function route(request, env) {
     if (path === '/api/login' && request.method === 'POST') return handleLogin(request, env);
     if (path === '/api/register' && request.method === 'POST') return handleRegister(request, env);
     if (path === '/api/patch-user' && request.method === 'POST') return handlePatchUser(request, env);
+    if (path === '/api/account/change-password' && request.method === 'POST') return handleChangePassword(request, env);
+    if (path === '/api/account/signout-all' && request.method === 'POST') return handleSignOutAll(request, env);
+    if (path === '/api/notifications/read' && request.method === 'POST') return handleNotificationsAction(request, env, 'read');
+    if (path === '/api/notifications/clear' && request.method === 'POST') return handleNotificationsAction(request, env, 'clear');
     if (path === '/api/sync-state' && request.method === 'POST') return handleSyncState(request, env);
     if (path === '/api/clear-user-ratings' && request.method === 'POST') return handleClearUserRatings(request, env);
     if (path === '/api/send-friend-request' && request.method === 'POST') return handleFriendRequest(request, env);
     if (path === '/api/respond-friend-request' && request.method === 'POST') return handleRespondFriendRequest(request, env);
+    if (path === '/api/cancel-friend-request' && request.method === 'POST') return handleCancelFriendRequest(request, env);
     if (path === '/api/admin/set-friendship' && request.method === 'POST') return handleSetFriendship(request, env);
+    if (path === '/api/admin/overview' && request.method === 'GET') return handleAdminOverview(request, env);
+    if (path === '/api/admin/delete-user' && request.method === 'POST') return handleAdminDeleteUser(request, env);
+    if (path === '/api/admin/backups' && (request.method === 'GET' || request.method === 'POST')) return handleAdminBackups(request, env);
+    if (path === '/api/admin/export-state' && request.method === 'GET') return handleAdminExportState(request, env);
+    const backupMatch = path.match(/^\/api\/admin\/backups\/(\d+)$/);
+    if (backupMatch && request.method === 'GET') return handleAdminBackupDownload(request, env, backupMatch[1]);
     if (path === '/api/remove-friend' && request.method === 'POST') return handleRemoveFriend(request, env);
 
     return json({ error: 'Not found' }, 404);
