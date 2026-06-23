@@ -14,7 +14,7 @@ img {
 }
 
 .bg-brand {
-    background: linear-gradient(135deg, var(--accent) 0%, #FF6347 100%) !important;
+    background: var(--accent) !important;
 }
 
 body {
