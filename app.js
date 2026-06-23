@@ -7631,7 +7631,27 @@ function initRegistrationOptions() {
                 const loginResp = await submitLogin(emailVal, passwordVal);
                 loginData = await loginResp.json().catch(() => ({}));
 
-                if (!loginResp.ok || !loginData.user || !loginData.token) {
+                if (loginResp.status === 426 || loginData.code === 'PASSWORD_RESET_REQUIRED') {
+                    const newPassword = prompt(loginData.error + '\n\nDigite sua NOVA senha (mínimo 8 caracteres):');
+                    if (!newPassword || newPassword.length < 8) {
+                        alert('A senha deve ter pelo menos 8 caracteres. Cancelado.');
+                        return;
+                    }
+                    const resetResp = await fetch(API_BASE_URL + '/api/account/change-password-forced', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: emailVal, oldPassword: passwordVal, newPassword: newPassword })
+                    });
+                    const resetData = await resetResp.json().catch(() => ({}));
+                    if (!resetResp.ok) {
+                        alert(resetData.error || 'Falha ao redefinir senha.');
+                        return;
+                    }
+                    alert('Senha redefinida com sucesso! Por favor, faça login novamente com a nova senha.');
+                    return;
+                }
+
+                if (!loginResp.ok || !loginData.user) {
                     alert(loginData.error || 'E-mail ou senha incorretos! Por favor, tente novamente.');
                     return;
                 }
@@ -7808,11 +7828,11 @@ function initRegistrationOptions() {
                     body: JSON.stringify(registerPayload)
                 });
                 const regData = await regResp.json().catch(() => ({}));
-                if (!regResp.ok || !regData.user || !regData.token) {
+                if (!regResp.ok || !regData.user) {
                     alert(regData.error || 'Não foi possível criar sua conta agora.');
                     return;
                 }
-                setAuthSession(regData.user.username || name, regData.token);
+                setAuthSession(regData.user.username || name, null);
                 if (regData.state) {
                     applyServerStateSnapshot(regData.state);
                 } else {
@@ -10058,4 +10078,25 @@ if (document.readyState === 'loading') {
 } else {
     startApp();
 }
+
+
+// Custom simple trigger for profile menu opening
+document.addEventListener('DOMContentLoaded', () => {
+    const profileBtn = document.getElementById('profile-indicator');
+    const dropdown = document.getElementById('friends-dropdown');
+
+    if (profileBtn && dropdown) {
+        profileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdown.classList.toggle('hidden');
+            dropdown.classList.toggle('flex');
+        });
+        
+        // Close when clicking outside
+        document.addEventListener('click', () => {
+            dropdown.classList.add('hidden');
+            dropdown.classList.remove('flex');
+        });
+    }
+});
 

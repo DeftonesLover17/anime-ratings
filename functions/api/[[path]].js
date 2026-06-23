@@ -1,4 +1,4 @@
-const PASSWORD_ITERATIONS = 310000;
+const PASSWORD_ITERATIONS = 100000;
 const PASSWORD_KEY_LENGTH_BITS = 256;
 const MIN_PASSWORD_LENGTH = 10;
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
@@ -390,6 +390,7 @@ function sanitizeUser(user, viewerUsername = '') {
         passwordSalt,
         passwordIterations,
         passwordDigest,
+        passwordResetRequired,
         ...safeUser
     } = user;
     if (viewerUsername && user.username && sameUsername(user.username, viewerUsername)) return safeUser;
@@ -445,22 +446,6 @@ function randomToken() {
     return bytesToBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
-function isPasswordCredential(credential) {
-    return credential && typeof credential === 'object'
-        && typeof credential.passwordHash === 'string'
-        && typeof credential.passwordSalt === 'string'
-        && Number.isFinite(Number(credential.passwordIterations))
-        && credential.passwordDigest === 'pbkdf2-sha256';
-}
-
-function setPasswordFromCredential(user, credential) {
-    user.passwordHash = credential.passwordHash;
-    user.passwordSalt = credential.passwordSalt;
-    user.passwordIterations = Number(credential.passwordIterations);
-    user.passwordDigest = 'pbkdf2-sha256';
-    delete user.password;
-}
-
 async function hashPassword(password, salt = randomBase64(16), iterations = PASSWORD_ITERATIONS) {
     const key = await crypto.subtle.importKey(
         'raw',
@@ -501,26 +486,9 @@ async function verifyPassword(user, password) {
     return typeof user.password === 'string' && user.password === password;
 }
 
-async function createPasswordProof(passwordHash, nonce) {
-    const key = await crypto.subtle.importKey(
-        'raw',
-        base64ToBytes(passwordHash),
-        { name: 'HMAC', hash: 'SHA-256' },
-        false,
-        ['sign']
-    );
-    const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(String(nonce || '')));
-    return bytesToBase64(new Uint8Array(signature));
-}
-
-async function verifyPasswordProof(user, nonce, proof) {
-    if (!user || !user.passwordHash || !nonce || !proof) return false;
-    const expectedProof = await createPasswordProof(user.passwordHash, nonce);
-    return timingSafeEqual(expectedProof, proof);
-}
-
 async function setPassword(user, password) {
     Object.assign(user, await hashPassword(password));
+    user.passwordResetRequired = false;
     delete user.password;
 }
 
@@ -656,7 +624,7 @@ function notifyFriendsOfActivity(state, authorUser, activity) {
 }
 
 function isAdminUser(user, env) {
-    const admins = String(env.ADMIN_USERS || 'Felipe!,Felipe')
+    const admins = String(env.ADMIN_USERS || '')
         .split(',')
         .map(name => normalizeUsername(name))
         .filter(Boolean);
@@ -672,12 +640,8 @@ async function ensureStorage(env) {
     const db = getDb(env);
     await db.prepare('CREATE TABLE IF NOT EXISTS app_state (id TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)').run();
     await db.prepare('CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, username TEXT NOT NULL, expires_at INTEGER NOT NULL)').run();
-    await db.prepare('CREATE TABLE IF NOT EXISTS auth_challenges (nonce TEXT PRIMARY KEY, email TEXT NOT NULL, expires_at INTEGER NOT NULL)').run();
-    await db.prepare('CREATE TABLE IF NOT EXISTS rate_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, reset_at INTEGER NOT NULL)').run();
     await db.prepare('CREATE TABLE IF NOT EXISTS state_backups (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, reason TEXT NOT NULL, state TEXT NOT NULL)').run();
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions (expires_at)').run();
-    await db.prepare('CREATE INDEX IF NOT EXISTS idx_auth_challenges_expires_at ON auth_challenges (expires_at)').run();
-    await db.prepare('CREATE INDEX IF NOT EXISTS idx_rate_limits_reset_at ON rate_limits (reset_at)').run();
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_state_backups_created_at ON state_backups (created_at)').run();
     await db.prepare(
         "INSERT INTO app_state (id, state, updated_at) VALUES ('main', ?1, CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING"
@@ -748,18 +712,25 @@ async function createSession(env, username) {
 }
 
 async function getAuthenticatedUser(request, env, state) {
-    const header = request.headers.get('Authorization') || '';
-    const match = header.match(/^Bearer\s+(.+)$/i);
-    if (!match) return null;
+    let token = '';
+    const authHeader = request.headers.get('Authorization') || '';
+    const match = authHeader.match(/^Bearer\s+(.+)$/i);
+    if (match) token = match[1];
+
+    const cookieHeader = request.headers.get('Cookie') || '';
+    const cookieMatch = cookieHeader.match(/anivoid_auth_token=([^;]+)/);
+    if (!token && cookieMatch) token = cookieMatch[1];
+
+    if (!token) return null;
     await ensureStorage(env);
-    const row = await getDb(env).prepare('SELECT username, expires_at FROM sessions WHERE token = ?1').bind(match[1]).first();
+    const row = await getDb(env).prepare('SELECT username, expires_at FROM sessions WHERE token = ?1').bind(token).first();
     if (!row || Number(row.expires_at) < Date.now()) {
-        if (row) await getDb(env).prepare('DELETE FROM sessions WHERE token = ?1').bind(match[1]).run();
+        if (row) await getDb(env).prepare('DELETE FROM sessions WHERE token = ?1').bind(token).run();
         return null;
     }
     const user = findRegisteredUser(state, row.username);
     if (!user) return null;
-    await getDb(env).prepare('UPDATE sessions SET expires_at = ?1 WHERE token = ?2').bind(Date.now() + SESSION_TTL_MS, match[1]).run();
+    await getDb(env).prepare('UPDATE sessions SET expires_at = ?1 WHERE token = ?2').bind(Date.now() + SESSION_TTL_MS, token).run();
     return user;
 }
 
@@ -1115,14 +1086,21 @@ async function handleLogin(request, env) {
     const state = await readState(env);
     const user = findRegisteredUserByIdentifier(state, identifier);
 
-    if (!user || !(await verifyPassword(user, body.password))) return json({ error: 'E-mail ou senha incorretos.' }, 401);
-
-    if (!user.passwordHash || user.password) {
-        await setPassword(user, body.password);
-        await writeState(env, state);
+    if (!user || !(await verifyPassword(user, body.password))) {
+        return json({ error: 'E-mail ou senha incorretos.' }, 401);
     }
+    
+    if (user.passwordIterations > 150000 || user.passwordResetRequired) {
+        return json({ error: 'Sua conta exige uma redefinição de segurança. Insira uma nova senha forte na tela de redefinição.', code: 'PASSWORD_RESET_REQUIRED' }, 426);
+    }
+
     const token = await createSession(env, user.username);
-    return json({ success: true, token, user: sanitizeUser(user, user.username), state: sanitizeState(state, user.username) });
+    const cookie = `anivoid_auth_token=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${Math.floor(SESSION_TTL_MS/1000)}`;
+    return json({
+        success: true,
+        user: sanitizeUser(user, user.username),
+        state: sanitizeState(state, user.username)
+    }, 200, { 'Set-Cookie': cookie });
 }
 
 async function handleLoginChallenge(request, env) {
@@ -1136,7 +1114,9 @@ async function handleRegister(request, env) {
     if (!newUser || !newUser.username || !newUser.email || !newUser.password) {
         return json({ error: 'username, email and password required' }, 400);
     }
-    if (String(newUser.password).length < MIN_PASSWORD_LENGTH) return json({ error: `A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.` }, 400);
+    if (String(newUser.password).length < 8 || !/\d/.test(String(newUser.password)) || !/[a-zA-Z]/.test(String(newUser.password))) {
+        return json({ error: 'A senha deve ter pelo menos 8 caracteres, contendo letras e números.' }, 400);
+    }
     const limited = await enforceRateLimit(request, env, 'register', 5, 1000 * 60 * 30, newUser.email || newUser.username);
     if (limited) return limited;
     const state = await readState(env);
@@ -1176,7 +1156,8 @@ async function handleRegister(request, env) {
     state.registeredUsers.push(userToAdd);
     await writeState(env, state);
     const token = await createSession(env, userToAdd.username);
-    return json({ success: true, token, user: sanitizeUser(userToAdd, userToAdd.username), state: sanitizeState(state, userToAdd.username) });
+    const cookie = `anivoid_auth_token=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${Math.floor(SESSION_TTL_MS/1000)}`;
+    return json({ success: true, user: sanitizeUser(userToAdd, userToAdd.username), state: sanitizeState(state, userToAdd.username) }, 200, { 'Set-Cookie': cookie });
 }
 
 async function handlePatchUser(request, env) {
@@ -1363,6 +1344,19 @@ async function handleClearUserRatings(request, env) {
     });
     await writeState(env, state);
     return json({ success: true, cleared });
+}
+
+async function handleForcedChangePassword(request, env) {
+    const body = await parseJsonBody(request);
+    if (!body || !body.email || !body.oldPassword || !body.newPassword) return json({ error: 'Faltam dados obrigatórios.' }, 400);
+    if (String(body.newPassword).length < 8) return json({ error: 'A nova senha deve ter pelo menos 8 caracteres.' }, 400);
+    const state = await readState(env);
+    const user = findRegisteredUserByIdentifier(state, body.email);
+    if (!user || !(await verifyPassword(user, body.oldPassword))) return json({ error: 'Credenciais inválidas.' }, 401);
+    await setPassword(user, body.newPassword);
+    user.passwordResetRequired = false;
+    await writeState(env, state);
+    return json({ success: true });
 }
 
 async function handleChangePassword(request, env) {
@@ -1552,6 +1546,15 @@ async function handleAdminExportState(request, env) {
     });
 }
 
+async function handleAdminCleanSessions(request, env) {
+    const state = await readState(env);
+    const auth = await requireAuthenticatedUser(request, env, state);
+    if (auth.response) return auth.response;
+    if (!isAdminUser(auth.user, env)) return json({ error: 'Admin only' }, 403);
+    await getDb(env).prepare('DELETE FROM sessions').run();
+    return json({ success: true, message: 'Todas as sessões antigas foram invalidadas com sucesso no banco de dados D1.' });
+}
+
 async function route(request, env) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, '') || '/';
@@ -1584,6 +1587,7 @@ async function route(request, env) {
     if (path === '/api/register' && request.method === 'POST') return handleRegister(request, env);
     if (path === '/api/patch-user' && request.method === 'POST') return handlePatchUser(request, env);
     if (path === '/api/account/change-password' && request.method === 'POST') return handleChangePassword(request, env);
+    if (path === '/api/account/change-password-forced' && request.method === 'POST') return handleForcedChangePassword(request, env);
     if (path === '/api/account/signout-all' && request.method === 'POST') return handleSignOutAll(request, env);
     if (path === '/api/notifications/read' && request.method === 'POST') return handleNotificationsAction(request, env, 'read');
     if (path === '/api/notifications/clear' && request.method === 'POST') return handleNotificationsAction(request, env, 'clear');
@@ -1593,6 +1597,7 @@ async function route(request, env) {
     if (path === '/api/respond-friend-request' && request.method === 'POST') return handleRespondFriendRequest(request, env);
     if (path === '/api/cancel-friend-request' && request.method === 'POST') return handleCancelFriendRequest(request, env);
     if (path === '/api/admin/set-friendship' && request.method === 'POST') return handleSetFriendship(request, env);
+    if (path === '/api/admin/clean-sessions' && request.method === 'POST') return handleAdminCleanSessions(request, env);
     if (path === '/api/admin/overview' && request.method === 'GET') return handleAdminOverview(request, env);
     if (path === '/api/admin/delete-user' && request.method === 'POST') return handleAdminDeleteUser(request, env);
     if (path === '/api/admin/backups' && (request.method === 'GET' || request.method === 'POST')) return handleAdminBackups(request, env);
@@ -1615,6 +1620,6 @@ export async function onRequest(context) {
                 message: 'Configure um binding D1 chamado ANIVOID_DB no Cloudflare Pages.'
             }, 503);
         }
-        return json({ error: 'Internal Server Error' }, 500);
+        return json({ error: 'Internal Server Error', message: String(err && err.message), stack: String(err && err.stack) }, 500);
     }
 }
