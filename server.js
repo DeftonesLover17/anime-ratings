@@ -1,3 +1,4 @@
+require('dotenv').config();
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -7,7 +8,7 @@ const PORT = process.env.PORT || 8080;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const STATE_FILE = process.env.STATE_FILE || path.join(DATA_DIR, 'state.json');
 const DATABASE_URL = process.env.DATABASE_URL || '';
-const PASSWORD_ITERATIONS = 310000;
+const PASSWORD_ITERATIONS = parseInt(process.env.PASSWORD_ITERATIONS, 10) || 500000;
 const PASSWORD_KEY_LENGTH = 32;
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const MAX_EXTERNAL_IMAGE_URL_LENGTH = 4096;
@@ -393,22 +394,33 @@ function setPassword(user, password) {
     delete user.password;
 }
 
-function createSession(username) {
+function createSession(username, res) {
     const token = crypto.randomBytes(32).toString('base64url');
     sessions.set(token, {
         username,
         expiresAt: Date.now() + SESSION_TTL_MS
     });
+    if (res) {
+        res.setHeader('Set-Cookie', `auth_token=${token}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`);
+    }
     return token;
 }
 
 function getAuthenticatedUser(req, state) {
-    const header = req.headers.authorization || '';
-    const match = header.match(/^Bearer\s+(.+)$/i);
-    if (!match) return null;
-    const session = sessions.get(match[1]);
+    let token = '';
+    const authHeader = req.headers.authorization || '';
+    const match = authHeader.match(/^Bearer\s+(.+)$/i);
+    if (match) token = match[1];
+    
+    if (!token && req.headers.cookie) {
+        const cookieMatch = req.headers.cookie.match(/auth_token=([^;]+)/);
+        if (cookieMatch) token = cookieMatch[1];
+    }
+    if (!token) return null;
+
+    const session = sessions.get(token);
     if (!session || session.expiresAt < Date.now()) {
-        if (session) sessions.delete(match[1]);
+        if (session) sessions.delete(token);
         return null;
     }
     const user = (state.registeredUsers || []).find(u =>
@@ -429,7 +441,7 @@ function requireAuthenticatedUser(req, res, state) {
 }
 
 function isAdminUser(user) {
-    const admins = (process.env.ADMIN_USERS || 'Felipe!,Felipe')
+    const admins = (process.env.ADMIN_USERS || '')
         .split(',')
         .map(name => normalizeUsername(name))
         .filter(Boolean);
@@ -1122,11 +1134,39 @@ function mergeStates(localState, serverState, loggedInUser) {
     };
 }
 
+// --- Rate Limiting Setup ---
+const rateLimits = new Map();
+function isRateLimited(ip, limit = 20, windowMs = 60000) {
+    const now = Date.now();
+    const record = rateLimits.get(ip) || { count: 0, resetAt: now + windowMs };
+    if (now > record.resetAt) {
+        record.count = 1;
+        record.resetAt = now + windowMs;
+    } else {
+        record.count++;
+    }
+    rateLimits.set(ip, record);
+    return record.count > limit;
+}
+
 const server = http.createServer((req, res) => {
-    // CORS configuration for cross-origin requests (Netlify frontend -> Render backend)
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // CORS configuration for cross-origin requests
+    const allowedOrigins = (process.env.ALLOWED_ORIGINS || '*').split(',');
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
     res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type,Authorization');
+
+    // Security Headers
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy', "default-src 'self' data: https: 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: https:;");
+
+    const clientIp = req.socket.remoteAddress || 'unknown';
 
     if (req.method === 'OPTIONS') {
         res.statusCode = 204;
@@ -1215,6 +1255,10 @@ const server = http.createServer((req, res) => {
 
     // API Route: Login with server-side password verification
     if (req.url === '/api/login' && req.method === 'POST') {
+        if (isRateLimited(clientIp, 10, 60000)) {
+            sendJson(res, 429, { error: 'Muitas tentativas. Tente novamente mais tarde.' });
+            return;
+        }
         let body = '';
         req.on('data', chunk => { body += chunk; });
         req.on('end', () => {
@@ -1244,7 +1288,7 @@ const server = http.createServer((req, res) => {
                     }
 
                     const finishLogin = () => {
-                        const token = createSession(user.username);
+                        const token = createSession(user.username, res);
                         sendJson(res, 200, {
                             success: true,
                             token,
@@ -1274,6 +1318,10 @@ const server = http.createServer((req, res) => {
 
     // API Route: Register new user (dedicated - always persists immediately)
     if (req.url === '/api/register' && req.method === 'POST') {
+        if (isRateLimited(clientIp, 5, 60000)) {
+            sendJson(res, 429, { error: 'Muitas contas criadas. Tente novamente mais tarde.' });
+            return;
+        }
         let body = '';
         req.on('data', chunk => { body += chunk; });
         req.on('end', () => {
@@ -1283,8 +1331,8 @@ const server = http.createServer((req, res) => {
                     sendJson(res, 400, { error: 'username, email and password required' });
                     return;
                 }
-                if (String(newUser.password).length < 4) {
-                    sendJson(res, 400, { error: 'A senha deve ter pelo menos 4 caracteres.' });
+                if (String(newUser.password).length < 8 || !/\d/.test(String(newUser.password)) || !/[a-zA-Z]/.test(String(newUser.password))) {
+                    sendJson(res, 400, { error: 'A senha deve ter pelo menos 8 caracteres, contendo letras e números.' });
                     return;
                 }
                 readState((err, data) => {
@@ -1339,7 +1387,7 @@ const server = http.createServer((req, res) => {
                             sendJson(res, 500, { error: 'Failed to save user' });
                             return;
                         }
-                        const token = createSession(userToAdd.username);
+                        const token = createSession(userToAdd.username, res);
                         sendJson(res, 200, {
                             success: true,
                             token,

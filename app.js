@@ -922,6 +922,17 @@ const DEFAULT_ANIMES = [
 
 // App State Management
 const RENDER_API_BASE_URL = 'https://anime-ratings.onrender.com';
+const originalFetch = window.fetch;
+window.fetch = function() {
+    let args = Array.prototype.slice.call(arguments);
+    if (args[1]) {
+        args[1].credentials = 'include';
+    } else {
+        args[1] = { credentials: 'include' };
+    }
+    return originalFetch.apply(this, args);
+};
+
 const API_BASE_URL = window.ANIVOID_API_BASE_URL
     || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? ''
@@ -929,12 +940,11 @@ const API_BASE_URL = window.ANIVOID_API_BASE_URL
 const AUTH_TOKEN_KEY = 'anivoid_auth_token';
 
 function getAuthToken() {
-    return localStorage.getItem(AUTH_TOKEN_KEY) || '';
+    return '';
 }
 
 function setAuthSession(username, token) {
     if (username) localStorage.setItem('anivoid_logged_in_username', username);
-    if (token) localStorage.setItem(AUTH_TOKEN_KEY, token);
     const activeState = window.__anivoidState;
     if (activeState) {
         if (username) activeState.loggedInUser = username;
@@ -10183,3 +10193,4 @@ if (document.readyState === 'loading') {
 } else {
     startApp();
 }
+

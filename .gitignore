@@ -7,3 +7,7 @@ logos/*_source.jpg
 .env
 .env.*
 .DS_Store
+
+.env
+
+data/state.json
