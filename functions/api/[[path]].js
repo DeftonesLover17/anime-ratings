@@ -1,6 +1,7 @@
 const PASSWORD_ITERATIONS = 100000;
 const PASSWORD_KEY_LENGTH_BITS = 256;
 const MIN_PASSWORD_LENGTH = 10;
+const LEGACY_PASSWORD_RESET_ITERATION_THRESHOLD = 150000;
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const MAX_EXTERNAL_IMAGE_URL_LENGTH = 4096;
 const MAX_DATA_IMAGE_LENGTH = 2 * 1024 * 1024;
@@ -22,6 +23,7 @@ function corsHeaders() {
         'Access-Control-Allow-Origin': DEFAULT_ALLOWED_ORIGIN,
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'X-Requested-With,content-type,Authorization',
+        'Access-Control-Allow-Credentials': 'true',
         'Vary': 'Origin'
     };
 }
@@ -486,6 +488,25 @@ async function verifyPassword(user, password) {
     return typeof user.password === 'string' && user.password === password;
 }
 
+function passwordRequiresReset(user) {
+    if (!user) return false;
+    return Boolean(user.passwordResetRequired || hasUnsupportedLegacyPassword(user));
+}
+
+function hasUnsupportedLegacyPassword(user) {
+    if (!user) return false;
+    const iterations = Number(user.passwordIterations) || 0;
+    return iterations > LEGACY_PASSWORD_RESET_ITERATION_THRESHOLD;
+}
+
+function passwordPolicyError(password) {
+    const value = String(password || '');
+    if (value.length < MIN_PASSWORD_LENGTH || !/\d/.test(value) || !/[a-zA-Z]/.test(value)) {
+        return `A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres, contendo letras e numeros.`;
+    }
+    return '';
+}
+
 async function setPassword(user, password) {
     Object.assign(user, await hashPassword(password));
     user.passwordResetRequired = false;
@@ -640,8 +661,10 @@ async function ensureStorage(env) {
     const db = getDb(env);
     await db.prepare('CREATE TABLE IF NOT EXISTS app_state (id TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)').run();
     await db.prepare('CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, username TEXT NOT NULL, expires_at INTEGER NOT NULL)').run();
+    await db.prepare('CREATE TABLE IF NOT EXISTS rate_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, reset_at INTEGER NOT NULL)').run();
     await db.prepare('CREATE TABLE IF NOT EXISTS state_backups (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, reason TEXT NOT NULL, state TEXT NOT NULL)').run();
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions (expires_at)').run();
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_rate_limits_reset_at ON rate_limits (reset_at)').run();
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_state_backups_created_at ON state_backups (created_at)').run();
     await db.prepare(
         "INSERT INTO app_state (id, state, updated_at) VALUES ('main', ?1, CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING"
@@ -1086,12 +1109,23 @@ async function handleLogin(request, env) {
     const state = await readState(env);
     const user = findRegisteredUserByIdentifier(state, identifier);
 
-    if (!user || !(await verifyPassword(user, body.password))) {
+    if (!user) {
         return json({ error: 'E-mail ou senha incorretos.' }, 401);
     }
-    
-    if (user.passwordIterations > 150000 || user.passwordResetRequired) {
+
+    if (hasUnsupportedLegacyPassword(user)) {
+        return json({
+            error: 'Esta conta usa uma credencial legada que precisa de reset administrativo antes do login.',
+            code: 'LEGACY_PASSWORD_RESET_ADMIN_REQUIRED'
+        }, 426);
+    }
+
+    if (user.passwordResetRequired) {
         return json({ error: 'Sua conta exige uma redefinição de segurança. Insira uma nova senha forte na tela de redefinição.', code: 'PASSWORD_RESET_REQUIRED' }, 426);
+    }
+
+    if (!(await verifyPassword(user, body.password))) {
+        return json({ error: 'E-mail ou senha incorretos.' }, 401);
     }
 
     const token = await createSession(env, user.username);
@@ -1114,9 +1148,8 @@ async function handleRegister(request, env) {
     if (!newUser || !newUser.username || !newUser.email || !newUser.password) {
         return json({ error: 'username, email and password required' }, 400);
     }
-    if (String(newUser.password).length < 8 || !/\d/.test(String(newUser.password)) || !/[a-zA-Z]/.test(String(newUser.password))) {
-        return json({ error: 'A senha deve ter pelo menos 8 caracteres, contendo letras e números.' }, 400);
-    }
+    const passwordError = passwordPolicyError(newUser.password);
+    if (passwordError) return json({ error: passwordError }, 400);
     const limited = await enforceRateLimit(request, env, 'register', 5, 1000 * 60 * 30, newUser.email || newUser.username);
     if (limited) return limited;
     const state = await readState(env);
@@ -1349,10 +1382,32 @@ async function handleClearUserRatings(request, env) {
 async function handleForcedChangePassword(request, env) {
     const body = await parseJsonBody(request);
     if (!body || !body.email || !body.oldPassword || !body.newPassword) return json({ error: 'Faltam dados obrigatórios.' }, 400);
-    if (String(body.newPassword).length < 8) return json({ error: 'A nova senha deve ter pelo menos 8 caracteres.' }, 400);
+    const passwordError = passwordPolicyError(body.newPassword);
+    if (passwordError) return json({ error: passwordError }, 400);
+    const limited = await enforceRateLimit(request, env, 'forced-password-reset', 5, 1000 * 60 * 30, body.email);
+    if (limited) return limited;
     const state = await readState(env);
     const user = findRegisteredUserByIdentifier(state, body.email);
-    if (!user || !(await verifyPassword(user, body.oldPassword))) return json({ error: 'Credenciais inválidas.' }, 401);
+    if (!user) return json({ error: 'Credenciais inválidas.' }, 401);
+    if (hasUnsupportedLegacyPassword(user)) {
+        return json({
+            error: 'Nao foi possivel validar a senha antiga desta credencial legada. Peça um reset administrativo.',
+            code: 'LEGACY_PASSWORD_RESET_ADMIN_REQUIRED'
+        }, 409);
+    }
+    let oldPasswordValid = false;
+    try {
+        oldPasswordValid = await verifyPassword(user, body.oldPassword);
+    } catch (err) {
+        if (passwordRequiresReset(user)) {
+            return json({
+                error: 'Nao foi possivel validar a senha antiga desta credencial legada. Peça um reset administrativo.',
+                code: 'LEGACY_PASSWORD_RESET_ADMIN_REQUIRED'
+            }, 409);
+        }
+        throw err;
+    }
+    if (!oldPasswordValid) return json({ error: 'Credenciais inválidas.' }, 401);
     await setPassword(user, body.newPassword);
     user.passwordResetRequired = false;
     await writeState(env, state);
@@ -1620,6 +1675,7 @@ export async function onRequest(context) {
                 message: 'Configure um binding D1 chamado ANIVOID_DB no Cloudflare Pages.'
             }, 503);
         }
-        return json({ error: 'Internal Server Error', message: String(err && err.message), stack: String(err && err.stack) }, 500);
+        console.error('Unhandled API error', err);
+        return json({ error: 'Internal Server Error' }, 500);
     }
 }

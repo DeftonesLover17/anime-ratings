@@ -10,11 +10,19 @@ CREATE TABLE IF NOT EXISTS sessions (
   expires_at INTEGER NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS auth_challenges (
-  nonce TEXT PRIMARY KEY,
-  email TEXT NOT NULL,
-  expires_at INTEGER NOT NULL
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key TEXT PRIMARY KEY,
+  count INTEGER NOT NULL,
+  reset_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS state_backups (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  reason TEXT NOT NULL,
+  state TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions (expires_at);
-CREATE INDEX IF NOT EXISTS idx_auth_challenges_expires_at ON auth_challenges (expires_at);
+CREATE INDEX IF NOT EXISTS idx_rate_limits_reset_at ON rate_limits (reset_at);
+CREATE INDEX IF NOT EXISTS idx_state_backups_created_at ON state_backups (created_at);

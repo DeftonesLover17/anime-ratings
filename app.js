@@ -7631,10 +7631,15 @@ function initRegistrationOptions() {
                 const loginResp = await submitLogin(emailVal, passwordVal);
                 loginData = await loginResp.json().catch(() => ({}));
 
+                if (loginData.code === 'LEGACY_PASSWORD_RESET_ADMIN_REQUIRED') {
+                    alert(loginData.error || 'Esta conta precisa de reset administrativo antes do login.');
+                    return;
+                }
+
                 if (loginResp.status === 426 || loginData.code === 'PASSWORD_RESET_REQUIRED') {
-                    const newPassword = prompt(loginData.error + '\n\nDigite sua NOVA senha (mínimo 8 caracteres):');
-                    if (!newPassword || newPassword.length < 8) {
-                        alert('A senha deve ter pelo menos 8 caracteres. Cancelado.');
+                    const newPassword = prompt(loginData.error + `\n\nDigite sua NOVA senha (mínimo ${MIN_PASSWORD_LENGTH} caracteres, com letras e números):`);
+                    if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH || !/\d/.test(newPassword) || !/[a-zA-Z]/.test(newPassword)) {
+                        alert(`A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres, contendo letras e números. Cancelado.`);
                         return;
                     }
                     const resetResp = await fetch(API_BASE_URL + '/api/account/change-password-forced', {
