@@ -426,6 +426,21 @@ function sanitizeUser(user, viewerUsername = '') {
     return safeUser;
 }
 
+function sanitizeAdminUserSummary(user) {
+    if (!user || typeof user !== 'object') return null;
+    const rawAvatar = String(user.avatar || '');
+    return {
+        username: escapeHtml(user.username || '', 40),
+        email: escapeHtml(String(user.email || '').trim(), 254),
+        color: sanitizeColor(user.color),
+        avatar: rawAvatar.startsWith('data:') ? '\uD83D\uDC64' : sanitizeAvatar(rawAvatar),
+        friends: Array.isArray(user.friends)
+            ? user.friends.slice(0, 500).map(name => escapeHtml(name, 40)).filter(Boolean)
+            : [],
+        isVirtual: Boolean(user.isVirtual)
+    };
+}
+
 function sanitizeState(state, viewerUsername = '') {
     const storageSafeState = sanitizeStateForStorage(state);
     return {
@@ -1641,7 +1656,7 @@ async function handleAdminOverview(request, env) {
             backups: Number(backupInfo && backupInfo.count) || 0,
             latestBackup: backupInfo && backupInfo.latest || null
         },
-        users: users.slice(-20).reverse().map(user => sanitizeUser(user, auth.user.username))
+        users: users.slice(-20).reverse().map(sanitizeAdminUserSummary).filter(Boolean)
     });
 }
 

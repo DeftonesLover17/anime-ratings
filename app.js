@@ -9885,7 +9885,7 @@ async function loadAdminOverview() {
     if (!isCurrentUserAdmin()) {
         throw new Error('Você não está identificado como administrador no painel local.');
     }
-    const response = await fetch(API_BASE_URL + '/api/admin/overview', {
+    const response = await fetchAdminEndpointWithRetry('/api/admin/overview', {
         method: 'GET',
         headers: authHeaders(),
         cache: 'no-store'
@@ -9903,8 +9903,18 @@ async function loadAdminOverview() {
     return response.json();
 }
 
+async function fetchAdminEndpointWithRetry(path, options, attempts = 2) {
+    let response = null;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+        response = await fetch(API_BASE_URL + path, options);
+        if (response.status !== 503 || attempt === attempts - 1) return response;
+        await new Promise(resolve => setTimeout(resolve, 350 * (attempt + 1)));
+    }
+    return response;
+}
+
 async function loadAdminBackups(create = false) {
-    const response = await fetch(API_BASE_URL + '/api/admin/backups', {
+    const response = await fetchAdminEndpointWithRetry('/api/admin/backups', {
         method: create ? 'POST' : 'GET',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         cache: 'no-store'
