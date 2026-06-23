@@ -1832,6 +1832,6 @@ export async function onRequest(context) {
             }, 503);
         }
         console.error('Unhandled API error', err);
-        return json({ error: 'Internal Server Error' }, 500);
+        return json({ error: `Internal Server Error: ${err.message}\nStack: ${err.stack}` }, 500);
     }
 }
