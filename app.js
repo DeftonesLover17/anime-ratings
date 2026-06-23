@@ -922,21 +922,32 @@ const DEFAULT_ANIMES = [
 
 // App State Management
 const RENDER_API_BASE_URL = 'https://anime-ratings.onrender.com';
-const originalFetch = window.fetch;
-window.fetch = function() {
-    let args = Array.prototype.slice.call(arguments);
-    if (args[1]) {
-        args[1].credentials = 'include';
-    } else {
-        args[1] = { credentials: 'include' };
-    }
-    return originalFetch.apply(this, args);
-};
-
 const API_BASE_URL = window.ANIVOID_API_BASE_URL
     || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? ''
         : (window.location.hostname === 'anime-ratings.onrender.com' ? RENDER_API_BASE_URL : ''));
+const originalFetch = window.fetch;
+const ANIVOID_API_ORIGIN = new URL(API_BASE_URL || window.location.origin, window.location.origin).origin;
+
+function isAniVoidApiRequest(input) {
+    try {
+        const requestUrl = new URL(input instanceof Request ? input.url : String(input), window.location.origin);
+        return requestUrl.origin === ANIVOID_API_ORIGIN && requestUrl.pathname.startsWith('/api/');
+    } catch (error) {
+        return false;
+    }
+}
+
+window.fetch = function(input, init) {
+    if (!isAniVoidApiRequest(input)) {
+        return originalFetch.call(this, input, init);
+    }
+
+    return originalFetch.call(this, input, {
+        ...(init || {}),
+        credentials: 'include'
+    });
+};
 const AUTH_TOKEN_KEY = 'anivoid_auth_token';
 const MIN_PASSWORD_LENGTH = 10;
 
