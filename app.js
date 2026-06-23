@@ -7637,7 +7637,15 @@ function initRegistrationOptions() {
                 }
 
                 if (loginResp.status === 426 || loginData.code === 'PASSWORD_RESET_REQUIRED') {
-                    const newPassword = prompt(loginData.error + `\n\nDigite sua NOVA senha (mínimo ${MIN_PASSWORD_LENGTH} caracteres, com letras e números):`);
+                    const resetNotice = [
+                        'Aviso de segurança do AniVoid:',
+                        '',
+                        'Esta conta entrou com uma senha temporária criada durante a migração de segurança.',
+                        'Para continuar, você precisa criar uma senha pessoal agora.',
+                        '',
+                        `Digite sua NOVA senha (mínimo ${MIN_PASSWORD_LENGTH} caracteres, com letras e números):`
+                    ].join('\n');
+                    const newPassword = prompt(resetNotice);
                     if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH || !/\d/.test(newPassword) || !/[a-zA-Z]/.test(newPassword)) {
                         alert(`A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres, contendo letras e números. Cancelado.`);
                         return;

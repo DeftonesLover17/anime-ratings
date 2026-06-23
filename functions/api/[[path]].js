@@ -1125,6 +1125,9 @@ async function handleLogin(request, env) {
     }
 
     if (user.passwordResetRequired) {
+        if (!(await verifyPassword(user, body.password))) {
+            return json({ error: 'E-mail ou senha incorretos.' }, 401);
+        }
         return json({ error: 'Sua conta exige uma redefinição de segurança. Insira uma nova senha forte na tela de redefinição.', code: 'PASSWORD_RESET_REQUIRED' }, 426);
     }
 
@@ -1646,7 +1649,7 @@ async function handleAdminResetPassword(request, env) {
     if (!user) return json({ error: 'Usuario nao encontrado.' }, 404);
 
     await setPassword(user, newPassword);
-    user.passwordResetRequired = false;
+    user.passwordResetRequired = body.requireChange !== false;
     await writeState(env, state);
     await getDb(env).prepare('DELETE FROM sessions WHERE username = ?1').bind(user.username).run();
 
@@ -1683,7 +1686,7 @@ async function handleAdminResetLegacyPasswords(request, env) {
         if (!user || !user.username || !passwordRequiresReset(user)) continue;
         const temporaryPassword = createTemporaryPassword();
         await setPassword(user, temporaryPassword);
-        user.passwordResetRequired = false;
+        user.passwordResetRequired = true;
         resetUsers.push({
             username: user.username,
             email: user.email || '',
@@ -1702,6 +1705,61 @@ async function handleAdminResetLegacyPasswords(request, env) {
         success: true,
         count: resetUsers.length,
         users: resetUsers
+    });
+}
+
+async function handleAdminRequirePasswordChange(request, env) {
+    const body = await parseJsonBody(request).catch(() => ({}));
+    const configuredKey = String(env.ADMIN_RESET_KEY || '').trim();
+    if (!configuredKey) {
+        return json({ error: 'ADMIN_RESET_KEY nao configurada no Cloudflare Pages.' }, 503);
+    }
+
+    const resetKey = String(request.headers.get('X-Admin-Reset-Key') || (body && body.resetKey) || '').trim();
+    const keyLimited = await enforceRateLimit(request, env, 'admin-require-password-change-key', 10, 1000 * 60 * 30);
+    if (keyLimited) return keyLimited;
+
+    if (!resetKey || !timingSafeEqual(resetKey, configuredKey)) {
+        return json({ error: 'Reset administrativo nao autorizado.' }, 403);
+    }
+
+    const identifiers = Array.isArray(body && body.identifiers) ? body.identifiers : [];
+    if (!identifiers.length && !body.all) {
+        return json({ error: 'Envie identifiers ou all=true.' }, 400);
+    }
+
+    const limited = await enforceRateLimit(request, env, 'admin-require-password-change', 3, 1000 * 60 * 30);
+    if (limited) return limited;
+
+    const state = await readState(env);
+    const users = Array.isArray(state.registeredUsers) ? state.registeredUsers : [];
+    const changedUsers = [];
+
+    for (const user of users) {
+        if (!user || !user.username) continue;
+        const shouldChange = body.all || identifiers.some(identifier =>
+            sameUsername(identifier, user.username) ||
+            String(identifier || '').toLowerCase() === String(user.email || '').toLowerCase()
+        );
+        if (!shouldChange) continue;
+        user.passwordResetRequired = true;
+        changedUsers.push({
+            username: user.username,
+            email: user.email || ''
+        });
+    }
+
+    if (changedUsers.length) {
+        await writeState(env, state);
+        for (const changedUser of changedUsers) {
+            await getDb(env).prepare('DELETE FROM sessions WHERE username = ?1').bind(changedUser.username).run();
+        }
+    }
+
+    return json({
+        success: true,
+        count: changedUsers.length,
+        users: changedUsers
     });
 }
 
@@ -1748,6 +1806,7 @@ async function route(request, env) {
     if (path === '/api/cancel-friend-request' && request.method === 'POST') return handleCancelFriendRequest(request, env);
     if (path === '/api/admin/reset-password' && request.method === 'POST') return handleAdminResetPassword(request, env);
     if (path === '/api/admin/reset-legacy-passwords' && request.method === 'POST') return handleAdminResetLegacyPasswords(request, env);
+    if (path === '/api/admin/require-password-change' && request.method === 'POST') return handleAdminRequirePasswordChange(request, env);
     if (path === '/api/admin/set-friendship' && request.method === 'POST') return handleSetFriendship(request, env);
     if (path === '/api/admin/clean-sessions' && request.method === 'POST') return handleAdminCleanSessions(request, env);
     if (path === '/api/admin/overview' && request.method === 'GET') return handleAdminOverview(request, env);
