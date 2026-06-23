@@ -1,8 +1,30 @@
 /*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
   X-Frame-Options: DENY
-  X-XSS-Protection: 1; mode=block
-  X-Content-Type-Options: nosniff
-  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
+  Permissions-Policy: accelerometer=(), ambient-light-sensor=(), autoplay=(), camera=(), clipboard-read=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()
   Cross-Origin-Opener-Policy: same-origin
-  Content-Security-Policy: default-src 'self'; connect-src 'self' https://anime-ratings.onrender.com http://localhost:8080 http://127.0.0.1:8080; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-ancestors 'none';
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.tailwindcss.com https://code.iconify.design; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://api.jikan.moe https://api.emailjs.com; upgrade-insecure-requests
+  Access-Control-Allow-Origin: https://anime-ratings.pages.dev
+
+/index.html
+  Cache-Control: no-cache
+
+/app.js
+  Cache-Control: no-cache, max-age=0, must-revalidate
+
+/styles.css
+  Cache-Control: public, max-age=31536000, immutable
+
+/covers/*
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+/logos/*
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+/favicon.png
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+/logo.png
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
