@@ -9610,13 +9610,24 @@ function renderActivityHistoryModal() {
 }
 
 async function loadAdminOverview() {
-    if (!isCurrentUserAdmin()) return null;
+    if (!isCurrentUserAdmin()) {
+        throw new Error('Você não está identificado como administrador no painel local.');
+    }
     const response = await fetch(API_BASE_URL + '/api/admin/overview', {
         method: 'GET',
         headers: authHeaders(),
         cache: 'no-store'
     });
-    if (!response.ok) throw new Error('admin_overview_failed');
+    if (!response.ok) {
+        let errorMsg = `Erro ${response.status}`;
+        try {
+            const errData = await response.json();
+            if (errData && errData.error) {
+                errorMsg = errData.error;
+            }
+        } catch (e) {}
+        throw new Error(errorMsg);
+    }
     return response.json();
 }
 
@@ -9652,6 +9663,10 @@ async function renderAdminCenter() {
     backupsEl.innerHTML = '';
     try {
         const data = await loadAdminOverview();
+        if (!data) {
+            overviewEl.innerHTML = `<div class="col-span-full rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-[11px] text-red-300 font-mono">Erro: Você não é administrador.</div>`;
+            return;
+        }
         const overview = data.overview || {};
         overviewEl.innerHTML = [
             renderAdminMetric('Usuarios', overview.users || 0, 'lucide:users'),
@@ -9701,7 +9716,8 @@ async function renderAdminCenter() {
         const backupData = await loadAdminBackups(false);
         renderAdminBackups(backupData.backups || []);
     } catch (err) {
-        overviewEl.innerHTML = `<div class="col-span-full rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-[11px] text-red-300 font-mono">Nao foi possivel carregar o painel admin.</div>`;
+        console.error("Failed to render admin center:", err);
+        overviewEl.innerHTML = `<div class="col-span-full rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-[11px] text-red-300 font-mono">Não foi possível carregar o painel admin: ${escapeHtml(err.message)}</div>`;
     }
 }
 

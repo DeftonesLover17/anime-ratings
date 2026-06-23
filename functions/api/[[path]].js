@@ -649,7 +649,7 @@ function notifyFriendsOfActivity(state, authorUser, activity) {
 }
 
 function isAdminUser(user, env) {
-    const admins = String(env.ADMIN_USERS || '')
+    const admins = String(env.ADMIN_USERS || 'felipe')
         .split(',')
         .map(name => normalizeUsername(name))
         .filter(Boolean);
