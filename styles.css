@@ -35,9 +35,9 @@ body {
 
 /* Glassmorphism Styles */
 .glass-panel {
-    background: rgba(10, 10, 10, 0.7);
-    backdrop-filter: blur(8px) saturate(112%);
-    -webkit-backdrop-filter: blur(8px) saturate(112%);
+    background: rgba(10, 10, 10, 0.86);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     border: 1px solid var(--glass-border);
     position: relative;
     z-index: 1;
@@ -51,13 +51,15 @@ body {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     border: 1px solid rgba(255, 255, 255, 0.05);
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition:
+        transform 0.16s ease,
+        border-color 0.16s ease,
+        background 0.16s ease;
 }
 
 .glass-card:hover {
     background: rgba(22, 22, 22, 0.6);
     border-color: rgba(255, 255, 255, 0.1);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
     transform: translateY(-2px);
 }
 
@@ -95,14 +97,14 @@ body {
 
 /* Reveal Animation Styles */
 .reveal {
-    opacity: 0;
-    transform: translateY(30px);
-    transition: all 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+    opacity: 1;
+    transform: none;
+    transition: none;
 }
 
 .reveal.active {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
 }
 
 /* Floating & Cinematic Animations */
@@ -1553,10 +1555,118 @@ aside .rounded-3xl:has(.profile-style-grid) {
         gap: 12px;
     }
 
-    .comment-content-container .comment-text {
+.comment-content-container .comment-text {
         font-size: 12px;
         line-height: 1.65;
     }
+}
+
+/* Performance mode: keep the dark AniVoid look without long GPU passes. */
+html {
+    scroll-behavior: auto !important;
+}
+
+.ambient-depth-stage,
+.noise-overlay {
+    display: none !important;
+}
+
+.backdrop-blur-sm,
+.backdrop-blur-md,
+.backdrop-blur-xl {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+#main-nav {
+    background: rgba(5, 5, 5, 0.94) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+.animate-pulse,
+.animate-ping,
+.animate-bounce,
+[class*="animate-["],
+.studio-glow,
+.view-enter-soft,
+.studio-profile-hero,
+.metric-depth-card,
+.studio-catalog-card,
+.user-panel-depth {
+    animation: none !important;
+}
+
+.anime-card-3d::before,
+.studio-landing-card::before,
+.activity-card-3d::before {
+    display: none !important;
+}
+
+.anime-card-3d,
+.glass-card,
+.activity-card-3d,
+.studio-landing-card,
+.profile-switch-card,
+.metric-depth-card,
+.studio-catalog-card,
+.user-panel-depth {
+    box-shadow: none !important;
+}
+
+.anime-card-3d:hover,
+.glass-card:hover,
+.activity-card-3d:hover,
+.studio-landing-card:hover,
+.profile-switch-card:hover,
+.metric-depth-card:hover,
+.studio-catalog-card:hover,
+.user-panel-depth:hover {
+    --lift-y: 0;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.poster-parallax,
+.featured-poster-3d img,
+.detail-poster-frame img,
+.studio-logo-mark,
+.activity-emoji,
+.studio-score-star {
+    filter: none !important;
+    transition: none !important;
+}
+
+.group:hover .poster-parallax,
+.anime-card-3d:hover .poster-parallax,
+.featured-poster-3d:hover img,
+.detail-poster-frame:hover img {
+    transform: none !important;
+    filter: none !important;
+}
+
+.featured-poster-3d,
+.detail-poster-frame {
+    transform-style: flat !important;
+    box-shadow: 0 16px 38px rgba(0, 0, 0, 0.42) !important;
+}
+
+.featured-poster-3d:hover,
+.detail-poster-frame:hover {
+    transform: none !important;
+}
+
+#anime-grid-container [style*="box-shadow"],
+#anime-grid-container [style*="text-shadow"],
+#featured-banner-wrapper [style*="text-shadow"] {
+    box-shadow: none !important;
+    text-shadow: none !important;
+}
+
+.anivoid-action,
+button:not(:disabled),
+.transition-all {
+    transition-duration: 0.12s !important;
 }
 
 

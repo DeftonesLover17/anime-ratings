@@ -3656,6 +3656,7 @@ function setupUtilityModals() {
 }
 
 function initSoftTiltCards(root = document) {
+    return;
     if (!root || !window.matchMedia || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     if (window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 1024) return;
 
@@ -4479,7 +4480,7 @@ function renderFeaturedBanner() {
     const posterCardHtml = isPinned
         ? `
         <!-- Pinned Highlight Poster Card -->
-        <div class="featured-poster-3d tilt-card relative shrink-0 w-56 sm:w-64 lg:w-72 aspect-[3/4] rounded-3xl overflow-hidden border-2 shadow-[0_0_35px_${highlightGlow}] transition-all duration-500 hover:scale-[1.04] hover:shadow-[0_0_50px_${highlightGlow}] animate-[pulse-glow_4s_infinite_ease-in-out] self-center z-10" style="border-color: ${highlightColor}">
+        <div class="featured-poster-3d relative shrink-0 w-56 sm:w-64 lg:w-72 aspect-[3/4] rounded-3xl overflow-hidden border-2 transition-all duration-200 self-center z-10" style="border-color: ${highlightColor}">
             <img src="${featuredAnime.coverUrl}" class="w-full h-full object-cover" alt="${featuredAnime.title}">
             <div class="absolute top-4 right-4 bg-brand text-white text-[9px] font-bold font-mono tracking-widest px-2.5 py-1 rounded-full border border-brand/50 shadow-[0_4px_12px_rgba(255,69,0,0.4)] uppercase flex items-center gap-1 select-none">
                 <iconify-icon icon="lucide:pin" class="text-[10px] animate-bounce"></iconify-icon>
@@ -4491,7 +4492,7 @@ function renderFeaturedBanner() {
         `
         : `
         <!-- Normal Highlight Poster Card -->
-        <div class="featured-poster-3d tilt-card relative shrink-0 w-48 sm:w-56 lg:w-60 aspect-[3/4] rounded-2xl overflow-hidden border border-white/10 shadow-2xl transition-all duration-300 hover:scale-[1.02] self-center z-10">
+        <div class="featured-poster-3d relative shrink-0 w-48 sm:w-56 lg:w-60 aspect-[3/4] rounded-2xl overflow-hidden border border-white/10 transition-all duration-200 self-center z-10">
             <img src="${featuredAnime.coverUrl}" class="w-full h-full object-cover" alt="${featuredAnime.title}">
         </div>
         `;
