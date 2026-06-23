@@ -197,6 +197,31 @@ function sanitizeComment(comment) {
     };
 }
 
+function textCorruptionScore(value) {
+    const text = String(value || '');
+    const replacementChars = (text.match(/\uFFFD/g) || []).length;
+    const mojibakeSequences = (text.match(/(?:\u00C3[\u0080-\u00BF]|\u00C2[\u0080-\u00BF]|\u00F0\u0178)/g) || []).length;
+    return (replacementChars * 10) + mojibakeSequences;
+}
+
+function preferCleanerText(serverText, localText) {
+    const serverValue = String(serverText || '');
+    const localValue = String(localText || '');
+    return textCorruptionScore(localValue) > textCorruptionScore(serverValue)
+        ? serverValue
+        : localValue;
+}
+
+function mergeReplyPreservingCleanText(serverReply, localReply) {
+    if (!serverReply) return localReply;
+    if (!localReply) return serverReply;
+    return {
+        ...serverReply,
+        ...localReply,
+        reply: preferCleanerText(serverReply.reply, localReply.reply)
+    };
+}
+
 function mergeCommentLikes(serverLikes, localLikes, loggedInId = '') {
     const likes = new Set();
     const localLikeIds = new Set();
@@ -1043,8 +1068,9 @@ function mergeStates(localState, serverState, loggedInUser, canEditCatalog = fal
 
                             if (isAuthor) {
                                 if (index >= 0) {
-                                    const prevText = serverAnime.comments[index].comment;
-                                    if (prevText !== lc.comment) {
+                                    const serverComment = serverAnime.comments[index];
+                                    const mergedCommentText = preferCleanerText(serverComment.comment, lc.comment);
+                                    if (String(serverComment.comment || '') !== mergedCommentText) {
                                         mergedActivities.push({
                                             id: generateActivityId(),
                                             username: authorUser.username,
@@ -1062,12 +1088,17 @@ function mergeStates(localState, serverState, loggedInUser, canEditCatalog = fal
                                     const localReplies = lc.replies || [];
                                     const repliesMap = {};
                                     serverReplies.forEach(r => { if (r && r.id) repliesMap[r.id] = r; });
-                                    localReplies.forEach(r => { if (r && r.id) repliesMap[r.id] = r; });
+                                    localReplies.forEach(r => {
+                                        if (r && r.id) {
+                                            repliesMap[r.id] = mergeReplyPreservingCleanText(repliesMap[r.id], r);
+                                        }
+                                    });
                                     const mergedReplies = Object.values(repliesMap).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
                                     serverAnime.comments[index] = {
-                                        ...serverAnime.comments[index],
+                                        ...serverComment,
                                         ...lc,
-                                        likes: mergeCommentLikes(serverAnime.comments[index].likes, lc.likes, loggedInId),
+                                        comment: mergedCommentText,
+                                        likes: mergeCommentLikes(serverComment.likes, lc.likes, loggedInId),
                                         replies: mergedReplies
                                     };
                                 } else {
@@ -1096,7 +1127,7 @@ function mergeStates(localState, serverState, loggedInUser, canEditCatalog = fal
                                 localReplies.forEach(r => {
                                     if (r && r.id) {
                                         if (r.friendId && r.friendId.toLowerCase() === loggedInId) {
-                                            repliesMap[r.id] = r; // accept new reply from this user
+                                            repliesMap[r.id] = mergeReplyPreservingCleanText(repliesMap[r.id], r);
                                         } else if (!repliesMap[r.id]) {
                                             repliesMap[r.id] = r; // keep existing replies from others
                                         }

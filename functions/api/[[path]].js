@@ -292,6 +292,31 @@ function sanitizeComment(comment) {
     };
 }
 
+function textCorruptionScore(value) {
+    const text = String(value || '');
+    const replacementChars = (text.match(/\uFFFD/g) || []).length;
+    const mojibakeSequences = (text.match(/(?:\u00C3[\u0080-\u00BF]|\u00C2[\u0080-\u00BF]|\u00F0\u0178)/g) || []).length;
+    return (replacementChars * 10) + mojibakeSequences;
+}
+
+function preferCleanerText(serverText, localText) {
+    const serverValue = String(serverText || '');
+    const localValue = String(localText || '');
+    return textCorruptionScore(localValue) > textCorruptionScore(serverValue)
+        ? serverValue
+        : localValue;
+}
+
+function mergeReplyPreservingCleanText(serverReply, localReply) {
+    if (!serverReply) return localReply;
+    if (!localReply) return serverReply;
+    return {
+        ...serverReply,
+        ...localReply,
+        reply: preferCleanerText(serverReply.reply, localReply.reply)
+    };
+}
+
 function sanitizeRatings(ratings) {
     if (!ratings || typeof ratings !== 'object') return {};
     const safeRatings = {};
@@ -850,16 +875,23 @@ function mergeCommentsForUser(serverAnime, localAnime, loggedInId, onActivity = 
 
         if (isAuthor) {
             if (index >= 0) {
-                if (String(serverAnime.comments[index].comment || '') !== String(localComment.comment || '')) {
+                const serverComment = serverAnime.comments[index];
+                const mergedCommentText = preferCleanerText(serverComment.comment, localComment.comment);
+                if (String(serverComment.comment || '') !== mergedCommentText) {
                     onActivity('comment_edit', 'editou uma critica');
                 }
                 const repliesMap = {};
-                (serverAnime.comments[index].replies || []).forEach(reply => { if (reply && reply.id) repliesMap[reply.id] = reply; });
-                (localComment.replies || []).forEach(reply => { if (reply && reply.id) repliesMap[reply.id] = reply; });
+                (serverComment.replies || []).forEach(reply => { if (reply && reply.id) repliesMap[reply.id] = reply; });
+                (localComment.replies || []).forEach(reply => {
+                    if (reply && reply.id) {
+                        repliesMap[reply.id] = mergeReplyPreservingCleanText(repliesMap[reply.id], reply);
+                    }
+                });
                 serverAnime.comments[index] = {
-                    ...serverAnime.comments[index],
+                    ...serverComment,
                     ...localComment,
-                    likes: mergeCommentLikes(serverAnime.comments[index].likes, localComment.likes, loggedInId),
+                    comment: mergedCommentText,
+                    likes: mergeCommentLikes(serverComment.likes, localComment.likes, loggedInId),
                     replies: Object.values(repliesMap).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
                 };
             } else {
@@ -876,7 +908,7 @@ function mergeCommentsForUser(serverAnime, localAnime, loggedInId, onActivity = 
             (localComment.replies || []).forEach(reply => {
                 if (reply && reply.id && reply.friendId && reply.friendId.toLowerCase() === loggedInId) {
                     if (!repliesMap[reply.id]) addedReply = true;
-                    repliesMap[reply.id] = reply;
+                    repliesMap[reply.id] = mergeReplyPreservingCleanText(repliesMap[reply.id], reply);
                 }
             });
             if (addedReply) onActivity('reply_add', 'respondeu uma critica');
