@@ -1610,6 +1610,49 @@ async function handleAdminCleanSessions(request, env) {
     return json({ success: true, message: 'Todas as sessões antigas foram invalidadas com sucesso no banco de dados D1.' });
 }
 
+async function handleAdminResetPassword(request, env) {
+    const body = await parseJsonBody(request);
+    const configuredKey = String(env.ADMIN_RESET_KEY || '').trim();
+    if (!configuredKey) {
+        return json({ error: 'ADMIN_RESET_KEY nao configurada no Cloudflare Pages.' }, 503);
+    }
+
+    const resetKey = String(request.headers.get('X-Admin-Reset-Key') || (body && body.resetKey) || '').trim();
+    const identifier = body && (body.identifier || body.email || body.username);
+    const keyLimited = await enforceRateLimit(request, env, 'admin-password-reset-key', 10, 1000 * 60 * 30, identifier || 'unknown');
+    if (keyLimited) return keyLimited;
+
+    if (!resetKey || !timingSafeEqual(resetKey, configuredKey)) {
+        return json({ error: 'Reset administrativo nao autorizado.' }, 403);
+    }
+
+    const newPassword = body && body.newPassword;
+    if (!identifier || !newPassword) {
+        return json({ error: 'identifier e newPassword sao obrigatorios.' }, 400);
+    }
+
+    const passwordError = passwordPolicyError(newPassword);
+    if (passwordError) return json({ error: passwordError }, 400);
+
+    const limited = await enforceRateLimit(request, env, 'admin-password-reset', 5, 1000 * 60 * 30, identifier);
+    if (limited) return limited;
+
+    const state = await readState(env);
+    const user = findRegisteredUserByIdentifier(state, identifier);
+    if (!user) return json({ error: 'Usuario nao encontrado.' }, 404);
+
+    await setPassword(user, newPassword);
+    user.passwordResetRequired = false;
+    await writeState(env, state);
+    await getDb(env).prepare('DELETE FROM sessions WHERE username = ?1').bind(user.username).run();
+
+    return json({
+        success: true,
+        username: user.username,
+        message: 'Senha redefinida e sessoes antigas invalidadas.'
+    });
+}
+
 async function route(request, env) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, '') || '/';
@@ -1651,6 +1694,7 @@ async function route(request, env) {
     if (path === '/api/send-friend-request' && request.method === 'POST') return handleFriendRequest(request, env);
     if (path === '/api/respond-friend-request' && request.method === 'POST') return handleRespondFriendRequest(request, env);
     if (path === '/api/cancel-friend-request' && request.method === 'POST') return handleCancelFriendRequest(request, env);
+    if (path === '/api/admin/reset-password' && request.method === 'POST') return handleAdminResetPassword(request, env);
     if (path === '/api/admin/set-friendship' && request.method === 'POST') return handleSetFriendship(request, env);
     if (path === '/api/admin/clean-sessions' && request.method === 'POST') return handleAdminCleanSessions(request, env);
     if (path === '/api/admin/overview' && request.method === 'GET') return handleAdminOverview(request, env);
