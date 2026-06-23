@@ -1276,6 +1276,60 @@
         </div>
     </div>
 
+    <!-- SECURITY UPDATE NOTIFICATION MODAL -->
+    <div id="security-notice-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl z-[9999] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
+        <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl p-6 md:p-8 space-y-6 my-auto relative">
+            <!-- Decorative light glow circles -->
+            <div class="absolute -top-24 -left-24 w-48 h-48 rounded-full bg-brand/10 blur-[80px] pointer-events-none"></div>
+            
+            <div class="flex items-center gap-3 border-b border-white/5 pb-4 select-none">
+                <iconify-icon icon="lucide:shield-alert" class="text-brand text-2xl animate-pulse"></iconify-icon>
+                <div>
+                    <h2 class="text-sm font-mono font-bold text-white uppercase tracking-wider">Aviso de Segurança! 🔒</h2>
+                    <p class="text-[9px] text-gray-500 font-mono mt-0.5">Atualização Importante do AniVoid</p>
+                </div>
+            </div>
+
+            <div class="space-y-4 text-xs font-mono text-gray-300 leading-relaxed">
+                <p>E aí! Atualizamos a segurança do AniVoid para deixar a sua conta e as suas avaliações muito mais protegidas contra qualquer bizarrice. Se liga no que mudou:</p>
+                
+                <div class="space-y-3 bg-white/[0.025] border border-white/5 rounded-2xl p-4">
+                    <div class="flex items-start gap-3">
+                        <iconify-icon icon="lucide:cookie" class="text-brand text-base mt-0.5 shrink-0"></iconify-icon>
+                        <div>
+                            <h4 class="text-[11px] font-bold text-white uppercase tracking-wide">Sessão mais Segura</h4>
+                            <p class="text-[10px] text-gray-400 mt-1 leading-normal">Os tokens não ficam mais dando sopa no localStorage. Agora eles usam Cookies protegidos (HttpOnly e Secure) invisíveis no navegador.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-start gap-3">
+                        <iconify-icon icon="lucide:log-out" class="text-brand text-base mt-0.5 shrink-0"></iconify-icon>
+                        <div>
+                            <h4 class="text-[11px] font-bold text-white uppercase tracking-wide">Sessões Limpas</h4>
+                            <p class="text-[10px] text-gray-400 mt-1 leading-normal">Invalidamos todos os logins antigos e tokens lixo no banco de dados. Caso seja desconectado, é só fazer login de novo.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-3">
+                        <iconify-icon icon="lucide:key-round" class="text-brand text-base mt-0.5 shrink-0"></iconify-icon>
+                        <div>
+                            <h4 class="text-[11px] font-bold text-white uppercase tracking-wide">Criptografia Reforçada</h4>
+                            <p class="text-[10px] text-gray-400 mt-1 leading-normal">Elevamos o nível de proteção das senhas e atualizamos as regras de segurança nos servidores para evitar ataques.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="text-[10px] text-gray-400 italic text-center">Nenhum dado ou nota de anime foi perdido!</p>
+            </div>
+
+            <div class="pt-2">
+                <button id="close-security-notice" class="w-full py-3.5 rounded-full bg-brand text-white text-[10px] font-mono uppercase tracking-widest font-bold hover:bg-brand/90 hover:scale-[1.01] active:scale-[0.99] transition-all border border-brand/20 shadow-[0_4px_15px_rgba(255,69,0,0.2)]">
+                    Entendido, bora lá! ✌️
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts Integration -->
     <script src="app.js?v=75"></script>
 </body>

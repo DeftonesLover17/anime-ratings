@@ -3774,6 +3774,23 @@ function startApp() {
     // 3. Populate and Render Dashboard UI
     initUI();
 
+    // Check and show security notice modal if not seen yet
+    const secModal = document.getElementById('security-notice-modal');
+    const closeSecBtn = document.getElementById('close-security-notice');
+    if (secModal && closeSecBtn) {
+        if (!localStorage.getItem('anivoid_seen_security_notice_v2')) {
+            secModal.classList.remove('hidden');
+            secModal.classList.add('flex');
+            document.body.classList.add('overflow-hidden');
+        }
+        closeSecBtn.addEventListener('click', () => {
+            secModal.classList.add('hidden');
+            secModal.classList.remove('flex');
+            document.body.classList.remove('overflow-hidden');
+            localStorage.setItem('anivoid_seen_security_notice_v2', 'true');
+        });
+    }
+
     // Setup Group Stats Modal listeners
     const openStatsBtn = document.getElementById('open-group-stats');
     const closeStatsBtn = document.getElementById('close-group-stats');
