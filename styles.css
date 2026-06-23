@@ -2,6 +2,7 @@
     --bg: #050505;
     --accent: #FF4500;
     --accent-glow: rgba(255, 69, 0, 0.4);
+    --accent-text: #ffffff;
     --card: rgba(17, 17, 17, 0.65);
     --card-hover: rgba(25, 25, 25, 0.85);
     --text-muted: #ffe0e090;
@@ -15,6 +16,11 @@ img {
 
 .bg-brand {
     background: var(--accent) !important;
+    color: var(--accent-text, #ffffff) !important;
+}
+
+.bg-brand iconify-icon {
+    color: inherit !important;
 }
 
 body {

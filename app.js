@@ -8299,6 +8299,30 @@ function applyUserThemeColor(color) {
     document.documentElement.style.setProperty('--brand', color);
     document.documentElement.style.setProperty('--accent', color);
     document.documentElement.style.setProperty('--accent-glow', `${color}40`);
+
+    // Dynamically calculate contrast text color (black/dark-gray for light accents, white for dark/saturated accents)
+    let contrastColor = '#ffffff';
+    try {
+        let cleanHex = color.replace('#', '');
+        if (cleanHex.length === 3) {
+            cleanHex = cleanHex[0] + cleanHex[0] + cleanHex[1] + cleanHex[1] + cleanHex[2] + cleanHex[2];
+        }
+        if (cleanHex.length === 6) {
+            const r = parseInt(cleanHex.substring(0, 2), 16);
+            const g = parseInt(cleanHex.substring(2, 4), 16);
+            const b = parseInt(cleanHex.substring(4, 6), 16);
+            if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+                // YIQ formula to calculate perceived brightness
+                const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+                if (yiq >= 135) {
+                    contrastColor = '#09090b'; // Tailwind zinc-950
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Error computing color contrast:', e);
+    }
+    document.documentElement.style.setProperty('--accent-text', contrastColor);
 }
 
 // ── TITLE PICKER: visual card selector for Felipe's active title ──────────
