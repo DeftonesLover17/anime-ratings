@@ -9536,9 +9536,22 @@ function renderActivitiesFeed() {
         item.style.setProperty('--activity-color', activityMeta.color);
         item.style.boxShadow = `${isAdminAct ? '0 0 12px rgba(255,69,0,0.08), ' : ''}inset 3px 0 0 ${activityMeta.color}`;
         
-        const avatarHtml = act.userAvatar && (act.userAvatar.startsWith('data:') || act.userAvatar.startsWith('http'))
-            ? `<img src="${escapeHtml(act.userAvatar)}" class="w-5 h-5 rounded-full object-cover border border-black/70" alt="">`
-            : `<div class="w-5 h-5 rounded-full bg-black/80 border border-white/10 flex items-center justify-center text-[10px]">${act.userAvatar || '&#128100;'}</div>`;
+        // Resolve user's actual avatar from cache (registeredUsers) if stripped
+        let userAvatar = act.userAvatar;
+        if (!userAvatar || userAvatar === '👤' || (userAvatar.startsWith('data:') && userAvatar.length > 2000)) {
+            let registeredUsers = [];
+            try {
+                registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+            } catch (e) {}
+            const foundUser = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === (act.username || '').toLowerCase());
+            if (foundUser && foundUser.avatar) {
+                userAvatar = foundUser.avatar;
+            }
+        }
+
+        const avatarHtml = userAvatar && (userAvatar.startsWith('data:') || userAvatar.startsWith('http'))
+            ? `<img src="${escapeHtml(userAvatar)}" class="w-5 h-5 rounded-full object-cover border border-black/70" alt="">`
+            : `<div class="w-5 h-5 rounded-full bg-black/80 border border-white/10 flex items-center justify-center text-[10px]">${userAvatar || '&#128100;'}</div>`;
 
         const activityVisualHtml = `
             <div class="relative shrink-0 mt-0.5">

@@ -297,7 +297,7 @@ function sanitizeStateForStorage(state) {
             id: escapeHtml(activity && activity.id || '', 120),
             username: escapeHtml(activity && activity.username || '', 80),
             userColor: sanitizeColor(activity && activity.userColor),
-            userAvatar: sanitizeAvatar(activity && activity.userAvatar),
+            userAvatar: (activity && activity.userAvatar && activity.userAvatar.startsWith('data:')) ? '👤' : sanitizeAvatar(activity && activity.userAvatar),
             type: escapeHtml(activity && activity.type || '', 60),
             animeId: escapeHtml(activity && activity.animeId || '', 120),
             animeTitle: escapeHtml(activity && activity.animeTitle || '', 180),
