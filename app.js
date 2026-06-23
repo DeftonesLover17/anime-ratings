@@ -4758,8 +4758,7 @@ function renderAnimeGrid() {
         initSoftTiltCards(grid);
     }
     markViewEntered(grid);
-    renderActivitiesFeed();
-    renderRecommendationsRail();
+    requestAnimationFrame(() => setTimeout(() => { renderActivitiesFeed(); renderRecommendationsRail(); }, 50));
 }
 
 let activeStudioName = null;
@@ -10088,4 +10087,5 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
 
