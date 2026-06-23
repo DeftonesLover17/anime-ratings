@@ -944,6 +944,10 @@ function getAuthToken() {
     return '';
 }
 
+function hasAuthSession() {
+    return !!localStorage.getItem('anivoid_logged_in_username');
+}
+
 function setAuthSession(username, token) {
     if (username) localStorage.setItem('anivoid_logged_in_username', username);
     const activeState = window.__anivoidState;
@@ -1064,8 +1068,8 @@ async function refreshRegisteredUsersFromServer({ force = false } = {}) {
             if (response.status === 401 || response.status === 403) return false;
             if (!response.ok) throw new Error('Failed to refresh registered users');
             const serverState = await response.json();
-            if (serverState.viewerUsername && getAuthToken()) {
-                setAuthSession(serverState.viewerUsername, getAuthToken());
+            if (serverState.viewerUsername) {
+                setAuthSession(serverState.viewerUsername);
             }
             if (Array.isArray(serverState.registeredUsers)) {
                 storeRegisteredUsers(serverState.registeredUsers);
@@ -1225,8 +1229,8 @@ function mergeLocalOwnRatings(serverAnimes, localAnimes, userId) {
 
 function applyServerStateSnapshot(serverState) {
     if (!serverState || typeof serverState !== 'object') return;
-    if (serverState.viewerUsername && getAuthToken()) {
-        setAuthSession(serverState.viewerUsername, getAuthToken());
+    if (serverState.viewerUsername) {
+        setAuthSession(serverState.viewerUsername);
     }
     let previousAnimes = [];
     try {
@@ -1253,10 +1257,6 @@ class AppState {
     constructor() {
         this.loggedInUser = localStorage.getItem('anivoid_logged_in_username') || null;
         this.authToken = getAuthToken();
-        if (this.loggedInUser && !this.authToken) {
-            clearAuthSession();
-            this.loggedInUser = null;
-        }
         sanitizeStoredRegisteredUsers();
         this.friends = [];
         this.activities = [];
@@ -1406,10 +1406,6 @@ class AppState {
         try {
             this.loggedInUser = localStorage.getItem('anivoid_logged_in_username') || null;
             this.authToken = getAuthToken();
-            if (this.loggedInUser && !this.authToken) {
-                clearAuthSession();
-                this.loggedInUser = null;
-            }
             if (this.loggedInUser) {
                 let registeredUsers = [];
                 try {
@@ -1524,8 +1520,8 @@ class AppState {
                 prevUsersStr = deterministicStringify(parsedUsers);
             } catch (e) {}
 
-            const hasAuthSession = !!this.loggedInUser && !!getAuthToken();
-            const response = hasAuthSession
+            const hasLoginSession = !!this.loggedInUser;
+            const response = hasLoginSession
                 ? await fetch(API_BASE_URL + '/api/sync-state', {
                     method: 'POST',
                     headers: authHeaders({
@@ -1547,8 +1543,8 @@ class AppState {
             }
             if (!response.ok) throw new Error('API sync request failed');
             const serverState = await response.json();
-            if (serverState.viewerUsername && getAuthToken()) {
-                setAuthSession(serverState.viewerUsername, getAuthToken());
+            if (serverState.viewerUsername) {
+                setAuthSession(serverState.viewerUsername);
                 this.loggedInUser = serverState.viewerUsername;
             }
 
@@ -3029,7 +3025,7 @@ function markNotificationsRead() {
     setStoredNotifications(items);
     updateNotificationBadges();
     renderNotificationsModal();
-    if (getAuthToken()) {
+    if (hasAuthSession()) {
         fetch(API_BASE_URL + '/api/notifications/read', {
             method: 'POST',
             headers: authHeaders({ 'Content-Type': 'application/json' })
@@ -3041,7 +3037,7 @@ function clearNotifications() {
     setStoredNotifications([]);
     updateNotificationBadges();
     renderNotificationsModal();
-    if (getAuthToken()) {
+    if (hasAuthSession()) {
         fetch(API_BASE_URL + '/api/notifications/clear', {
             method: 'POST',
             headers: authHeaders({ 'Content-Type': 'application/json' })
@@ -3269,7 +3265,7 @@ function toggleCommentLike(animeId, commentId) {
 
 async function exportBackupData() {
     let payload = null;
-    if (isCurrentUserAdmin() && getAuthToken()) {
+    if (isCurrentUserAdmin() && hasAuthSession()) {
         try {
             const response = await fetch(API_BASE_URL + '/api/admin/export-state', {
                 method: 'GET',
@@ -3927,7 +3923,7 @@ function initUI() {
 
     // If no friends, show registration gate and stop
     if (state.friends.length === 0) {
-        if (state.loggedInUser && getAuthToken()) {
+        if (state.loggedInUser) {
             hideRegistrationGate();
         } else {
             showRegistrationGate();
@@ -7660,7 +7656,13 @@ function initRegistrationOptions() {
                         alert(resetData.error || 'Falha ao redefinir senha.');
                         return;
                     }
-                    alert('Senha redefinida com sucesso! Por favor, faça login novamente com a nova senha.');
+                    const freshLoginResp = await submitLogin(emailVal, newPassword);
+                    const freshLoginData = await freshLoginResp.json().catch(() => ({}));
+                    if (!freshLoginResp.ok || !freshLoginData.user) {
+                        alert('Senha redefinida com sucesso! Entre novamente usando sua nova senha.');
+                        return;
+                    }
+                    completeAuthenticatedLogin(freshLoginData);
                     return;
                 }
 
@@ -7674,55 +7676,7 @@ function initRegistrationOptions() {
                 return;
             }
 
-            const matchedUser = stripSensitiveUserFields(loginData.user);
-            const userId = matchedUser.username.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-            setAuthSession(matchedUser.username, loginData.token);
-            state.currentFriendId = userId;
-
-            try {
-                if (loginData.state) {
-                    applyServerStateSnapshot(loginData.state);
-                }
-
-                // Migrate ratings and reviews from key '1' if they exist in localStorage
-                state.animes.forEach(anime => {
-                    if (anime.ratings && anime.ratings['1']) {
-                        anime.ratings[userId] = { ...anime.ratings['1'] };
-                        delete anime.ratings['1'];
-                    }
-                    if (anime.comments) {
-                        anime.comments.forEach(comment => {
-                            if (comment.friendId === '1') {
-                                comment.friendId = userId;
-                                comment.friendName = matchedUser.username;
-                            }
-                        });
-                    }
-                });
-
-                // Reconstruct friends and save/sync
-                state.loadLocalSession();
-                state.save();
-
-                const regGate = document.getElementById('registration-gate');
-                if (regGate) {
-                    regGate.classList.add('hidden');
-                    regGate.classList.remove('flex');
-                }
-                document.body.classList.remove('overflow-hidden');
-
-                // Reload UI
-                initUI();
-
-                // Show a welcome toast!
-                showWelcomeToast(matchedUser.username);
-
-                // Modal only shown on new registration, not on login
-            } catch (err) {
-                console.error('Post-login refresh failed:', err);
-                window.location.reload();
-            }
+            completeAuthenticatedLogin(loginData);
         });
     }
 
@@ -8616,7 +8570,7 @@ function setupEditProfileModal() {
             }
             if (data.registeredUsers) storeRegisteredUsers(data.registeredUsers);
             if (data.user && data.user.username) {
-                setAuthSession(data.user.username, getAuthToken());
+                setAuthSession(data.user.username);
             }
         } catch (err) {
             console.error('Profile update failed:', err);
