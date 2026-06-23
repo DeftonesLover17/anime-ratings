@@ -938,6 +938,7 @@ const API_BASE_URL = window.ANIVOID_API_BASE_URL
         ? ''
         : (window.location.hostname === 'anime-ratings.onrender.com' ? RENDER_API_BASE_URL : ''));
 const AUTH_TOKEN_KEY = 'anivoid_auth_token';
+const MIN_PASSWORD_LENGTH = 10;
 
 function getAuthToken() {
     return '';
@@ -967,155 +968,15 @@ function authHeaders(extraHeaders = {}) {
     return token ? { ...extraHeaders, Authorization: `Bearer ${token}` } : extraHeaders;
 }
 
-const USE_CLIENT_PASSWORD_PROOF = API_BASE_URL === ''
-    && window.location.hostname !== 'localhost'
-    && window.location.hostname !== '127.0.0.1'
-    && window.crypto
-    && window.crypto.subtle;
-
-function bytesToBase64(bytes) {
-    let binary = '';
-    const chunkSize = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-        binary += String.fromCharCode(...bytes.slice(i, i + chunkSize));
-    }
-    return btoa(binary);
-}
-
-function base64ToBytes(base64) {
-    const binary = atob(String(base64 || ''));
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return bytes;
-}
-
-function randomBase64(byteLength) {
-    const bytes = new Uint8Array(byteLength);
-    window.crypto.getRandomValues(bytes);
-    return bytesToBase64(bytes);
-}
-
-async function derivePasswordHashBytes(password, salt, iterations) {
-    const key = await window.crypto.subtle.importKey(
-        'raw',
-        new TextEncoder().encode(String(password || '')),
-        'PBKDF2',
-        false,
-        ['deriveBits']
-    );
-    const bits = await window.crypto.subtle.deriveBits(
-        {
-            name: 'PBKDF2',
-            salt: base64ToBytes(salt),
-            iterations,
-            hash: 'SHA-256'
-        },
-        key,
-        256
-    );
-    return new Uint8Array(bits);
-}
-
-async function createPasswordCredential(password) {
-    const passwordSalt = randomBase64(16);
-    const passwordIterations = 310000;
-    const passwordHash = bytesToBase64(await derivePasswordHashBytes(password, passwordSalt, passwordIterations));
-    return {
-        passwordHash,
-        passwordSalt,
-        passwordIterations,
-        passwordDigest: 'pbkdf2-sha256'
-    };
-}
-
-async function createPasswordProof(password, challenge) {
-    const hashBytes = await derivePasswordHashBytes(
-        password,
-        challenge.passwordSalt,
-        Number(challenge.passwordIterations) || 310000
-    );
-    const key = await window.crypto.subtle.importKey(
-        'raw',
-        hashBytes,
-        { name: 'HMAC', hash: 'SHA-256' },
-        false,
-        ['sign']
-    );
-    const signature = await window.crypto.subtle.sign('HMAC', key, new TextEncoder().encode(challenge.nonce));
-    return bytesToBase64(new Uint8Array(signature));
-}
-
-async function createPasswordChallengeResponse(password, challenge) {
-    const hashBytes = await derivePasswordHashBytes(
-        password,
-        challenge.passwordSalt,
-        Number(challenge.passwordIterations) || 310000
-    );
-    const key = await window.crypto.subtle.importKey(
-        'raw',
-        hashBytes,
-        { name: 'HMAC', hash: 'SHA-256' },
-        false,
-        ['sign']
-    );
-    const signature = await window.crypto.subtle.sign('HMAC', key, new TextEncoder().encode(challenge.nonce));
-    return {
-        passwordHash: bytesToBase64(hashBytes),
-        passwordProof: bytesToBase64(new Uint8Array(signature))
-    };
-}
-
 async function submitLogin(identifier, password) {
-    const submitPasswordLogin = () => fetch(API_BASE_URL + '/api/login', {
+    return fetch(API_BASE_URL + '/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: identifier, identifier, password })
     });
-
-    if (USE_CLIENT_PASSWORD_PROOF) {
-        try {
-            const challengeResp = await fetch(API_BASE_URL + '/api/login-challenge', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: identifier, identifier })
-            });
-            const challenge = await challengeResp.json().catch(() => ({}));
-            if (challengeResp.ok && challenge.nonce && challenge.passwordSalt) {
-                const challengeResponse = await createPasswordChallengeResponse(password, challenge);
-                return fetch(API_BASE_URL + '/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        email: identifier,
-                        identifier,
-                        nonce: challenge.nonce,
-                        passwordProof: challengeResponse.passwordProof,
-                        passwordHash: challengeResponse.passwordHash
-                    })
-                });
-            }
-            return challengeResp;
-        } catch (err) {
-            console.warn('Password proof login failed:', err);
-            return new Response(JSON.stringify({
-                error: 'Nao foi possivel conectar ao servidor de login. Atualize a pagina e tente novamente.'
-            }), {
-                status: 503,
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
-    }
-
-    return submitPasswordLogin();
 }
 
 async function buildRegisterPayload(userRecord, password) {
-    if (USE_CLIENT_PASSWORD_PROOF) {
-        return {
-            ...userRecord,
-            passwordCredential: await createPasswordCredential(password)
-        };
-    }
     return { ...userRecord, password };
 }
 
@@ -4233,14 +4094,14 @@ function updateProfileIndicator() {
 
     if (activeAvatar) {
         if (friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))) {
-            activeAvatar.innerHTML = `<img src="${friend.avatar}" class="w-6 h-6 rounded-full object-cover" alt="">`;
+            activeAvatar.innerHTML = `<img src="${escapeHtml(friend.avatar)}" class="w-6 h-6 rounded-full object-cover" alt="">`;
         } else {
             activeAvatar.textContent = friend.avatar || '👤';
         }
     }
     if (activeName) {
         const badgesHtml = getUserBadgesHtml(friend);
-        activeName.innerHTML = `${friend.name}${badgesHtml}`;
+        activeName.innerHTML = `${escapeHtml(friend.name)}${badgesHtml}`;
     }
     
     // Style borders and text with user theme
@@ -4964,7 +4825,14 @@ function sanitizeStudioLogoUrl(url) {
     const value = String(url || '').trim();
     if (!value) return '';
     if (/^logos\/[a-z0-9._/-]+\.(png|jpe?g|webp|gif|svg)$/i.test(value)) return value;
-    if (/^https?:\/\//i.test(value) && value.length <= 4096) return value;
+    if (value.length <= 4096) {
+        try {
+            const parsed = new URL(value);
+            if (parsed.protocol === 'https:') return parsed.href;
+        } catch (error) {
+            // Ignore invalid external URLs and fall through to the safe empty value.
+        }
+    }
     if (/^data:image\/(png|jpe?g|gif|webp);base64,[a-z0-9+/=]+$/i.test(value) && value.length <= 2 * 1024 * 1024) return value;
     return '';
 }
@@ -6315,7 +6183,7 @@ function openAnimeDetail(animeId) {
 
     // Genres Tags
     const genresContainer = document.getElementById('detail-genres');
-    genresContainer.innerHTML = (anime.genres && Array.isArray(anime.genres)) ? anime.genres.map(g => `<span class="text-xs bg-white/5 border border-white/10 px-3 py-1 rounded-full text-white/70 font-mono">${g}</span>`).join('') : '';
+    genresContainer.innerHTML = (anime.genres && Array.isArray(anime.genres)) ? anime.genres.map(g => `<span class="text-xs bg-white/5 border border-white/10 px-3 py-1 rounded-full text-white/70 font-mono">${escapeHtml(g)}</span>`).join('') : '';
 
     // Active Friend info and Read-Only badge check
     const currentFriend = state.getCurrentFriend();
@@ -6327,9 +6195,9 @@ function openAnimeDetail(animeId) {
         activeFriendLabel.style.color = currentFriend.color;
         const adminBadge = getUserBadgesHtml(currentFriend);
         if (isReadOnly) {
-            activeFriendLabel.innerHTML = `${currentFriend.name}${adminBadge} <span class="text-[9px] bg-white/10 text-white/50 border border-white/5 px-2 py-0.5 rounded-md ml-1 font-mono tracking-normal font-normal">Apenas Leitura</span>`;
+            activeFriendLabel.innerHTML = `${escapeHtml(currentFriend.name)}${adminBadge} <span class="text-[9px] bg-white/10 text-white/50 border border-white/5 px-2 py-0.5 rounded-md ml-1 font-mono tracking-normal font-normal">Apenas Leitura</span>`;
         } else {
-            activeFriendLabel.innerHTML = `<span class="block leading-tight">${currentFriend.name}</span><span class="flex flex-wrap gap-1 mt-1">${adminBadge}</span>`;
+            activeFriendLabel.innerHTML = `<span class="block leading-tight">${escapeHtml(currentFriend.name)}</span><span class="flex flex-wrap gap-1 mt-1">${adminBadge}</span>`;
         }
     }
 
@@ -7229,7 +7097,7 @@ function initRegistrationOptions() {
                     if (avatarInput) avatarInput.value = base64Url;
                     
                     if (avatarTrigger) {
-                        avatarTrigger.innerHTML = `<img src="${base64Url}" class="w-8 h-8 rounded-full object-cover mx-auto border border-white/20 shadow-[0_2px_8px_rgba(0,0,0,0.4)]" alt="avatar">`;
+                        avatarTrigger.innerHTML = `<img src="${escapeHtml(base64Url)}" class="w-8 h-8 rounded-full object-cover mx-auto border border-white/20 shadow-[0_2px_8px_rgba(0,0,0,0.4)]" alt="avatar">`;
                     }
                 };
                 reader.readAsDataURL(file);
@@ -7315,8 +7183,8 @@ function initRegistrationOptions() {
                         alert('Por favor, insira um e-mail válido.');
                         return;
                     }
-                    if (!passwordVal || passwordVal.length < 4) {
-                        alert('A senha deve conter pelo menos 4 caracteres.');
+                    if (!passwordVal || passwordVal.length < MIN_PASSWORD_LENGTH) {
+                        alert(`A senha deve conter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`);
                         return;
                     }
                 }
@@ -8539,7 +8407,7 @@ function setupEditProfileModal() {
                     const base64Url = event.target.result;
                     if (avatarInput) avatarInput.value = base64Url;
                     if (avatarTrigger) {
-                        avatarTrigger.innerHTML = `<img src="${base64Url}" class="w-8 h-8 rounded-full object-cover mx-auto border border-white/20 shadow-[0_2px_8px_rgba(0,0,0,0.4)]" alt="avatar">`;
+                        avatarTrigger.innerHTML = `<img src="${escapeHtml(base64Url)}" class="w-8 h-8 rounded-full object-cover mx-auto border border-white/20 shadow-[0_2px_8px_rgba(0,0,0,0.4)]" alt="avatar">`;
                     }
                 };
                 reader.readAsDataURL(file);
@@ -8621,7 +8489,7 @@ function setupEditProfileModal() {
             // Show current avatar in trigger
             if (avatarTrigger) {
                 if (user.avatar && (user.avatar.startsWith('data:') || user.avatar.startsWith('http'))) {
-                    avatarTrigger.innerHTML = `<img src="${user.avatar}" class="w-8 h-8 rounded-full object-cover mx-auto border border-white/20" alt="avatar">`;
+                    avatarTrigger.innerHTML = `<img src="${escapeHtml(user.avatar)}" class="w-8 h-8 rounded-full object-cover mx-auto border border-white/20" alt="avatar">`;
                 } else {
                     avatarTrigger.textContent = user.avatar || '😎';
                 }
@@ -8666,8 +8534,8 @@ function setupEditProfileModal() {
             return;
         }
         if (newPassword) {
-            if (newPassword.length < 4) {
-                alert('A nova senha deve ter pelo menos 4 caracteres.');
+            if (newPassword.length < MIN_PASSWORD_LENGTH) {
+                alert(`A nova senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`);
                 return;
             }
             if (!currentPassword) {
@@ -8724,13 +8592,10 @@ function setupEditProfileModal() {
         }
 
         if (newPassword) {
-            const passwordPayload = USE_CLIENT_PASSWORD_PROOF
-                ? { passwordCredential: await createPasswordCredential(newPassword) }
-                : { password: newPassword };
             const passwordResp = await fetch(API_BASE_URL + '/api/account/change-password', {
                 method: 'POST',
                 headers: authHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify(passwordPayload)
+                body: JSON.stringify({ password: newPassword })
             }).catch(() => null);
             if (!passwordResp || !passwordResp.ok) {
                 alert('Perfil salvo, mas nao foi possivel trocar a senha agora.');

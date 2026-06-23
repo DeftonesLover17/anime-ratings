@@ -1,99 +1,41 @@
 const PASSWORD_ITERATIONS = 310000;
 const PASSWORD_KEY_LENGTH_BITS = 256;
-const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+const MIN_PASSWORD_LENGTH = 10;
+const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const MAX_EXTERNAL_IMAGE_URL_LENGTH = 4096;
 const MAX_DATA_IMAGE_LENGTH = 2 * 1024 * 1024;
 const BACKUP_RETENTION = 20;
 const AUTO_BACKUP_INTERVAL_MS = 1000 * 60 * 30;
+const DEFAULT_ALLOWED_ORIGIN = 'https://anime-ratings.pages.dev';
 
 const DEFAULT_STATE = {
     friends: [],
     animes: [],
-    registeredUsers: [
-        {
-            username: 'Matheus',
-            email: 'matheus@example.com',
-            color: '#FF4500',
-            avatar: '😎',
-            friends: [],
-            friendRequests: [],
-            isVirtual: false,
-            passwordHash: 'pC6ROAkz3ioMBm/u1UXfsua87wWlgIuHSkcmQo5nJQc=',
-            passwordSalt: 'qO5kFhjpz2X5aq5M2RZfyQ==',
-            passwordIterations: 310000,
-            passwordDigest: 'pbkdf2-sha256'
-        },
-        {
-            username: 'Lucas',
-            email: 'lucas@example.com',
-            color: '#00FF00',
-            avatar: '🤖',
-            friends: [],
-            friendRequests: [],
-            isVirtual: false,
-            passwordHash: 'jgmFb+v6/5YzEvdoQf7p12rZvcyqBwsdUbsslXFIZWI=',
-            passwordSalt: 'YvUH9f6rhDAiIILs1ml9wA==',
-            passwordIterations: 310000,
-            passwordDigest: 'pbkdf2-sha256'
-        },
-        {
-            username: 'Felipe!',
-            email: 'mfelipeneto5@gmail.com',
-            color: '#FF4500',
-            avatar: '👤',
-            friends: [],
-            friendRequests: [],
-            isVirtual: false,
-            passwordHash: 'gcsKfuu8ecVMMzNy6uOp4uyaQ7oFWbP+AODk1C6jupo=',
-            passwordSalt: 'Z+YU5aMl+huYKZVolVQPVQ==',
-            passwordIterations: 310000,
-            passwordDigest: 'pbkdf2-sha256'
-        },
-        {
-            username: 'yamazx',
-            email: 'yagomatthews9@gmail.com',
-            color: '#00FF7F',
-            avatar: '⚡',
-            friends: [],
-            friendRequests: [],
-            isVirtual: false,
-            memberNumber: 2,
-            memberDesc: 'Você é o 2º membro a fazer parte do AniVoid. Um dos primeiros a descobrir este portal.',
-            passwordHash: 'ajwns26nu3T+UQuv00/1CtBuohUjcjl+OXodiYh8TCc=',
-            passwordSalt: '7cIuRZy2K2JziuamCQziSg==',
-            passwordIterations: 310000,
-            passwordDigest: 'pbkdf2-sha256'
-        },
-        {
-            username: 'Júlio Gabriel',
-            email: 'ninjazokobr@gmail.com',
-            color: '#a78bfa',
-            avatar: '👤',
-            friends: [],
-            friendRequests: [],
-            isVirtual: false,
-            memberNumber: 3,
-            memberDesc: 'Você é o 3º membro a fazer parte do AniVoid. Bem-vindo ao grupo fundador.',
-            passwordHash: 'RlGBrtQTHI9Dm7GvIiejdjDIzrRjqh4lBwdDUorjxn0=',
-            passwordSalt: 'a7mbsTm91PM9/DiqjbirvQ==',
-            passwordIterations: 310000,
-            passwordDigest: 'pbkdf2-sha256'
-        }
-    ],
+    registeredUsers: [],
     studioLogos: {},
     featuredAnimeId: null,
     activities: []
 };
 
-function json(payload, status = 200) {
+function corsHeaders() {
+    return {
+        'Access-Control-Allow-Origin': DEFAULT_ALLOWED_ORIGIN,
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'X-Requested-With,content-type,Authorization',
+        'Vary': 'Origin'
+    };
+}
+
+function json(payload, status = 200, extraHeaders = {}) {
     return new Response(JSON.stringify(payload), {
         status,
         headers: {
             'Content-Type': 'application/json; charset=utf-8',
             'Cache-Control': 'no-store',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, PATCH, DELETE',
-            'Access-Control-Allow-Headers': 'X-Requested-With,content-type,Authorization'
+            'X-Content-Type-Options': 'nosniff',
+            'Referrer-Policy': 'strict-origin-when-cross-origin',
+            ...corsHeaders(),
+            ...extraHeaders
         }
     });
 }
@@ -256,8 +198,16 @@ function sanitizeImageUrl(url) {
 
     if (isSafeDataImage(value)) return value.replace(/\s+/g, '');
     if (value.length > MAX_EXTERNAL_IMAGE_URL_LENGTH) return '';
-    if (/^https?:\/\//i.test(value)) return value;
     if (/^(covers|logos)\/[a-z0-9._/-]+\.(png|jpe?g|webp|gif|svg)$/i.test(value)) return value;
+    if (/^https:\/\//i.test(value)) {
+        try {
+            const parsed = new URL(value);
+            if (parsed.protocol !== 'https:') return '';
+            return parsed.toString();
+        } catch (err) {
+            return '';
+        }
+    }
     return '';
 }
 
@@ -723,9 +673,11 @@ async function ensureStorage(env) {
     await db.prepare('CREATE TABLE IF NOT EXISTS app_state (id TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)').run();
     await db.prepare('CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, username TEXT NOT NULL, expires_at INTEGER NOT NULL)').run();
     await db.prepare('CREATE TABLE IF NOT EXISTS auth_challenges (nonce TEXT PRIMARY KEY, email TEXT NOT NULL, expires_at INTEGER NOT NULL)').run();
+    await db.prepare('CREATE TABLE IF NOT EXISTS rate_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, reset_at INTEGER NOT NULL)').run();
     await db.prepare('CREATE TABLE IF NOT EXISTS state_backups (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, reason TEXT NOT NULL, state TEXT NOT NULL)').run();
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions (expires_at)').run();
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_auth_challenges_expires_at ON auth_challenges (expires_at)').run();
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_rate_limits_reset_at ON rate_limits (reset_at)').run();
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_state_backups_created_at ON state_backups (created_at)').run();
     await db.prepare(
         "INSERT INTO app_state (id, state, updated_at) VALUES ('main', ?1, CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING"
@@ -815,6 +767,39 @@ async function requireAuthenticatedUser(request, env, state) {
     const user = await getAuthenticatedUser(request, env, state);
     if (!user) return { response: json({ error: 'Sessão inválida ou expirada. Faça login novamente.' }, 401) };
     return { user };
+}
+
+function clientRateLimitKey(request, bucket, discriminator = '') {
+    const ip = request.headers.get('CF-Connecting-IP')
+        || request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim()
+        || 'unknown';
+    const safeDiscriminator = normalizeUsername(discriminator).slice(0, 80);
+    return [bucket, ip, safeDiscriminator].filter(Boolean).join(':');
+}
+
+async function enforceRateLimit(request, env, bucket, maxAttempts, windowMs, discriminator = '') {
+    await ensureStorage(env);
+    const now = Date.now();
+    const resetAt = now + windowMs;
+    const key = clientRateLimitKey(request, bucket, discriminator);
+    await getDb(env).prepare('DELETE FROM rate_limits WHERE reset_at < ?1').bind(now).run();
+    const row = await getDb(env).prepare('SELECT count, reset_at FROM rate_limits WHERE key = ?1').bind(key).first();
+    if (!row || Number(row.reset_at) < now) {
+        await getDb(env).prepare(
+            'INSERT INTO rate_limits (key, count, reset_at) VALUES (?1, 1, ?2) ON CONFLICT(key) DO UPDATE SET count = 1, reset_at = ?2'
+        ).bind(key, resetAt).run();
+        return null;
+    }
+    if (Number(row.count) >= maxAttempts) {
+        const retryAfter = Math.max(1, Math.ceil((Number(row.reset_at) - now) / 1000));
+        return json(
+            { error: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' },
+            429,
+            { 'Retry-After': String(retryAfter) }
+        );
+    }
+    await getDb(env).prepare('UPDATE rate_limits SET count = count + 1 WHERE key = ?1').bind(key).run();
+    return null;
 }
 
 function isBogusAnime(anime) {
@@ -965,7 +950,7 @@ function compactActivities(activities, limit = 80) {
         .slice(0, limit);
 }
 
-function mergeStates(localState, serverState, loggedInUser) {
+function mergeStates(localState, serverState, loggedInUser, canEditCatalog = false) {
     const authorUser = findRegisteredUser(serverState, loggedInUser) || {
         username: loggedInUser || 'Desconhecido',
         color: '#FF4500',
@@ -1009,7 +994,7 @@ function mergeStates(localState, serverState, loggedInUser) {
         };
     }
 
-    if (localState.studioLogos && typeof localState.studioLogos === 'object') {
+    if (canEditCatalog && localState.studioLogos && typeof localState.studioLogos === 'object') {
         Object.entries(localState.studioLogos).forEach(([studioName, logoUrl]) => {
             if (studioName && logoUrl) nextState.studioLogos[studioName] = logoUrl;
         });
@@ -1017,10 +1002,11 @@ function mergeStates(localState, serverState, loggedInUser) {
 
     if (Array.isArray(localState.animes)) {
         localState.animes.filter(anime => !isBogusAnime(anime)).forEach(localAnime => {
-            if (localAnime && localAnime.studio && localAnime.studioLogoUrl) nextState.studioLogos[localAnime.studio] = localAnime.studioLogoUrl;
+            if (canEditCatalog && localAnime && localAnime.studio && localAnime.studioLogoUrl) nextState.studioLogos[localAnime.studio] = localAnime.studioLogoUrl;
 
             let serverAnime = nextState.animes.find(anime => anime.id === localAnime.id);
             if (!serverAnime) {
+                if (!canEditCatalog) return;
                 nextState.animes.push({ ...localAnime });
                 const ownRating = localAnime.ratings && localAnime.ratings[loggedInId];
                 const hasOwnRating = ownRating && (
@@ -1037,15 +1023,17 @@ function mergeStates(localState, serverState, loggedInUser) {
                 return;
             }
 
-            serverAnime.title = localAnime.title || serverAnime.title;
-            serverAnime.japaneseTitle = localAnime.japaneseTitle || serverAnime.japaneseTitle;
-            serverAnime.synopsis = localAnime.synopsis || serverAnime.synopsis;
-            serverAnime.coverUrl = localAnime.coverUrl || serverAnime.coverUrl;
-            serverAnime.studioLogoUrl = localAnime.studioLogoUrl || serverAnime.studioLogoUrl;
-            serverAnime.genres = localAnime.genres || serverAnime.genres;
-            serverAnime.studio = localAnime.studio || serverAnime.studio;
-            serverAnime.season = localAnime.season || serverAnime.season;
-            serverAnime.episodes = localAnime.episodes || serverAnime.episodes;
+            if (canEditCatalog) {
+                serverAnime.title = localAnime.title || serverAnime.title;
+                serverAnime.japaneseTitle = localAnime.japaneseTitle || serverAnime.japaneseTitle;
+                serverAnime.synopsis = localAnime.synopsis || serverAnime.synopsis;
+                serverAnime.coverUrl = localAnime.coverUrl || serverAnime.coverUrl;
+                serverAnime.studioLogoUrl = localAnime.studioLogoUrl || serverAnime.studioLogoUrl;
+                serverAnime.genres = localAnime.genres || serverAnime.genres;
+                serverAnime.studio = localAnime.studio || serverAnime.studio;
+                serverAnime.season = localAnime.season || serverAnime.season;
+                serverAnime.episodes = localAnime.episodes || serverAnime.episodes;
+            }
 
             if (!serverAnime.ratings) serverAnime.ratings = {};
             const localRating = localAnime.ratings && localAnime.ratings[loggedInId];
@@ -1105,7 +1093,7 @@ function mergeStates(localState, serverState, loggedInUser) {
         });
     }
 
-    if (localState.featuredAnimeId !== undefined) nextState.featuredAnimeId = localState.featuredAnimeId;
+    if (canEditCatalog && localState.featuredAnimeId !== undefined) nextState.featuredAnimeId = localState.featuredAnimeId;
     nextState.activities = compactActivities(nextState.activities, 80);
     return normalizeSocialGraph(nextState);
 }
@@ -1121,31 +1109,15 @@ async function parseJsonBody(request) {
 async function handleLogin(request, env) {
     const body = await parseJsonBody(request);
     const identifier = body && (body.identifier || body.email);
-    if (!body || !identifier || (!body.password && !body.passwordProof)) return json({ error: 'E-mail ou usuario e senha sao obrigatorios.' }, 400);
+    if (!body || !identifier || !body.password) return json({ error: 'E-mail ou usuario e senha sao obrigatorios.' }, 400);
+    const limited = await enforceRateLimit(request, env, 'login', 8, 1000 * 60 * 10, identifier);
+    if (limited) return limited;
     const state = await readState(env);
     const user = findRegisteredUserByIdentifier(state, identifier);
 
-    if (body.passwordProof || body.passwordHash) {
-        const challenge = await getDb(env).prepare(
-            'SELECT email, expires_at FROM auth_challenges WHERE nonce = ?1'
-        ).bind(String(body.nonce || '')).first();
-        await getDb(env).prepare('DELETE FROM auth_challenges WHERE nonce = ?1').bind(String(body.nonce || '')).run();
-        if (!challenge || Number(challenge.expires_at) < Date.now()) return json({ error: 'E-mail ou senha incorretos.' }, 401);
-        if (identifierKey(challenge.email) !== identifierKey(identifier)) return json({ error: 'E-mail ou senha incorretos.' }, 401);
-        const proofOk = user && body.passwordProof && await verifyPasswordProof(user, body.nonce, body.passwordProof);
-        const hashOk = user && body.passwordHash && user.passwordHash && timingSafeEqual(body.passwordHash, user.passwordHash);
-        if (!proofOk && !hashOk) return json({ error: 'E-mail ou senha incorretos.' }, 401);
-    } else {
-        if (user && user.passwordHash) {
-            return json({
-                error: 'Atualize a página e tente entrar novamente.',
-                authChallengeRequired: true
-            }, 409);
-        }
-        if (!user || !(await verifyPassword(user, body.password))) return json({ error: 'E-mail ou senha incorretos.' }, 401);
-    }
+    if (!user || !(await verifyPassword(user, body.password))) return json({ error: 'E-mail ou senha incorretos.' }, 401);
 
-    if (body.password && (!user.passwordHash || user.password)) {
+    if (!user.passwordHash || user.password) {
         await setPassword(user, body.password);
         await writeState(env, state);
     }
@@ -1154,31 +1126,19 @@ async function handleLogin(request, env) {
 }
 
 async function handleLoginChallenge(request, env) {
-    const body = await parseJsonBody(request);
-    const identifier = body && (body.identifier || body.email);
-    if (!body || !identifier) return json({ error: 'E-mail ou usuario e obrigatorio.' }, 400);
-    const state = await readState(env);
-    const user = findRegisteredUserByIdentifier(state, identifier);
-    const nonce = randomToken();
-    const email = identifierKey(identifier);
-    const expiresAt = Date.now() + 1000 * 60 * 5;
-    await getDb(env).prepare(
-        'INSERT INTO auth_challenges (nonce, email, expires_at) VALUES (?1, ?2, ?3)'
-    ).bind(nonce, email, expiresAt).run();
-    return json({
-        nonce,
-        passwordSalt: user && user.passwordSalt ? user.passwordSalt : randomBase64(16),
-        passwordIterations: user && user.passwordIterations ? user.passwordIterations : PASSWORD_ITERATIONS,
-        passwordDigest: 'pbkdf2-sha256'
-    });
+    const limited = await enforceRateLimit(request, env, 'login-challenge', 4, 1000 * 60 * 10);
+    if (limited) return limited;
+    return json({ error: 'Fluxo de desafio de senha desativado. Atualize a pagina e tente novamente.' }, 410);
 }
 
 async function handleRegister(request, env) {
     const newUser = await parseJsonBody(request);
-    if (!newUser || !newUser.username || !newUser.email || (!newUser.password && !isPasswordCredential(newUser.passwordCredential))) {
+    if (!newUser || !newUser.username || !newUser.email || !newUser.password) {
         return json({ error: 'username, email and password required' }, 400);
     }
-    if (newUser.password && String(newUser.password).length < 4) return json({ error: 'A senha deve ter pelo menos 4 caracteres.' }, 400);
+    if (String(newUser.password).length < MIN_PASSWORD_LENGTH) return json({ error: `A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.` }, 400);
+    const limited = await enforceRateLimit(request, env, 'register', 5, 1000 * 60 * 30, newUser.email || newUser.username);
+    if (limited) return limited;
     const state = await readState(env);
     if (!Array.isArray(state.registeredUsers)) state.registeredUsers = [];
     const exists = state.registeredUsers.some(user =>
@@ -1212,11 +1172,7 @@ async function handleRegister(request, env) {
         color: userToAdd.color,
         avatar: userToAdd.avatar
     });
-    if (isPasswordCredential(newUser.passwordCredential)) {
-        setPasswordFromCredential(userToAdd, newUser.passwordCredential);
-    } else {
-        await setPassword(userToAdd, newUser.password);
-    }
+    await setPassword(userToAdd, newUser.password);
     state.registeredUsers.push(userToAdd);
     await writeState(env, state);
     const token = await createSession(env, userToAdd.username);
@@ -1252,7 +1208,7 @@ async function handleSyncState(request, env) {
     const serverState = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, serverState);
     if (auth.response) return auth.response;
-    const nextState = mergeStates(localState, serverState, auth.user.username);
+    const nextState = mergeStates(localState, serverState, auth.user.username, isAdminUser(auth.user, env));
     await writeState(env, nextState);
     return json(sanitizeState(nextState, auth.user.username));
 }
@@ -1411,20 +1367,16 @@ async function handleClearUserRatings(request, env) {
 
 async function handleChangePassword(request, env) {
     const body = await parseJsonBody(request);
-    if (!body || (!body.password && !isPasswordCredential(body.passwordCredential))) {
+    if (!body || !body.password) {
         return json({ error: 'Nova senha obrigatoria.' }, 400);
     }
-    if (body.password && String(body.password).length < 4) return json({ error: 'A senha deve ter pelo menos 4 caracteres.' }, 400);
+    if (String(body.password).length < MIN_PASSWORD_LENGTH) return json({ error: `A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.` }, 400);
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
     const user = findRegisteredUser(state, auth.user.username);
     if (!user) return json({ error: 'User not found' }, 404);
-    if (isPasswordCredential(body.passwordCredential)) {
-        setPasswordFromCredential(user, body.passwordCredential);
-    } else {
-        await setPassword(user, body.password);
-    }
+    await setPassword(user, body.password);
     pushUserNotification(user, {
         type: 'account',
         title: 'Senha alterada',
@@ -1606,11 +1558,7 @@ async function route(request, env) {
 
     if (request.method === 'OPTIONS') return new Response(null, {
         status: 204,
-        headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, PATCH, DELETE',
-            'Access-Control-Allow-Headers': 'X-Requested-With,content-type,Authorization'
-        }
+        headers: corsHeaders()
     });
 
     if (path === '/api/health' && request.method === 'GET') {

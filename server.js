@@ -10,10 +10,13 @@ const STATE_FILE = process.env.STATE_FILE || path.join(DATA_DIR, 'state.json');
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const PASSWORD_ITERATIONS = parseInt(process.env.PASSWORD_ITERATIONS, 10) || 500000;
 const PASSWORD_KEY_LENGTH = 32;
-const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+const MIN_PASSWORD_LENGTH = 10;
+const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const MAX_EXTERNAL_IMAGE_URL_LENGTH = 4096;
 const MAX_DATA_IMAGE_LENGTH = 2 * 1024 * 1024;
+const DEFAULT_ALLOWED_ORIGIN = 'https://anime-ratings.pages.dev';
 const sessions = new Map();
+const rateLimits = new Map();
 const DEFAULT_STATE = {
     friends: [],
     animes: [],
@@ -84,8 +87,16 @@ function sanitizeImageUrl(url) {
     }
 
     if (value.length > MAX_EXTERNAL_IMAGE_URL_LENGTH) return '';
-    if (/^https?:\/\//i.test(value)) return value;
     if (/^(covers|logos)\/[a-z0-9._/-]+\.(png|jpe?g|webp|gif|svg)$/i.test(value)) return value;
+    if (/^https:\/\//i.test(value)) {
+        try {
+            const parsed = new URL(value);
+            if (parsed.protocol !== 'https:') return '';
+            return parsed.toString();
+        } catch (err) {
+            return '';
+        }
+    }
     return '';
 }
 
@@ -719,7 +730,7 @@ function writeState(state, callback) {
 }
 
 // Helper to merge state databases on the server
-function mergeStates(localState, serverState, loggedInUser) {
+function mergeStates(localState, serverState, loggedInUser, canEditCatalog = false) {
     // Get author profile for activity generation
     let authorUser = { username: loggedInUser || 'Desconhecido', color: '#FF4500', avatar: '👤' };
     if (loggedInUser && serverState.registeredUsers) {
@@ -824,7 +835,7 @@ function mergeStates(localState, serverState, loggedInUser) {
     const mergedStudioLogos = {
         ...(serverState.studioLogos && typeof serverState.studioLogos === 'object' ? serverState.studioLogos : {})
     };
-    if (localState.studioLogos && typeof localState.studioLogos === 'object' && !Array.isArray(localState.studioLogos)) {
+    if (canEditCatalog && localState.studioLogos && typeof localState.studioLogos === 'object' && !Array.isArray(localState.studioLogos)) {
         Object.entries(localState.studioLogos).forEach(([studioName, logoUrl]) => {
             if (studioName && logoUrl) {
                 mergedStudioLogos[studioName] = logoUrl;
@@ -848,11 +859,14 @@ function mergeStates(localState, serverState, loggedInUser) {
     if (localState.animes && Array.isArray(localState.animes)) {
         const cleanLocalAnimes = localState.animes.filter(a => !isBogusAnime(a));
         cleanLocalAnimes.forEach(localAnime => {
-            if (localAnime && localAnime.studio && localAnime.studioLogoUrl) {
+            if (canEditCatalog && localAnime && localAnime.studio && localAnime.studioLogoUrl) {
                 mergedStudioLogos[localAnime.studio] = localAnime.studioLogoUrl;
             }
             let serverAnime = mergedAnimes.find(sa => sa.id === localAnime.id);
             if (!serverAnime) {
+                if (!canEditCatalog) {
+                    return;
+                }
                 serverAnime = { ...localAnime };
                 mergedAnimes.push(serverAnime);
                 
@@ -883,16 +897,18 @@ function mergeStates(localState, serverState, loggedInUser) {
                     }
                 }
             } else {
-                // Populate/Update metadata fields from localAnime if missing or rich
-                serverAnime.title = localAnime.title || serverAnime.title;
-                serverAnime.japaneseTitle = localAnime.japaneseTitle || serverAnime.japaneseTitle;
-                serverAnime.synopsis = localAnime.synopsis || serverAnime.synopsis;
-                serverAnime.coverUrl = localAnime.coverUrl || serverAnime.coverUrl;
-                serverAnime.studioLogoUrl = localAnime.studioLogoUrl || serverAnime.studioLogoUrl;
-                serverAnime.genres = localAnime.genres || serverAnime.genres;
-                serverAnime.studio = localAnime.studio || serverAnime.studio;
-                serverAnime.season = localAnime.season || serverAnime.season;
-                serverAnime.episodes = localAnime.episodes || serverAnime.episodes;
+                if (canEditCatalog) {
+                    // Populate/Update metadata fields from localAnime if missing or rich
+                    serverAnime.title = localAnime.title || serverAnime.title;
+                    serverAnime.japaneseTitle = localAnime.japaneseTitle || serverAnime.japaneseTitle;
+                    serverAnime.synopsis = localAnime.synopsis || serverAnime.synopsis;
+                    serverAnime.coverUrl = localAnime.coverUrl || serverAnime.coverUrl;
+                    serverAnime.studioLogoUrl = localAnime.studioLogoUrl || serverAnime.studioLogoUrl;
+                    serverAnime.genres = localAnime.genres || serverAnime.genres;
+                    serverAnime.studio = localAnime.studio || serverAnime.studio;
+                    serverAnime.season = localAnime.season || serverAnime.season;
+                    serverAnime.episodes = localAnime.episodes || serverAnime.episodes;
+                }
 
                 // Merge ratings map
                 if (localAnime.ratings) {
@@ -1114,9 +1130,9 @@ function mergeStates(localState, serverState, loggedInUser) {
         });
     }
 
-    // Merge featuredAnimeId (client updates win if defined, otherwise preserve server)
+    // Merge featuredAnimeId (admin catalog updates win if defined, otherwise preserve server)
     let featuredAnimeId = serverState.featuredAnimeId || null;
-    if (localState.featuredAnimeId !== undefined) {
+    if (canEditCatalog && localState.featuredAnimeId !== undefined) {
         featuredAnimeId = localState.featuredAnimeId;
     }
 
@@ -1134,30 +1150,51 @@ function mergeStates(localState, serverState, loggedInUser) {
     };
 }
 
-// --- Rate Limiting Setup ---
-const rateLimits = new Map();
-function isRateLimited(ip, limit = 20, windowMs = 60000) {
+function corsHeaders() {
+    return {
+        origin: process.env.ALLOWED_ORIGIN || DEFAULT_ALLOWED_ORIGIN,
+        methods: 'GET, POST, OPTIONS',
+        headers: 'X-Requested-With,content-type,Authorization'
+    };
+}
+
+function getClientIp(req) {
+    return String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown')
+        .split(',')[0]
+        .trim();
+}
+
+function enforceRateLimit(req, res, bucket, maxAttempts, windowMs, discriminator = '') {
     const now = Date.now();
-    const record = rateLimits.get(ip) || { count: 0, resetAt: now + windowMs };
-    if (now > record.resetAt) {
-        record.count = 1;
-        record.resetAt = now + windowMs;
-    } else {
-        record.count++;
+    for (const [key, record] of rateLimits.entries()) {
+        if (!record || record.resetAt < now) rateLimits.delete(key);
     }
-    rateLimits.set(ip, record);
-    return record.count > limit;
+    const key = [bucket, getClientIp(req), normalizeUsername(discriminator).slice(0, 80)].filter(Boolean).join(':');
+    const record = rateLimits.get(key);
+    if (!record || record.resetAt < now) {
+        rateLimits.set(key, { count: 1, resetAt: now + windowMs });
+        return false;
+    }
+    if (record.count >= maxAttempts) {
+        const retryAfter = Math.max(1, Math.ceil((record.resetAt - now) / 1000));
+        res.setHeader('Retry-After', String(retryAfter));
+        sendJson(res, 429, { error: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' });
+        return true;
+    }
+    record.count += 1;
+    return false;
 }
 
 const server = http.createServer((req, res) => {
-    // CORS configuration for cross-origin requests
-    const allowedOrigins = (process.env.ALLOWED_ORIGINS || '*').split(',');
-    const origin = req.headers.origin;
-    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-        res.setHeader('Access-Control-Allow-Origin', origin || '*');
-    }
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
-    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type,Authorization');
+    const cors = corsHeaders();
+    res.setHeader('Access-Control-Allow-Origin', cors.origin);
+    res.setHeader('Access-Control-Allow-Methods', cors.methods);
+    res.setHeader('Access-Control-Allow-Headers', cors.headers);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Permissions-Policy', 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()');
 
     // Security Headers
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
@@ -1165,8 +1202,6 @@ const server = http.createServer((req, res) => {
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Content-Security-Policy', "default-src 'self' data: https: 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: https:;");
-
-    const clientIp = req.socket.remoteAddress || 'unknown';
 
     if (req.method === 'OPTIONS') {
         res.statusCode = 204;
@@ -1255,10 +1290,6 @@ const server = http.createServer((req, res) => {
 
     // API Route: Login with server-side password verification
     if (req.url === '/api/login' && req.method === 'POST') {
-        if (isRateLimited(clientIp, 10, 60000)) {
-            sendJson(res, 429, { error: 'Muitas tentativas. Tente novamente mais tarde.' });
-            return;
-        }
         let body = '';
         req.on('data', chunk => { body += chunk; });
         req.on('end', () => {
@@ -1269,6 +1300,7 @@ const server = http.createServer((req, res) => {
                     sendJson(res, 400, { error: 'E-mail ou usuario e senha sao obrigatorios.' });
                     return;
                 }
+                if (enforceRateLimit(req, res, 'login', 8, 1000 * 60 * 10, loginIdentifier)) return;
                 readState((err, data) => {
                     let state = { friends: [], animes: [], registeredUsers: [], activities: [] };
                     if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
@@ -1318,10 +1350,6 @@ const server = http.createServer((req, res) => {
 
     // API Route: Register new user (dedicated - always persists immediately)
     if (req.url === '/api/register' && req.method === 'POST') {
-        if (isRateLimited(clientIp, 5, 60000)) {
-            sendJson(res, 429, { error: 'Muitas contas criadas. Tente novamente mais tarde.' });
-            return;
-        }
         let body = '';
         req.on('data', chunk => { body += chunk; });
         req.on('end', () => {
@@ -1331,10 +1359,11 @@ const server = http.createServer((req, res) => {
                     sendJson(res, 400, { error: 'username, email and password required' });
                     return;
                 }
-                if (String(newUser.password).length < 8 || !/\d/.test(String(newUser.password)) || !/[a-zA-Z]/.test(String(newUser.password))) {
-                    sendJson(res, 400, { error: 'A senha deve ter pelo menos 8 caracteres, contendo letras e números.' });
+                if (String(newUser.password).length < MIN_PASSWORD_LENGTH) {
+                    sendJson(res, 400, { error: `A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.` });
                     return;
                 }
+                if (enforceRateLimit(req, res, 'register', 5, 1000 * 60 * 30, newUser.email || newUser.username)) return;
                 readState((err, data) => {
                     let state = { friends: [], animes: [], registeredUsers: [], activities: [] };
                     if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
@@ -1420,7 +1449,7 @@ const server = http.createServer((req, res) => {
                     const authUser = requireAuthenticatedUser(req, res, serverState);
                     if (!authUser) return;
                     const loggedInUser = authUser.username;
-                    const newState = mergeStates(localState, serverState, loggedInUser);
+                    const newState = mergeStates(localState, serverState, loggedInUser, isAdminUser(authUser));
                     writeState(newState, (writeErr) => {
                         if (writeErr) {
                             sendJson(res, 500, { error: 'Failed to write state' });
