@@ -448,6 +448,10 @@ function randomToken() {
     return bytesToBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
+function createTemporaryPassword() {
+    return `Ani${randomToken().replace(/[^a-zA-Z0-9]/g, '').slice(0, 22)}7`;
+}
+
 async function hashPassword(password, salt = randomBase64(16), iterations = PASSWORD_ITERATIONS) {
     const key = await crypto.subtle.importKey(
         'raw',
@@ -1653,6 +1657,54 @@ async function handleAdminResetPassword(request, env) {
     });
 }
 
+async function handleAdminResetLegacyPasswords(request, env) {
+    const body = await parseJsonBody(request).catch(() => ({}));
+    const configuredKey = String(env.ADMIN_RESET_KEY || '').trim();
+    if (!configuredKey) {
+        return json({ error: 'ADMIN_RESET_KEY nao configurada no Cloudflare Pages.' }, 503);
+    }
+
+    const resetKey = String(request.headers.get('X-Admin-Reset-Key') || (body && body.resetKey) || '').trim();
+    const keyLimited = await enforceRateLimit(request, env, 'admin-bulk-password-reset-key', 6, 1000 * 60 * 30);
+    if (keyLimited) return keyLimited;
+
+    if (!resetKey || !timingSafeEqual(resetKey, configuredKey)) {
+        return json({ error: 'Reset administrativo nao autorizado.' }, 403);
+    }
+
+    const limited = await enforceRateLimit(request, env, 'admin-bulk-password-reset', 2, 1000 * 60 * 60);
+    if (limited) return limited;
+
+    const state = await readState(env);
+    const users = Array.isArray(state.registeredUsers) ? state.registeredUsers : [];
+    const resetUsers = [];
+
+    for (const user of users) {
+        if (!user || !user.username || !passwordRequiresReset(user)) continue;
+        const temporaryPassword = createTemporaryPassword();
+        await setPassword(user, temporaryPassword);
+        user.passwordResetRequired = false;
+        resetUsers.push({
+            username: user.username,
+            email: user.email || '',
+            temporaryPassword
+        });
+    }
+
+    if (resetUsers.length) {
+        await writeState(env, state);
+        for (const resetUser of resetUsers) {
+            await getDb(env).prepare('DELETE FROM sessions WHERE username = ?1').bind(resetUser.username).run();
+        }
+    }
+
+    return json({
+        success: true,
+        count: resetUsers.length,
+        users: resetUsers
+    });
+}
+
 async function route(request, env) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, '') || '/';
@@ -1695,6 +1747,7 @@ async function route(request, env) {
     if (path === '/api/respond-friend-request' && request.method === 'POST') return handleRespondFriendRequest(request, env);
     if (path === '/api/cancel-friend-request' && request.method === 'POST') return handleCancelFriendRequest(request, env);
     if (path === '/api/admin/reset-password' && request.method === 'POST') return handleAdminResetPassword(request, env);
+    if (path === '/api/admin/reset-legacy-passwords' && request.method === 'POST') return handleAdminResetLegacyPasswords(request, env);
     if (path === '/api/admin/set-friendship' && request.method === 'POST') return handleSetFriendship(request, env);
     if (path === '/api/admin/clean-sessions' && request.method === 'POST') return handleAdminCleanSessions(request, env);
     if (path === '/api/admin/overview' && request.method === 'GET') return handleAdminOverview(request, env);
