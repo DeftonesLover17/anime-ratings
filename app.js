@@ -1395,6 +1395,7 @@ class AppState {
         this.sortBy = 'group-score'; // 'group-score', 'my-score', 'title'
         this.syncInFlight = null;
         this.needsFollowUpSync = false;
+        this.saveRefreshTimer = null;
         
         this.activeDetailAnimeId = null;
 
@@ -1797,16 +1798,24 @@ class AppState {
             } catch(e) {}
         }
         
-        // Trigger server sync in background and silently reload parts of UI when it returns
-        this.syncWithServer().then(() => {
+        if (this.saveRefreshTimer) clearTimeout(this.saveRefreshTimer);
+        this.saveRefreshTimer = setTimeout(() => {
+            this.saveRefreshTimer = null;
+            this.syncWithServer().then((hasChanged) => {
             // Reload session so state.friends reflects the server's authoritative friends list
             this.loadLocalSession();
             updateProfileIndicator();
             renderFriendsDropdown();
-            renderAnimeGrid();
-            renderFeaturedBanner();
-            renderRecommendationsRail();
             updateNotificationBadges();
+            if (!hasChanged) return;
+
+            if (!this.activeDetailAnimeId) {
+                renderAnimeGrid();
+                renderFeaturedBanner();
+                renderRecommendationsRail();
+                return;
+            }
+
             if (this.activeDetailAnimeId) {
                 const anime = this.animes.find(a => a.id === this.activeDetailAnimeId);
                 if (anime) {
@@ -1866,7 +1875,8 @@ class AppState {
                     }
                 }
             }
-        });
+            });
+        }, 350);
     }
 
     recordActivity(type, anime, details, friendId = this.currentFriendId) {
@@ -3751,9 +3761,10 @@ function startApp() {
         });
     }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
 
-    window.initObserver = () => {
-        document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
-        initSoftTiltCards();
+    window.initObserver = (root = document) => {
+        const scope = root && root.querySelectorAll ? root : document;
+        scope.querySelectorAll('.reveal:not(.active)').forEach(el => revealObserver.observe(el));
+        initSoftTiltCards(scope);
     };
 
     // 2. Loading Splash Screen Setup
@@ -3800,6 +3811,7 @@ function startApp() {
     // Polling leve para atualizações multiplayer. Evita re-render pesado em sequência.
     setInterval(() => {
         if (document.hidden) return;
+        if (document.body.classList.contains('auth-gate-active')) return;
         state.syncWithServer().then((hasChanged) => {
             if (!hasChanged) return;
             
@@ -4612,6 +4624,8 @@ function renderAnimeGrid() {
         return;
     }
 
+    const gridFragment = document.createDocumentFragment();
+
     filteredList.forEach(anime => {
         const avgScore = state.calculateAverageScore(anime.id);
         const friendRating = anime.ratings?.[state.currentFriendId];
@@ -4668,7 +4682,7 @@ function renderAnimeGrid() {
         card.className = 'glass-card anime-card-3d tilt-card rounded-2xl overflow-hidden flex flex-col justify-between h-full reveal';
         card.innerHTML = `
             <div class="relative w-full aspect-[2/3] overflow-hidden group cursor-pointer" onclick="openAnimeDetail('${anime.id}')">
-                <img src="${anime.coverUrl}" alt="${anime.title}" class="poster-parallax w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                <img src="${anime.coverUrl}" alt="${anime.title}" loading="lazy" decoding="async" class="poster-parallax w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent"></div>
                 
                 <!-- Group Average Score Badge (top-right) -->
@@ -4732,11 +4746,16 @@ function renderAnimeGrid() {
                 </div>
             </div>
         `;
-        grid.appendChild(card);
+        gridFragment.appendChild(card);
     });
 
-    if (window.initObserver) window.initObserver();
-    initSoftTiltCards(grid);
+    grid.appendChild(gridFragment);
+
+    if (window.initObserver) {
+        window.initObserver(grid);
+    } else {
+        initSoftTiltCards(grid);
+    }
     markViewEntered(grid);
     renderActivitiesFeed();
     renderRecommendationsRail();

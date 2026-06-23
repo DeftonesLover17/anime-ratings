@@ -67,6 +67,7 @@ body {
     inset: 0;
     z-index: 9999; /* below modals but above bg */
     pointer-events: none;
+    display: none;
     opacity: 0.018;
     mix-blend-mode: normal;
     background-image: url("https://grainy-gradients.vercel.app/noise.svg");
@@ -733,9 +734,20 @@ body.auth-gate-active .noise-overlay {
 }
 
 .anime-card-3d {
+    content-visibility: auto;
+    contain: layout paint style;
+    contain-intrinsic-size: 420px 620px;
     border-radius: 1rem;
     position: relative;
     isolation: isolate;
+}
+
+.activity-card-3d,
+.studio-landing-card,
+.profile-switch-card {
+    content-visibility: auto;
+    contain: layout paint style;
+    contain-intrinsic-size: 220px 360px;
 }
 
 .anime-card-3d::before,
