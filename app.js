@@ -8429,7 +8429,7 @@ function setupEditProfileModal() {
     // Open modal
     if (openBtn && !openBtn.dataset.editProfileHooked) {
         openBtn.dataset.editProfileHooked = 'true';
-        openBtn.addEventListener('click', async (e) => {
+        openBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             // Close the dropdown list first
             const friendsDropdown = document.getElementById('friends-dropdown');
@@ -8438,77 +8438,94 @@ function setupEditProfileModal() {
                 friendsDropdown.classList.remove('flex');
             }
 
-            try {
-                await refreshRegisteredUsersFromServer({ force: true });
-                await state.syncWithServer();
-            } catch (err) {
-                console.warn('Could not refresh profile before edit:', err);
-            }
-
-            const loggedInUsername = getSessionUsername();
-            let registeredUsers = [];
-            try {
-                registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
-            } catch (err) {}
-            
-            let user = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === loggedInUsername.toLowerCase());
-            if (!user) {
-                const loggedInFriendObj = state.friends.find(f => f.isMe);
-                if (loggedInFriendObj) {
-                    user = {
-                        username: loggedInFriendObj.name.replace(' (Você)', ''),
-                        email: loggedInFriendObj.email || '',
-                        color: loggedInFriendObj.color || '#FF4500',
-                        avatar: loggedInFriendObj.avatar || '😎',
-                        activeTitle: loggedInFriendObj.activeTitle || 'admin'
-                    };
-                } else {
-                    return;
+            const fillModalFromCache = () => {
+                const loggedInUsername = getSessionUsername();
+                let registeredUsers = [];
+                try {
+                    registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+                } catch (err) {}
+                
+                let user = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === loggedInUsername.toLowerCase());
+                if (!user) {
+                    const loggedInFriendObj = state.friends.find(f => f.isMe);
+                    if (loggedInFriendObj) {
+                        user = {
+                            username: loggedInFriendObj.name.replace(' (Você)', ''),
+                            email: loggedInFriendObj.email || '',
+                            color: loggedInFriendObj.color || '#FF4500',
+                            avatar: loggedInFriendObj.avatar || '😎',
+                            activeTitle: loggedInFriendObj.activeTitle || 'admin'
+                        };
+                    }
                 }
-            }
 
-            const editableProfile = getEditableProfileUserFromCache();
-            if (!editableProfile.user || !editableProfile.user.username) {
+                const editableProfile = getEditableProfileUserFromCache();
+                if (editableProfile.user && editableProfile.user.username) {
+                    user = editableProfile.user;
+                }
+
+                if (!user || !user.username) {
+                    return null;
+                }
+
+                modal.dataset.editUsername = user.username;
+
+                if (nameInput) {
+                    nameInput.value = user.username;
+                    nameInput.disabled = true;
+                    nameInput.style.cursor = 'not-allowed';
+                    nameInput.classList.add('opacity-50');
+                }
+                if (emailInput) emailInput.value = user.email || '';
+                if (colorInput) colorInput.value = user.color || '#FF4500';
+                if (avatarInput) avatarInput.value = user.avatar || '😎';
+
+                const editTitleContainer = document.getElementById('edit-profile-title-container');
+                const isFelipe = user.username && user.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
+                if (isFelipe && editTitleContainer) {
+                    editTitleContainer.classList.remove('hidden');
+                    // Sync the visual card picker to the saved title
+                    selectAdminTitle(user.activeTitle || 'admin');
+                } else if (editTitleContainer) {
+                    editTitleContainer.classList.add('hidden');
+                }
+
+                // Show current avatar in trigger
+                if (avatarTrigger) {
+                    if (user.avatar && (user.avatar.startsWith('data:') || user.avatar.startsWith('http'))) {
+                        avatarTrigger.innerHTML = `<img src="${escapeHtml(user.avatar)}" class="w-8 h-8 rounded-full object-cover mx-auto border border-white/20" alt="avatar">`;
+                    } else {
+                        avatarTrigger.textContent = user.avatar || '😎';
+                    }
+                }
+                return user;
+            };
+
+            // 1. Fill fields and show modal immediately!
+            const userLoaded = fillModalFromCache();
+            if (!userLoaded) {
                 alert('Nao foi possivel identificar sua sessao. Entre novamente antes de editar o perfil.');
                 return;
             }
-            user = editableProfile.user;
-            modal.dataset.editUsername = user.username;
 
-            if (nameInput) {
-                nameInput.value = user.username;
-                nameInput.disabled = true;
-                nameInput.style.cursor = 'not-allowed';
-                nameInput.classList.add('opacity-50');
-            }
-            if (emailInput) emailInput.value = user.email || '';
-            if (colorInput) colorInput.value = user.color || '#FF4500';
-            if (avatarInput) avatarInput.value = user.avatar || '😎';
             if (currentPasswordInput) currentPasswordInput.value = '';
             if (newPasswordInput) newPasswordInput.value = '';
-
-            const editTitleContainer = document.getElementById('edit-profile-title-container');
-            const isFelipe = user.username && user.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
-            if (isFelipe && editTitleContainer) {
-                editTitleContainer.classList.remove('hidden');
-                // Sync the visual card picker to the saved title
-                selectAdminTitle(user.activeTitle || 'admin');
-            } else if (editTitleContainer) {
-                editTitleContainer.classList.add('hidden');
-            }
-
-            // Show current avatar in trigger
-            if (avatarTrigger) {
-                if (user.avatar && (user.avatar.startsWith('data:') || user.avatar.startsWith('http'))) {
-                    avatarTrigger.innerHTML = `<img src="${escapeHtml(user.avatar)}" class="w-8 h-8 rounded-full object-cover mx-auto border border-white/20" alt="avatar">`;
-                } else {
-                    avatarTrigger.textContent = user.avatar || '😎';
-                }
-            }
 
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             document.body.classList.add('overflow-hidden');
+
+            // 2. Perform background sync without blocking the UI presentation
+            (async () => {
+                try {
+                    await refreshRegisteredUsersFromServer({ force: true });
+                    await state.syncWithServer();
+                    // Refill fields after data is synced, in case something changed on the server
+                    fillModalFromCache();
+                } catch (err) {
+                    console.warn('Could not refresh profile before edit:', err);
+                }
+            })();
         });
     }
 
