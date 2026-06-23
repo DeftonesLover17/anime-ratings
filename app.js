@@ -6125,9 +6125,11 @@ function openAnimeDetail(animeId) {
         });
     }, 350);
 
-    // Set anime base details
-    document.getElementById('detail-banner').src = anime.coverUrl;
-    const detailPoster = document.getElementById('detail-poster');
+    // Defer heavy DOM manipulation to unblock the cinematic transition frame
+    setTimeout(() => {
+        // Set anime base details
+        document.getElementById('detail-banner').src = anime.coverUrl;
+        const detailPoster = document.getElementById('detail-poster');
     if (detailPoster) {
         detailPoster.src = anime.coverUrl;
     }
@@ -6609,6 +6611,7 @@ function openAnimeDetail(animeId) {
             breakdownContainer.appendChild(card);
         });
     }
+    }, 10); // Run immediately after transition overlay paints
 }
 
 // Render comments section dynamically matching the crimson glassmorphic styling
