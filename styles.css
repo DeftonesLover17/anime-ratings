@@ -35,6 +35,8 @@ body {
 
 /* Glassmorphism Styles */
 .glass-panel {
+    will-change: transform;
+    transform: translateZ(0);
     background: rgba(10, 10, 10, 0.86);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -47,6 +49,8 @@ body {
 }
 
 .glass-card {
+    will-change: transform;
+    transform: translateZ(0);
     background: rgba(18, 18, 18, 0.72);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -1668,6 +1672,7 @@ button:not(:disabled),
 .transition-all {
     transition-duration: 0.12s !important;
 }
+
 
 
 
