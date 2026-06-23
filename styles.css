@@ -642,6 +642,11 @@ input[type="range"]::-webkit-slider-thumb:hover {
     animation: none;
 }
 
+body.auth-gate-active .ambient-depth-stage,
+body.auth-gate-active .noise-overlay {
+    display: none;
+}
+
 @keyframes ambient-plane-drift-a {
     0%, 100% { transform: rotateX(66deg) rotateZ(-11deg) translate3d(-8%, 12%, -180px); }
     50% { transform: rotateX(66deg) rotateZ(-8deg) translate3d(-4%, 7%, -160px); }

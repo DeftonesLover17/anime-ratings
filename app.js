@@ -3712,6 +3712,7 @@ function bindElementOnce(element, key, event, handler) {
 }
 
 function hideRegistrationGate() {
+    document.body.classList.remove('auth-gate-active');
     const regGate = document.getElementById('registration-gate');
     if (regGate) {
         regGate.classList.add('hidden');
@@ -3729,6 +3730,7 @@ function removeLegacyRecoveryAccessLinks() {
 
 function showRegistrationGate() {
     document.body.classList.add('overflow-hidden');
+    document.body.classList.add('auth-gate-active');
     const regGate = document.getElementById('registration-gate');
     if (regGate) {
         removeLegacyRecoveryAccessLinks();
