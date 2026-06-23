@@ -3774,15 +3774,10 @@ function startApp() {
     // 3. Populate and Render Dashboard UI
     initUI();
 
-    // Check and show security notice modal if not seen yet
+    // Setup security notice modal close listener
     const secModal = document.getElementById('security-notice-modal');
     const closeSecBtn = document.getElementById('close-security-notice');
     if (secModal && closeSecBtn) {
-        if (!localStorage.getItem('anivoid_seen_security_notice_v2')) {
-            secModal.classList.remove('hidden');
-            secModal.classList.add('flex');
-            document.body.classList.add('overflow-hidden');
-        }
         closeSecBtn.addEventListener('click', () => {
             secModal.classList.add('hidden');
             secModal.classList.remove('flex');
@@ -3908,6 +3903,16 @@ function startApp() {
 // App execution trigger moved to the bottom of the file to prevent TDZ ReferenceErrors
 
 // Intro Splash Screen Logic (Auto-Transition + Click to Skip Fallback)
+function checkAndShowSecurityModal() {
+    if (!state.loggedInUser) return;
+    const secModal = document.getElementById('security-notice-modal');
+    if (secModal && !localStorage.getItem('anivoid_seen_security_notice_v2')) {
+        secModal.classList.remove('hidden');
+        secModal.classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+    }
+}
+
 function setupSplashScreen() {
     const splashScreen = document.getElementById('splash-screen');
     if (!splashScreen) return;
@@ -3934,6 +3939,7 @@ function setupSplashScreen() {
                 showRegistrationGate();
             } else {
                 hideRegistrationGate();
+                checkAndShowSecurityModal();
             }
             if (window.initObserver) window.initObserver();
         }, 1500);
@@ -7635,6 +7641,7 @@ function initRegistrationOptions() {
         }
 
         initUI();
+        checkAndShowSecurityModal();
         showWelcomeToast(matchedUser.username);
         state.syncWithServer().then(() => {
             renderAnimeGrid();
@@ -7871,6 +7878,7 @@ function initRegistrationOptions() {
 
             // Reload UI
             initUI();
+            checkAndShowSecurityModal();
 
             // Show member welcome modal
             showMemberWelcomeModal(name, assignedMemberNumber);
