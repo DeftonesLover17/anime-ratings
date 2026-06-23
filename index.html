@@ -379,7 +379,7 @@
 
                     <div class="flex flex-wrap items-center gap-4 w-full md:w-auto">
                         <!-- Add Anime Button -->
-                        <button id="open-add-anime" class="anivoid-action inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-mono uppercase tracking-widest bg-brand hover:bg-brand/80 text-white transition-all hover:scale-105">
+                        <button id="open-add-anime" class="anivoid-action hidden items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-mono uppercase tracking-widest bg-brand hover:bg-brand/80 text-white transition-all hover:scale-105">
                             <iconify-icon icon="lucide:plus" class="text-sm"></iconify-icon>
                             <span>Adicionar Anime</span>
                         </button>
@@ -523,6 +523,16 @@
                                     <iconify-icon icon="lucide:pin" class="text-xs"></iconify-icon>
                                     <span>Fixar no Destaque</span>
                                 </button>
+                                <div id="detail-admin-actions" class="hidden flex-wrap gap-2 mt-3">
+                                    <button id="detail-edit-anime-btn" class="anivoid-action inline-flex items-center gap-1.5 px-3 py-1.5 border border-white/10 hover:border-brand/40 hover:bg-brand/10 text-gray-300 hover:text-white text-[10px] font-mono uppercase tracking-widest rounded-full transition-colors">
+                                        <iconify-icon icon="lucide:pencil" class="text-xs"></iconify-icon>
+                                        <span>Editar anime</span>
+                                    </button>
+                                    <button id="detail-delete-anime-btn" class="anivoid-action inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-500/30 hover:border-red-400/60 hover:bg-red-500/10 text-red-300 text-[10px] font-mono uppercase tracking-widest rounded-full transition-colors">
+                                        <iconify-icon icon="lucide:trash-2" class="text-xs"></iconify-icon>
+                                        <span>Excluir anime</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -692,13 +702,14 @@
     <div id="add-anime-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-[50] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
         <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl p-6 md:p-8 space-y-6">
             <div class="flex justify-between items-center">
-                <h3 class="text-xl font-serif">Adicionar <span class="italic text-brand">Novo Anime</span></h3>
+                <h3 id="anime-form-modal-title" class="text-xl font-serif">Adicionar <span class="italic text-brand">Novo Anime</span></h3>
                 <button id="close-add-anime" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors">
                     <iconify-icon icon="lucide:x" class="text-white text-sm"></iconify-icon>
                 </button>
             </div>
             
             <form id="add-anime-form" class="space-y-4 text-xs font-mono">
+                <input type="hidden" id="form-anime-id">
                 <div class="space-y-1 relative">
                     <label class="text-gray-500 uppercase tracking-wider block">Título em Inglês / Oficial</label>
                     <input type="text" id="form-anime-title" required placeholder="Ex: Demon Slayer: Infinity Castle" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50" autocomplete="off">
@@ -740,7 +751,7 @@
 
                 <div class="space-y-1">
                     <label class="text-gray-500 uppercase tracking-wider block">URL Imagem da Capa (Unsplash/Web)</label>
-                    <input type="url" id="form-anime-cover" placeholder="Link da imagem..." class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
+                    <input type="text" id="form-anime-cover" inputmode="url" placeholder="Link da imagem ou caminho local..." class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
                 </div>
 
                 <div class="space-y-1">
@@ -748,8 +759,8 @@
                     <textarea id="form-anime-synopsis" rows="3" placeholder="Insira o resumo da obra..." class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50 resize-none font-sans text-xs"></textarea>
                 </div>
 
-                <button type="submit" class="w-full py-3 rounded-full bg-white text-black hover:bg-gray-150 transition-colors uppercase tracking-widest font-semibold mt-4">
-                    Salvar Anime
+                <button id="anime-form-submit" type="submit" class="w-full py-3 rounded-full bg-white text-black hover:bg-gray-150 transition-colors uppercase tracking-widest font-semibold mt-4 disabled:opacity-50 disabled:cursor-wait">
+                    Adicionar Anime
                 </button>
             </form>
         </div>
@@ -1329,6 +1340,6 @@
     </div>
 
     <!-- Scripts Integration -->
-    <script src="app.js?v=76"></script>
+    <script src="app.js?v=77"></script>
 </body>
 </html>

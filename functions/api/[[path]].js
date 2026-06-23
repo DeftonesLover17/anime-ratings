@@ -681,6 +681,26 @@ function isAdminUser(user, env) {
     return admins.includes(normalizeUsername(user && user.username));
 }
 
+function buildCatalogAnime(input, existingAnime = null) {
+    const source = input && typeof input === 'object' ? input : {};
+    const existing = existingAnime && typeof existingAnime === 'object' ? existingAnime : {};
+    return sanitizeAnimeRecord({
+        ...existing,
+        id: existing.id || `a_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        title: source.title,
+        japaneseTitle: source.japaneseTitle || 'N/A',
+        synopsis: source.synopsis || 'Sem sinopse disponivel.',
+        coverUrl: source.coverUrl || '',
+        studioLogoUrl: source.studioLogoUrl || '',
+        genres: Array.isArray(source.genres) ? source.genres : [],
+        studio: source.studio || 'Desconhecido',
+        season: source.season || 'Outras',
+        episodes: source.episodes || 'Desconhecido',
+        ratings: existing.ratings || {},
+        comments: existing.comments || []
+    });
+}
+
 function getDb(env) {
     if (!env.ANIVOID_DB) throw new Error('missing_d1_binding');
     return env.ANIVOID_DB;
@@ -1024,45 +1044,11 @@ function mergeStates(localState, serverState, loggedInUser, canEditCatalog = fal
         };
     }
 
-    if (canEditCatalog && localState.studioLogos && typeof localState.studioLogos === 'object') {
-        Object.entries(localState.studioLogos).forEach(([studioName, logoUrl]) => {
-            if (studioName && logoUrl) nextState.studioLogos[studioName] = logoUrl;
-        });
-    }
-
     if (Array.isArray(localState.animes)) {
         localState.animes.filter(anime => !isBogusAnime(anime)).forEach(localAnime => {
-            if (canEditCatalog && localAnime && localAnime.studio && localAnime.studioLogoUrl) nextState.studioLogos[localAnime.studio] = localAnime.studioLogoUrl;
-
             let serverAnime = nextState.animes.find(anime => anime.id === localAnime.id);
             if (!serverAnime) {
-                if (!canEditCatalog) return;
-                nextState.animes.push({ ...localAnime });
-                const ownRating = localAnime.ratings && localAnime.ratings[loggedInId];
-                const hasOwnRating = ownRating && (
-                    (ownRating.overall && parseFloat(ownRating.overall) > 0) ||
-                    (ownRating.episodeRatings && Object.keys(ownRating.episodeRatings).length > 0) ||
-                    (ownRating.status && ownRating.status !== 'Plan to Watch')
-                );
-                const hasOwnComment = (localAnime.comments || []).some(comment =>
-                    comment && comment.friendId && comment.friendId.toLowerCase() === loggedInId
-                );
-                if (hasOwnRating || hasOwnComment) {
-                    pushActivity('catalog', localAnime, 'adicionou esta obra ao catalogo');
-                }
                 return;
-            }
-
-            if (canEditCatalog) {
-                serverAnime.title = localAnime.title || serverAnime.title;
-                serverAnime.japaneseTitle = localAnime.japaneseTitle || serverAnime.japaneseTitle;
-                serverAnime.synopsis = localAnime.synopsis || serverAnime.synopsis;
-                serverAnime.coverUrl = localAnime.coverUrl || serverAnime.coverUrl;
-                serverAnime.studioLogoUrl = localAnime.studioLogoUrl || serverAnime.studioLogoUrl;
-                serverAnime.genres = localAnime.genres || serverAnime.genres;
-                serverAnime.studio = localAnime.studio || serverAnime.studio;
-                serverAnime.season = localAnime.season || serverAnime.season;
-                serverAnime.episodes = localAnime.episodes || serverAnime.episodes;
             }
 
             if (!serverAnime.ratings) serverAnime.ratings = {};
@@ -1264,6 +1250,95 @@ async function handleSyncState(request, env) {
     const nextState = mergeStates(localState, serverState, auth.user.username, isAdminUser(auth.user, env));
     await writeState(env, nextState);
     return json(sanitizeState(nextState, auth.user.username));
+}
+
+async function handleAdminUpsertAnime(request, env) {
+    const body = await parseJsonBody(request);
+    const input = body && body.anime;
+    if (!input || typeof input !== 'object') return json({ error: 'Dados do anime sao obrigatorios.' }, 400);
+
+    const state = await readState(env);
+    const auth = await requireAuthenticatedUser(request, env, state);
+    if (auth.response) return auth.response;
+    if (!isAdminUser(auth.user, env)) return json({ error: 'Apenas o administrador pode alterar o catalogo.' }, 403);
+
+    const requestedId = String(input.id || '').trim();
+    const existingIndex = requestedId
+        ? state.animes.findIndex(anime => anime && anime.id === requestedId)
+        : -1;
+    if (requestedId && existingIndex < 0) return json({ error: 'Anime nao encontrado.' }, 404);
+
+    const existingAnime = existingIndex >= 0 ? state.animes[existingIndex] : null;
+    const anime = buildCatalogAnime(input, existingAnime);
+    if (!anime.title) return json({ error: 'Titulo do anime e obrigatorio.' }, 400);
+
+    if (!existingAnime) {
+        const duplicate = state.animes.some(item =>
+            item && normalizeAnimeIdentity(item.title) === normalizeAnimeIdentity(anime.title)
+        );
+        if (duplicate) return json({ error: 'Este anime ja existe no catalogo.' }, 409);
+        state.animes.push(anime);
+    } else {
+        state.animes[existingIndex] = anime;
+    }
+
+    if (anime.studio && anime.studioLogoUrl && anime.studio.toLowerCase() !== 'desconhecido') {
+        state.studioLogos = {
+            ...(state.studioLogos && typeof state.studioLogos === 'object' ? state.studioLogos : {}),
+            [anime.studio]: anime.studioLogoUrl
+        };
+    }
+
+    const activity = createActivity(
+        auth.user,
+        existingAnime ? 'catalog_edit' : 'catalog',
+        anime,
+        existingAnime ? 'atualizou os dados desta obra' : 'adicionou esta obra ao catalogo'
+    );
+    state.activities = compactActivities([activity, ...(state.activities || [])], 80);
+    notifyFriendsOfActivity(state, auth.user, activity);
+
+    const savedState = await writeState(env, state);
+    return json({
+        success: true,
+        anime: savedState.animes.find(item => item.id === anime.id),
+        activities: savedState.activities
+    });
+}
+
+async function handleAdminDeleteAnime(request, env) {
+    const body = await parseJsonBody(request);
+    const animeId = String(body && body.animeId || '').trim();
+    if (!animeId) return json({ error: 'Anime obrigatorio.' }, 400);
+
+    const state = await readState(env);
+    const auth = await requireAuthenticatedUser(request, env, state);
+    if (auth.response) return auth.response;
+    if (!isAdminUser(auth.user, env)) return json({ error: 'Apenas o administrador pode excluir animes.' }, 403);
+
+    const animeIndex = state.animes.findIndex(anime => anime && anime.id === animeId);
+    if (animeIndex < 0) return json({ error: 'Anime nao encontrado.' }, 404);
+
+    await createStateBackup(
+        env,
+        JSON.stringify(sanitizeStateForStorage(state)),
+        `before-delete-anime:${animeId}`
+    );
+
+    state.animes.splice(animeIndex, 1);
+    if (state.featuredAnimeId === animeId) state.featuredAnimeId = null;
+    (state.registeredUsers || []).forEach(user => {
+        if (user && user.featuredAnimeId === animeId) user.featuredAnimeId = null;
+    });
+    state.activities = (state.activities || []).filter(activity => activity && activity.animeId !== animeId);
+
+    const savedState = await writeState(env, state);
+    return json({
+        success: true,
+        deletedAnimeId: animeId,
+        registeredUsers: sanitizeState(savedState, auth.user.username).registeredUsers,
+        activities: savedState.activities
+    });
 }
 
 async function handleFriendRequest(request, env) {
@@ -1836,6 +1911,8 @@ async function route(request, env) {
     if (path === '/api/send-friend-request' && request.method === 'POST') return handleFriendRequest(request, env);
     if (path === '/api/respond-friend-request' && request.method === 'POST') return handleRespondFriendRequest(request, env);
     if (path === '/api/cancel-friend-request' && request.method === 'POST') return handleCancelFriendRequest(request, env);
+    if (path === '/api/admin/animes' && request.method === 'POST') return handleAdminUpsertAnime(request, env);
+    if (path === '/api/admin/delete-anime' && request.method === 'POST') return handleAdminDeleteAnime(request, env);
     if (path === '/api/admin/reset-password' && request.method === 'POST') return handleAdminResetPassword(request, env);
     if (path === '/api/admin/reset-legacy-passwords' && request.method === 'POST') return handleAdminResetLegacyPasswords(request, env);
     if (path === '/api/admin/require-password-change' && request.method === 'POST') return handleAdminRequirePasswordChange(request, env);

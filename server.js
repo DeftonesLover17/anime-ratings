@@ -477,11 +477,31 @@ function requireAuthenticatedUser(req, res, state) {
 }
 
 function isAdminUser(user) {
-    const admins = (process.env.ADMIN_USERS || '')
+    const admins = (process.env.ADMIN_USERS || 'felipe')
         .split(',')
         .map(name => normalizeUsername(name))
         .filter(Boolean);
     return admins.includes(normalizeUsername(user && user.username));
+}
+
+function buildCatalogAnime(input, existingAnime = null) {
+    const source = input && typeof input === 'object' ? input : {};
+    const existing = existingAnime && typeof existingAnime === 'object' ? existingAnime : {};
+    return sanitizeAnimeRecord({
+        ...existing,
+        id: existing.id || `a_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        title: source.title,
+        japaneseTitle: source.japaneseTitle || 'N/A',
+        synopsis: source.synopsis || 'Sem sinopse disponivel.',
+        coverUrl: source.coverUrl || '',
+        studioLogoUrl: source.studioLogoUrl || '',
+        genres: Array.isArray(source.genres) ? source.genres : [],
+        studio: source.studio || 'Desconhecido',
+        season: source.season || 'Outras',
+        episodes: source.episodes || 'Desconhecido',
+        ratings: existing.ratings || {},
+        comments: existing.comments || []
+    });
 }
 
 function usernameKey(username) {
@@ -860,14 +880,6 @@ function mergeStates(localState, serverState, loggedInUser, canEditCatalog = fal
     const mergedStudioLogos = {
         ...(serverState.studioLogos && typeof serverState.studioLogos === 'object' ? serverState.studioLogos : {})
     };
-    if (canEditCatalog && localState.studioLogos && typeof localState.studioLogos === 'object' && !Array.isArray(localState.studioLogos)) {
-        Object.entries(localState.studioLogos).forEach(([studioName, logoUrl]) => {
-            if (studioName && logoUrl) {
-                mergedStudioLogos[studioName] = logoUrl;
-            }
-        });
-    }
-
     // 3. Merge animes ratings and comments
     // IDs legados/stub que não devem existir no servidor (dados de teste)
     const BOGUS_IDS = new Set(['steins-gate', 'sample-anime', 'sample-anime-test', 'sample-anime-special-sync']);
@@ -884,57 +896,10 @@ function mergeStates(localState, serverState, loggedInUser, canEditCatalog = fal
     if (localState.animes && Array.isArray(localState.animes)) {
         const cleanLocalAnimes = localState.animes.filter(a => !isBogusAnime(a));
         cleanLocalAnimes.forEach(localAnime => {
-            if (canEditCatalog && localAnime && localAnime.studio && localAnime.studioLogoUrl) {
-                mergedStudioLogos[localAnime.studio] = localAnime.studioLogoUrl;
-            }
             let serverAnime = mergedAnimes.find(sa => sa.id === localAnime.id);
             if (!serverAnime) {
-                if (!canEditCatalog) {
-                    return;
-                }
-                serverAnime = { ...localAnime };
-                mergedAnimes.push(serverAnime);
-                
-                // Activity: added new anime to catalog
-                // Only credit the logged-in user if they actually have ratings on this anime
-                // (otherwise it might be an anime added by another user that we're just syncing)
-                if (loggedInUser) {
-                    const loggedInId = loggedInUser.toLowerCase().replace(/[^a-z0-9]/g, '');
-                    const hasOwnRating = localAnime.ratings && localAnime.ratings[loggedInId];
-                    const hasOwnComment = (localAnime.comments || []).some(c => 
-                        c.friendId && c.friendId.toLowerCase() === loggedInId
-                    );
-                    // Only create catalog activity if the user has own ratings or is the first to add it
-                    // Check if another user already has ratings on this anime
-                    const hasOtherUserRating = localAnime.ratings && Object.keys(localAnime.ratings).some(k => k !== loggedInId);
-                    if (hasOwnRating || (!hasOtherUserRating && !hasOwnComment)) {
-                        mergedActivities.push({
-                            id: generateActivityId(),
-                            username: authorUser.username,
-                            userColor: authorUser.color,
-                            userAvatar: authorUser.avatar,
-                            type: 'catalog',
-                            animeId: localAnime.id,
-                            animeTitle: localAnime.title,
-                            details: 'adicionou esta obra ao catálogo 🆕',
-                            timestamp: new Date().toISOString()
-                        });
-                    }
-                }
+                return;
             } else {
-                if (canEditCatalog) {
-                    // Populate/Update metadata fields from localAnime if missing or rich
-                    serverAnime.title = localAnime.title || serverAnime.title;
-                    serverAnime.japaneseTitle = localAnime.japaneseTitle || serverAnime.japaneseTitle;
-                    serverAnime.synopsis = localAnime.synopsis || serverAnime.synopsis;
-                    serverAnime.coverUrl = localAnime.coverUrl || serverAnime.coverUrl;
-                    serverAnime.studioLogoUrl = localAnime.studioLogoUrl || serverAnime.studioLogoUrl;
-                    serverAnime.genres = localAnime.genres || serverAnime.genres;
-                    serverAnime.studio = localAnime.studio || serverAnime.studio;
-                    serverAnime.season = localAnime.season || serverAnime.season;
-                    serverAnime.episodes = localAnime.episodes || serverAnime.episodes;
-                }
-
                 // Merge ratings map
                 if (localAnime.ratings) {
                     if (!serverAnime.ratings) serverAnime.ratings = {};
@@ -1491,6 +1456,130 @@ const server = http.createServer((req, res) => {
                 });
             } catch(e) {
                 sendJson(res, 400, { error: 'Invalid JSON body' });
+            }
+        });
+        return;
+    }
+
+    if (req.url === '/api/admin/animes' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+            try {
+                const payload = JSON.parse(body);
+                const input = payload && payload.anime;
+                if (!input || typeof input !== 'object') {
+                    sendJson(res, 400, { error: 'Dados do anime sao obrigatorios.' });
+                    return;
+                }
+                readState((err, data) => {
+                    let state = { friends: [], animes: [], registeredUsers: [], activities: [], studioLogos: {} };
+                    if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
+                    const authUser = requireAuthenticatedUser(req, res, state);
+                    if (!authUser) return;
+                    if (!isAdminUser(authUser)) {
+                        sendJson(res, 403, { error: 'Apenas o administrador pode alterar o catalogo.' });
+                        return;
+                    }
+
+                    const requestedId = String(input.id || '').trim();
+                    const existingIndex = requestedId
+                        ? state.animes.findIndex(anime => anime && anime.id === requestedId)
+                        : -1;
+                    if (requestedId && existingIndex < 0) {
+                        sendJson(res, 404, { error: 'Anime nao encontrado.' });
+                        return;
+                    }
+
+                    const existingAnime = existingIndex >= 0 ? state.animes[existingIndex] : null;
+                    const anime = buildCatalogAnime(input, existingAnime);
+                    if (!anime.title) {
+                        sendJson(res, 400, { error: 'Titulo do anime e obrigatorio.' });
+                        return;
+                    }
+                    if (!existingAnime) {
+                        const duplicate = state.animes.some(item =>
+                            item && normalizeAnimeIdentity(item.title) === normalizeAnimeIdentity(anime.title)
+                        );
+                        if (duplicate) {
+                            sendJson(res, 409, { error: 'Este anime ja existe no catalogo.' });
+                            return;
+                        }
+                        state.animes.push(anime);
+                    } else {
+                        state.animes[existingIndex] = anime;
+                    }
+                    if (anime.studio && anime.studioLogoUrl && anime.studio.toLowerCase() !== 'desconhecido') {
+                        state.studioLogos = {
+                            ...(state.studioLogos && typeof state.studioLogos === 'object' ? state.studioLogos : {}),
+                            [anime.studio]: anime.studioLogoUrl
+                        };
+                    }
+                    writeState(state, writeErr => {
+                        if (writeErr) {
+                            sendJson(res, 500, { error: 'Failed to save anime' });
+                            return;
+                        }
+                        sendJson(res, 200, {
+                            success: true,
+                            anime: sanitizeAnimeRecord(anime),
+                            activities: state.activities || []
+                        });
+                    });
+                });
+            } catch(e) {
+                sendJson(res, 400, { error: 'Invalid JSON' });
+            }
+        });
+        return;
+    }
+
+    if (req.url === '/api/admin/delete-anime' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+            try {
+                const payload = JSON.parse(body);
+                const animeId = String(payload && payload.animeId || '').trim();
+                if (!animeId) {
+                    sendJson(res, 400, { error: 'Anime obrigatorio.' });
+                    return;
+                }
+                readState((err, data) => {
+                    let state = { friends: [], animes: [], registeredUsers: [], activities: [] };
+                    if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
+                    const authUser = requireAuthenticatedUser(req, res, state);
+                    if (!authUser) return;
+                    if (!isAdminUser(authUser)) {
+                        sendJson(res, 403, { error: 'Apenas o administrador pode excluir animes.' });
+                        return;
+                    }
+                    const animeIndex = state.animes.findIndex(anime => anime && anime.id === animeId);
+                    if (animeIndex < 0) {
+                        sendJson(res, 404, { error: 'Anime nao encontrado.' });
+                        return;
+                    }
+                    state.animes.splice(animeIndex, 1);
+                    if (state.featuredAnimeId === animeId) state.featuredAnimeId = null;
+                    (state.registeredUsers || []).forEach(user => {
+                        if (user && user.featuredAnimeId === animeId) user.featuredAnimeId = null;
+                    });
+                    state.activities = (state.activities || []).filter(activity => activity && activity.animeId !== animeId);
+                    writeState(state, writeErr => {
+                        if (writeErr) {
+                            sendJson(res, 500, { error: 'Failed to delete anime' });
+                            return;
+                        }
+                        sendJson(res, 200, {
+                            success: true,
+                            deletedAnimeId: animeId,
+                            registeredUsers: sanitizeState(state, authUser.username).registeredUsers,
+                            activities: state.activities
+                        });
+                    });
+                });
+            } catch(e) {
+                sendJson(res, 400, { error: 'Invalid JSON' });
             }
         });
         return;

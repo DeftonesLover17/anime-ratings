@@ -1605,6 +1605,9 @@ class AppState {
                     return localAnime;
                 });
 
+                // The server owns the catalog. Remove locally cached titles that an admin deleted.
+                this.animes = this.animes.filter(anime => anime && serverAnimesMap[anime.id]);
+
                 // Add new animes from server not in local (deduplicate by id)
                 const localIds = new Set(this.animes.map(a => a.id));
                 serverAnimesWithLocalRatings.forEach(sa => {
@@ -2512,6 +2515,9 @@ class AppState {
     }
 
     addNewAnime(title, japaneseTitle, synopsis, genres, studio, season, episodes, coverUrl, studioLogoUrl = '') {
+        if (!isCurrentUserAdmin()) {
+            throw new Error('Apenas o administrador pode adicionar animes.');
+        }
         const studioName = studio.trim() || 'Desconhecido';
         const resolvedStudioLogo = sanitizeStudioLogoUrl(studioLogoUrl) || getStudioLogo(studioName) || '';
         if (resolvedStudioLogo && studioName.toLowerCase() !== 'desconhecido') {
@@ -2971,6 +2977,144 @@ function mergeServerNotifications(notifications = []) {
 function isCurrentUserAdmin() {
     const id = normalizeProfileId(state.loggedInUser || localStorage.getItem('anivoid_logged_in_username') || '');
     return id === 'felipe';
+}
+
+function decodeCatalogText(value) {
+    return String(value || '')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#0?39;/g, "'")
+        .replace(/&amp;/g, '&');
+}
+
+function setAdminCatalogControlsVisibility() {
+    const addButton = document.getElementById('open-add-anime');
+    if (!addButton) return;
+    if (isCurrentUserAdmin()) {
+        addButton.classList.remove('hidden');
+        addButton.classList.add('inline-flex');
+    } else {
+        addButton.classList.add('hidden');
+        addButton.classList.remove('inline-flex');
+    }
+}
+
+function closeAnimeCatalogModal() {
+    const modal = document.getElementById('add-anime-modal');
+    const form = document.getElementById('add-anime-form');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+    if (form) {
+        form.reset();
+        form.dataset.mode = 'create';
+    }
+    document.body.classList.remove('overflow-hidden');
+}
+
+function openAnimeCatalogModal(anime = null) {
+    if (!isCurrentUserAdmin()) {
+        alert('Apenas o administrador pode alterar o catálogo de animes.');
+        return;
+    }
+
+    const modal = document.getElementById('add-anime-modal');
+    const form = document.getElementById('add-anime-form');
+    if (!modal || !form) return;
+
+    form.reset();
+    form.dataset.mode = anime ? 'edit' : 'create';
+    document.getElementById('form-anime-id').value = anime?.id || '';
+    document.getElementById('anime-form-modal-title').innerHTML = anime
+        ? 'Editar <span class="italic text-brand">Anime</span>'
+        : 'Adicionar <span class="italic text-brand">Novo Anime</span>';
+    document.getElementById('anime-form-submit').textContent = anime ? 'Salvar Alterações' : 'Adicionar Anime';
+
+    if (anime) {
+        document.getElementById('form-anime-title').value = decodeCatalogText(anime.title);
+        document.getElementById('form-anime-jp-title').value = decodeCatalogText(anime.japaneseTitle);
+        document.getElementById('form-anime-synopsis').value = decodeCatalogText(anime.synopsis);
+        document.getElementById('form-anime-studio').value = decodeCatalogText(anime.studio);
+        document.getElementById('form-anime-season').value = decodeCatalogText(anime.season);
+        document.getElementById('form-anime-episodes').value = decodeCatalogText(anime.episodes);
+        document.getElementById('form-anime-cover').value = anime.coverUrl || '';
+        document.getElementById('form-studio-logo').value = anime.studioLogoUrl || '';
+        document.getElementById('form-anime-genres').value = Array.isArray(anime.genres)
+            ? anime.genres.map(decodeCatalogText).join(', ')
+            : '';
+    }
+
+    const suggestions = document.getElementById('form-anime-suggestions');
+    if (suggestions) suggestions.classList.add('hidden');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    document.body.classList.add('overflow-hidden');
+    document.getElementById('form-anime-title')?.focus();
+}
+
+function applyCatalogMutationResponse(payload, savedAnime = null) {
+    if (savedAnime) {
+        const index = state.animes.findIndex(anime => anime.id === savedAnime.id);
+        const localAnime = index >= 0 ? state.animes[index] : null;
+        const mergedAnime = localAnime
+            ? {
+                ...savedAnime,
+                ratings: savedAnime.ratings || localAnime.ratings || {},
+                comments: savedAnime.comments || localAnime.comments || []
+            }
+            : savedAnime;
+        if (index >= 0) state.animes[index] = mergedAnime;
+        else state.animes.push(mergedAnime);
+        if (savedAnime.studio && savedAnime.studioLogoUrl) {
+            state.studioLogos = {
+                ...(state.studioLogos || {}),
+                [decodeCatalogText(savedAnime.studio)]: savedAnime.studioLogoUrl
+            };
+            localStorage.setItem('anivoid_studio_logos', JSON.stringify(state.studioLogos));
+        }
+    }
+    if (Array.isArray(payload?.activities)) {
+        state.activities = payload.activities;
+        localStorage.setItem('anivoid_activities_v1', JSON.stringify(state.activities));
+    }
+    if (Array.isArray(payload?.registeredUsers)) {
+        storeRegisteredUsers(payload.registeredUsers);
+    }
+    localStorage.setItem('anivoid_list_v2', JSON.stringify(state.animes));
+}
+
+async function deleteAnimeAsAdmin(anime) {
+    if (!isCurrentUserAdmin() || !anime?.id) return;
+    const confirmed = confirm(`Excluir "${decodeCatalogText(anime.title)}" do catálogo?\n\nNotas, comentários e avaliações desta obra também serão removidos. Um backup será criado antes da exclusão.`);
+    if (!confirmed) return;
+
+    try {
+        await state.syncWithServer();
+        const response = await fetch(API_BASE_URL + '/api/admin/delete-anime', {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ animeId: anime.id })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Não foi possível excluir o anime.');
+
+        state.animes = state.animes.filter(item => item.id !== anime.id);
+        if (state.featuredAnimeId === anime.id) {
+            state.featuredAnimeId = null;
+            localStorage.removeItem('anivoid_featured_anime_id');
+        }
+        applyCatalogMutationResponse(payload);
+        state.activeDetailAnimeId = null;
+        closeAnimeDetail();
+        renderFilters();
+        renderAnimeGrid();
+        renderFeaturedBanner();
+        renderActivitiesFeed();
+    } catch (error) {
+        alert(error.message || 'Não foi possível excluir o anime.');
+    }
 }
 
 function updateNotificationBadges() {
@@ -4039,14 +4183,12 @@ function initUI() {
     const closeAddAnimeBtn = document.getElementById('close-add-anime');
     if (openAddAnimeBtn && addAnimeModal) {
         bindElementOnce(openAddAnimeBtn, 'openAddAnime', 'click', () => {
-            addAnimeModal.classList.remove('hidden');
-            addAnimeModal.classList.add('flex');
+            openAnimeCatalogModal();
         });
     }
     if (closeAddAnimeBtn && addAnimeModal) {
         bindElementOnce(closeAddAnimeBtn, 'closeAddAnime', 'click', () => {
-            addAnimeModal.classList.add('hidden');
-            addAnimeModal.classList.remove('flex');
+            closeAnimeCatalogModal();
         });
     }
 
@@ -4166,6 +4308,7 @@ function updateProfileIndicator() {
             adminBtn.classList.remove('flex');
         }
     }
+    setAdminCatalogControlsVisibility();
 
     // Update friend requests badge
     if (badge) {
@@ -6200,6 +6343,25 @@ function openAnimeDetail(animeId) {
             openAnimeDetail(animeId);
         };
     }
+
+    const adminActions = document.getElementById('detail-admin-actions');
+    const editAnimeButton = document.getElementById('detail-edit-anime-btn');
+    const deleteAnimeButton = document.getElementById('detail-delete-anime-btn');
+    if (adminActions) {
+        if (isCurrentUserAdmin()) {
+            adminActions.classList.remove('hidden');
+            adminActions.classList.add('flex');
+        } else {
+            adminActions.classList.add('hidden');
+            adminActions.classList.remove('flex');
+        }
+    }
+    if (editAnimeButton) {
+        editAnimeButton.onclick = () => openAnimeCatalogModal(anime);
+    }
+    if (deleteAnimeButton) {
+        deleteAnimeButton.onclick = () => deleteAnimeAsAdmin(anime);
+    }
     
     // Highlighted Studio Badge
     const studioBadge = document.getElementById('detail-studio');
@@ -7040,9 +7202,15 @@ function setupFormSubmissions() {
             studioInput.addEventListener('blur', fillKnownLogo);
         }
 
-        bindElementOnce(addAnimeForm, 'addAnimeSubmit', 'submit', (e) => {
+        bindElementOnce(addAnimeForm, 'addAnimeSubmit', 'submit', async (e) => {
             e.preventDefault();
+            if (!isCurrentUserAdmin()) {
+                alert('Apenas o administrador pode alterar o catálogo de animes.');
+                closeAnimeCatalogModal();
+                return;
+            }
             
+            const animeId = document.getElementById('form-anime-id').value.trim();
             const title = document.getElementById('form-anime-title').value;
             const japaneseTitle = document.getElementById('form-anime-jp-title').value;
             const synopsis = document.getElementById('form-anime-synopsis').value;
@@ -7057,20 +7225,51 @@ function setupFormSubmissions() {
             const genres = genresRaw.split(',').map(g => g.trim()).filter(Boolean);
 
             if (title) {
-                state.addNewAnime(title, japaneseTitle, synopsis, genres, studio, season, episodes, coverUrl, studioLogoUrl);
-                
-                // Reset form and close modal
-                addAnimeForm.reset();
-                const modal = document.getElementById('add-anime-modal');
-                if (modal) {
-                    modal.classList.add('hidden');
-                    modal.classList.remove('flex');
+                const submitButton = document.getElementById('anime-form-submit');
+                const originalLabel = submitButton?.textContent || 'Salvar Anime';
+                if (submitButton) {
+                    submitButton.disabled = true;
+                    submitButton.textContent = animeId ? 'Salvando Alterações...' : 'Adicionando Anime...';
                 }
+                try {
+                    const response = await fetch(API_BASE_URL + '/api/admin/animes', {
+                        method: 'POST',
+                        headers: authHeaders({ 'Content-Type': 'application/json' }),
+                        body: JSON.stringify({
+                            anime: {
+                                id: animeId || undefined,
+                                title,
+                                japaneseTitle,
+                                synopsis,
+                                genres,
+                                studio,
+                                season,
+                                episodes,
+                                coverUrl,
+                                studioLogoUrl
+                            }
+                        })
+                    });
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok) throw new Error(payload.error || 'Não foi possível salvar o anime.');
 
-                // Refresh UI
-                renderFilters();
-                renderAnimeGrid();
-                renderFeaturedBanner();
+                    applyCatalogMutationResponse(payload, payload.anime);
+                    closeAnimeCatalogModal();
+                    renderFilters();
+                    renderAnimeGrid();
+                    renderFeaturedBanner();
+                    renderActivitiesFeed();
+                    if (animeId && state.activeDetailAnimeId === animeId) {
+                        openAnimeDetail(animeId);
+                    }
+                } catch (error) {
+                    alert(error.message || 'Não foi possível salvar o anime.');
+                } finally {
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.textContent = originalLabel;
+                    }
+                }
             }
         });
     }
@@ -9502,7 +9701,7 @@ function getActivityMeta(activity) {
     if (details.includes('lista')) return { icon: 'lucide:bookmark-plus', emoji: '&#128278;', label: 'Lista', color: '#fb7185' };
     if (details.includes('espera')) return { icon: 'lucide:pause-circle', emoji: '&#9208;', label: 'Espera', color: '#f59e0b' };
     if (details.includes('abandonou')) return { icon: 'lucide:x-circle', emoji: '&#10060;', label: 'Dropou', color: '#ef4444' };
-    if (type === 'catalog' || details.includes('catalogo') || details.includes('cat\u00e1logo')) return { icon: 'lucide:sparkles', emoji: '&#10024;', label: 'Cat\u00e1logo', color: '#2dd4bf' };
+    if (type.startsWith('catalog') || details.includes('catalogo') || details.includes('cat\u00e1logo')) return { icon: 'lucide:sparkles', emoji: '&#10024;', label: 'Cat\u00e1logo', color: '#2dd4bf' };
     return { icon: 'lucide:zap', emoji: '&#9889;', label: 'A\u00e7\u00e3o', color: '#22d3ee' };
 }
 
