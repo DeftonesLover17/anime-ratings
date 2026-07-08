@@ -348,6 +348,57 @@ function sanitizeRatings(ratings) {
     return safeRatings;
 }
 
+function getStandardStudioName(name) {
+    const raw = String(name || '').trim();
+    if (!raw) return 'Desconhecido';
+    
+    const known = {
+        'ufotable': 'Ufotable',
+        'madhouse': 'Madhouse',
+        'mappa': 'MAPPA',
+        'bones': 'Bones',
+        'witstudio': 'Wit Studio',
+        'gainax': 'Gainax',
+        'kyotoanimation': 'Kyoto Animation',
+        'whitefox': 'White Fox',
+        'comixwavefilms': 'CoMix Wave Films',
+        'sunrise': 'Sunrise',
+        'studioghibli': 'Studio Ghibli',
+        'shaft': 'Shaft',
+        'tokyomovieshinsha': 'Tokyo Movie Shinsha',
+        'tatsunokoproduction': 'Tatsunoko Production',
+        'bugfilm': 'BUG FILMS',
+        'bugfilms': 'BUG FILMS',
+        'sciencesaru': 'Science Saru',
+        'toeianimation': 'Toei Animation',
+        'pierrot': 'Pierrot',
+        'davidproduction': 'David Production',
+        'jcstaff': 'J.C.Staff',
+        'studiobind': 'Studio Bind',
+        'kinemacitrus': 'Kinema Citrus',
+        'manglobe': 'Manglobe',
+        'artland': 'Artland',
+        'trianglestaff': 'Triangle Staff',
+        'trigger': 'Trigger',
+        'enishiya': 'Enishiya',
+        'studiom2': 'Studio M2',
+        'asread': 'Asread',
+        'paworks': 'P.A. Works',
+        'cloverworks': 'CloverWorks',
+        'a1pictures': 'A-1 Pictures',
+        'productionig': 'Production I.G',
+        'tmsentertainment': 'TMS Entertainment'
+    };
+    
+    const lookup = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (known[lookup]) return known[lookup];
+    
+    return raw
+        .split(/\s+/)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+}
+
 function sanitizeAnimeRecord(anime) {
     if (!anime || typeof anime !== 'object') return anime;
     return {
@@ -359,7 +410,7 @@ function sanitizeAnimeRecord(anime) {
         coverUrl: sanitizeImageUrl(anime.coverUrl) || '',
         studioLogoUrl: sanitizeImageUrl(anime.studioLogoUrl) || '',
         genres: sanitizeTextArray(anime.genres, 20, 80),
-        studio: escapeHtml(anime.studio || '', 120),
+        studio: escapeHtml(getStandardStudioName(anime.studio || ''), 120),
         status: escapeHtml(anime.status || '', 80),
         season: escapeHtml(anime.season || '', 80),
         episodes: escapeHtml(anime.episodes || '', 40),

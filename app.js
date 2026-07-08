@@ -5016,6 +5016,57 @@ function normalizeStudioName(name) {
     return String(name || '').trim().toLowerCase();
 }
 
+function getStandardStudioName(name) {
+    const raw = String(name || '').trim();
+    if (!raw) return 'Desconhecido';
+    
+    const known = {
+        'ufotable': 'Ufotable',
+        'madhouse': 'Madhouse',
+        'mappa': 'MAPPA',
+        'bones': 'Bones',
+        'witstudio': 'Wit Studio',
+        'gainax': 'Gainax',
+        'kyotoanimation': 'Kyoto Animation',
+        'whitefox': 'White Fox',
+        'comixwavefilms': 'CoMix Wave Films',
+        'sunrise': 'Sunrise',
+        'studioghibli': 'Studio Ghibli',
+        'shaft': 'Shaft',
+        'tokyomovieshinsha': 'Tokyo Movie Shinsha',
+        'tatsunokoproduction': 'Tatsunoko Production',
+        'bugfilm': 'BUG FILMS',
+        'bugfilms': 'BUG FILMS',
+        'sciencesaru': 'Science Saru',
+        'toeianimation': 'Toei Animation',
+        'pierrot': 'Pierrot',
+        'davidproduction': 'David Production',
+        'jcstaff': 'J.C.Staff',
+        'studiobind': 'Studio Bind',
+        'kinemacitrus': 'Kinema Citrus',
+        'manglobe': 'Manglobe',
+        'artland': 'Artland',
+        'trianglestaff': 'Triangle Staff',
+        'trigger': 'Trigger',
+        'enishiya': 'Enishiya',
+        'studiom2': 'Studio M2',
+        'asread': 'Asread',
+        'paworks': 'P.A. Works',
+        'cloverworks': 'CloverWorks',
+        'a1pictures': 'A-1 Pictures',
+        'productionig': 'Production I.G',
+        'tmsentertainment': 'TMS Entertainment'
+    };
+    
+    const lookup = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (known[lookup]) return known[lookup];
+    
+    return raw
+        .split(/\s+/)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+}
+
 function normalizeStudioLookupKey(name) {
     return normalizeStudioName(name).replace(/[^a-z0-9]/g, '');
 }
@@ -5499,8 +5550,9 @@ function renderStudiosDirectory() {
 
     const studiosMap = {};
     dedupedForStudios.forEach(anime => {
-        const studio = anime.studio && anime.studio.trim() ? anime.studio.trim() : null;
-        if (!studio || studio.toLowerCase() === 'desconhecido') return;
+        const rawStudio = anime.studio && anime.studio.trim() ? anime.studio.trim() : null;
+        if (!rawStudio || rawStudio.toLowerCase() === 'desconhecido') return;
+        const studio = getStandardStudioName(rawStudio);
         if (!studiosMap[studio]) studiosMap[studio] = [];
         studiosMap[studio].push(anime);
     });
@@ -7219,7 +7271,7 @@ function setupFormSubmissions() {
             const title = document.getElementById('form-anime-title').value;
             const japaneseTitle = document.getElementById('form-anime-jp-title').value;
             const synopsis = document.getElementById('form-anime-synopsis').value;
-            const studio = document.getElementById('form-anime-studio').value;
+            const studio = getStandardStudioName(document.getElementById('form-anime-studio').value);
             const season = document.getElementById('form-anime-season').value;
             const episodes = document.getElementById('form-anime-episodes').value;
             const coverUrl = document.getElementById('form-anime-cover').value;
@@ -9265,7 +9317,7 @@ function initAddFriendModalOptions() {
                     document.getElementById('form-anime-jp-title').value = jpTitle;
                     
                     const studioInput = document.getElementById('form-anime-studio');
-                    const studioName = anime.studios?.[0]?.name || '';
+                    const studioName = getStandardStudioName(anime.studios?.[0]?.name || '');
                     if (studioInput) studioInput.value = studioName;
 
                     const studioLogoInput = document.getElementById('form-studio-logo');
