@@ -1942,40 +1942,23 @@ async function route(request, env) {
     if (path === '/api/temp-debug' && request.method === 'GET') {
         try {
             const state = await readState(env);
-            const adminUser = state.registeredUsers.find(u => u && normalizeUsername(u.username) === 'felipe');
-            if (!adminUser) throw new Error("Admin user 'felipe' not found in state.registeredUsers");
-            
-            const input = {
-                title: "Death Parade Debug",
-                japaneseTitle: "デス・パレード",
-                synopsis: "Debug synopsis",
-                genres: ["Mystery", "Psychological", "Thriller"],
-                studio: "MADHOUSE",
-                season: "Inverno 2015",
-                episodes: "12",
-                coverUrl: "https://media.kitsu.app/anime/poster_images/9969/large.jpg",
-                studioLogoUrl: "logos/madhouse.png"
+            const stats = {
+                totalLength: JSON.stringify(state).length,
+                animesLength: JSON.stringify(state.animes || []).length,
+                registeredUsersLength: JSON.stringify(state.registeredUsers || []).length,
+                activitiesLength: JSON.stringify(state.activities || []).length,
+                studioLogosLength: JSON.stringify(state.studioLogos || {}).length,
+                usersBreakdown: (state.registeredUsers || []).map(u => ({
+                    username: u.username,
+                    avatarLength: String(u.avatar || '').length
+                }))
             };
-            const anime = buildCatalogAnime(input, null);
-            state.animes.push(anime);
-            
-            const activity = createActivity(
-                adminUser,
-                'catalog',
-                anime,
-                'adicionou esta obra ao catalogo'
-            );
-            state.activities = compactActivities([activity, ...(state.activities || [])], 80);
-            notifyFriendsOfActivity(state, adminUser, activity);
-            
-            const savedState = await writeState(env, state);
-            return json({ success: true, message: "Simulation succeeded!", animeId: anime.id });
+            return json({ success: true, stats });
         } catch (err) {
             return json({
                 success: false,
                 error: err.message,
-                stack: err.stack,
-                message: "Simulation failed!"
+                stack: err.stack
             }, 500);
         }
     }
