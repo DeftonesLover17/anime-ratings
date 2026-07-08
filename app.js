@@ -9072,6 +9072,101 @@ function initAddFriendModalOptions() {
             return json.data || null;
         };
 
+        const fetchAnimeKitsu = async (query) => {
+            try {
+                const response = await fetch(`https://kitsu.io/api/edge/anime?filter[text]=${encodeURIComponent(query)}&page[limit]=10&include=animeProductions.producer,genres`);
+                if (!response.ok) throw new Error('Kitsu request failed');
+                const json = await response.json();
+                
+                const included = json.included || [];
+                const findIncluded = (type, id) => included.find(item => item && item.type === type && String(item.id) === String(id));
+                
+                const data = json.data || [];
+                return data.map(anime => {
+                    const attrs = anime.attributes || {};
+                    const titleEnglish = attrs.titles?.en || attrs.canonicalTitle || '';
+                    const titleJapanese = attrs.titles?.ja_jp || attrs.titles?.ja || '';
+                    const titleCanonical = attrs.canonicalTitle || attrs.titles?.en_jp || '';
+                    const year = attrs.startDate ? new Date(attrs.startDate).getFullYear() : '';
+                    
+                    let season = undefined;
+                    if (attrs.startDate) {
+                        const month = new Date(attrs.startDate).getMonth();
+                        if (month >= 0 && month <= 2) season = 'winter';
+                        else if (month >= 3 && month <= 5) season = 'spring';
+                        else if (month >= 6 && month <= 8) season = 'summer';
+                        else if (month >= 9 && month <= 11) season = 'fall';
+                    }
+                    
+                    const genres = [];
+                    const genreRefs = anime.relationships?.genres?.data || [];
+                    genreRefs.forEach(ref => {
+                        const g = findIncluded('genres', ref.id);
+                        if (g && g.attributes?.name) {
+                            genres.push({ name: g.attributes.name });
+                        }
+                    });
+                    
+                    let studioName = '';
+                    const prodRefs = anime.relationships?.animeProductions?.data || [];
+                    for (const ref of prodRefs) {
+                        const prod = findIncluded('animeProductions', ref.id);
+                        if (prod && prod.attributes?.role === 'studio') {
+                            const producerId = prod.relationships?.producer?.data?.id;
+                            const producer = findIncluded('producers', producerId);
+                            if (producer && producer.attributes?.name) {
+                                studioName = producer.attributes.name;
+                                break;
+                            }
+                        }
+                    }
+                    if (!studioName && prodRefs.length > 0) {
+                        const firstProdId = prodRefs[0].id;
+                        const prod = findIncluded('animeProductions', firstProdId);
+                        const producerId = prod?.relationships?.producer?.data?.id;
+                        const producer = findIncluded('producers', producerId);
+                        if (producer && producer.attributes?.name) {
+                            studioName = producer.attributes.name;
+                        }
+                    }
+                    
+                    return {
+                        mal_id: 'kitsu_' + anime.id,
+                        title: titleCanonical,
+                        title_english: titleEnglish,
+                        title_japanese: titleJapanese,
+                        images: {
+                            webp: {
+                                large_image_url: attrs.posterImage?.large || attrs.posterImage?.original || ''
+                            },
+                            jpg: {
+                                large_image_url: attrs.posterImage?.large || attrs.posterImage?.original || ''
+                            }
+                        },
+                        type: attrs.showType ? attrs.showType.toUpperCase() : 'TV',
+                        episodes: attrs.episodeCount || 0,
+                        year: year,
+                        season: season,
+                        aired: {
+                            prop: {
+                                from: {
+                                    year: year
+                                }
+                            }
+                        },
+                        studios: studioName ? [{ name: studioName }] : [],
+                        genres: genres,
+                        synopsis: attrs.synopsis || '',
+                        isKitsu: true,
+                        kitsuId: anime.id
+                    };
+                });
+            } catch (err) {
+                console.error('Kitsu search failed:', err);
+                return [];
+            }
+        };
+
         // Fetch anime data from Jikan with a few smart aliases for titles MAL stores differently.
         const searchAnimeMAL = async (query) => {
             try {
@@ -9108,10 +9203,22 @@ function initAddFriendModalOptions() {
                     if (mergedResults.length >= 10) break;
                 }
 
+                // Fallback to Kitsu if no results from Jikan
+                if (mergedResults.length === 0) {
+                    console.log('Jikan returned no results, falling back to Kitsu for:', query);
+                    const kitsuResults = await fetchAnimeKitsu(query);
+                    kitsuResults.forEach(addResult);
+                }
+
                 return mergedResults.slice(0, 10);
             } catch (e) {
                 console.error('Error fetching from MAL:', e);
-                return [];
+                try {
+                    return await fetchAnimeKitsu(query);
+                } catch (kitsuError) {
+                    console.error('Final Kitsu fallback failed:', kitsuError);
+                    return [];
+                }
             }
         };
 
