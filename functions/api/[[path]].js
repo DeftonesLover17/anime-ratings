@@ -1942,18 +1942,18 @@ async function route(request, env) {
     if (path === '/api/temp-debug' && request.method === 'GET') {
         try {
             const state = await readState(env);
-            const stats = {
-                totalLength: JSON.stringify(state).length,
-                animesLength: JSON.stringify(state.animes || []).length,
-                registeredUsersLength: JSON.stringify(state.registeredUsers || []).length,
-                activitiesLength: JSON.stringify(state.activities || []).length,
-                studioLogosLength: JSON.stringify(state.studioLogos || {}).length,
-                usersBreakdown: (state.registeredUsers || []).map(u => ({
+            const userStats = (state.registeredUsers || []).map(u => {
+                const keys = {};
+                Object.keys(u).forEach(k => {
+                    keys[k] = JSON.stringify(u[k]).length;
+                });
+                return {
                     username: u.username,
-                    avatarLength: String(u.avatar || '').length
-                }))
-            };
-            return json({ success: true, stats });
+                    totalLength: JSON.stringify(u).length,
+                    fields: keys
+                };
+            });
+            return json({ success: true, userStats });
         } catch (err) {
             return json({
                 success: false,
