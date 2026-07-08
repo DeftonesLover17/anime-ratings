@@ -4761,6 +4761,9 @@ function renderAnimeGrid() {
         if (featuredBanner) featuredBanner.style.display = 'none';
         if (activitiesWrapper) activitiesWrapper.style.display = 'none';
         
+        const recRail = document.getElementById('recommendations-rail');
+        if (recRail) recRail.classList.add('hidden');
+        
         if (gridSection) {
             gridSection.classList.remove('py-20');
             gridSection.classList.add('pt-32', 'pb-20');
@@ -4784,6 +4787,8 @@ function renderAnimeGrid() {
 
         studiosContainer.classList.add('hidden');
         studiosContainer.classList.remove('block');
+        
+        renderRecommendationsRail();
     }
 
     grid.innerHTML = '';
