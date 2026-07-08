@@ -9149,18 +9149,66 @@ function initAddFriendModalOptions() {
             return [40028, 48583, 51535];
         };
 
+        function getStudioFallbackByTitle(title) {
+            const clean = String(title || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+            const fallbacks = {
+                'supernouradeyanisuufutari': 'Asahi Production',
+                'smokingbehindthesupermarketwithyou': 'Asahi Production',
+                'supermarketwithyou': 'Asahi Production',
+                'oshinoko': 'Doga Kobo',
+                'sololeveling': 'A-1 Pictures',
+                'dandadan': 'Science Saru',
+                'sakamotodays': 'TMS Entertainment',
+                'windbreaker': 'CloverWorks',
+                'frieren': 'Madhouse',
+                'frierentoys': 'Madhouse',
+                'frierenthejourneyends': 'Madhouse',
+                'sousounofrieren': 'Madhouse',
+                'kaijuno8': 'Production I.G',
+                'kaijuu8': 'Production I.G',
+                'gushingovermagicalgirls': 'Asahi Production',
+                'mahoakono': 'Asahi Production',
+                'mahoushoujoakogarete': 'Asahi Production',
+                'alyasometimeshidesherfeelingsinrussian': 'Doga Kobo',
+                'roshidere': 'Doga Kobo',
+                'toomanylosingheroines': 'A-1 Pictures',
+                'makeine': 'A-1 Pictures',
+                'elusivesamurai': 'CloverWorks',
+                'failureframe': 'Seven Arcs',
+                'monogatariseries': 'Shaft',
+                'sengokuyouko': 'White Fox'
+            };
+            if (fallbacks[clean]) return fallbacks[clean];
+            for (const [key, studio] of Object.entries(fallbacks)) {
+                if (clean.includes(key) || key.includes(clean)) return studio;
+            }
+            return '';
+        }
+
         const fetchAnimeMAL = async (query) => {
             const response = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=12`);
             if (!response.ok) throw new Error('API request failed');
             const json = await response.json();
-            return json.data || [];
+            const list = json.data || [];
+            list.forEach(anime => {
+                if ((!anime.studios || anime.studios.length === 0) && anime.title) {
+                    const fb = getStudioFallbackByTitle(anime.title) || getStudioFallbackByTitle(anime.title_english) || getStudioFallbackByTitle(anime.title_japanese);
+                    if (fb) anime.studios = [{ name: fb }];
+                }
+            });
+            return list;
         };
 
         const fetchAnimeMALById = async (malId) => {
             const response = await fetch(`https://api.jikan.moe/v4/anime/${malId}`);
             if (!response.ok) throw new Error('API request failed');
             const json = await response.json();
-            return json.data || null;
+            const anime = json.data || null;
+            if (anime && (!anime.studios || anime.studios.length === 0) && anime.title) {
+                const fb = getStudioFallbackByTitle(anime.title) || getStudioFallbackByTitle(anime.title_english) || getStudioFallbackByTitle(anime.title_japanese);
+                if (fb) anime.studios = [{ name: fb }];
+            }
+            return anime;
         };
 
         const fetchAnimeKitsu = async (query) => {
@@ -9219,6 +9267,11 @@ function initAddFriendModalOptions() {
                         if (producer && producer.attributes?.name) {
                             studioName = producer.attributes.name;
                         }
+                    }
+                    
+                    if (!studioName || studioName.toLowerCase() === 'desconhecido') {
+                        const fb = getStudioFallbackByTitle(titleCanonical) || getStudioFallbackByTitle(titleEnglish) || getStudioFallbackByTitle(titleJapanese);
+                        if (fb) studioName = fb;
                     }
                     
                     return {
