@@ -329,6 +329,13 @@ function sanitizeRatings(ratings) {
                 safeEpisodeRatings[safeEpisode] = Number.isFinite(numericScore) ? numericScore : 0;
             });
         }
+        const safeWatchedEpisodesMap = {};
+        if (rating.watchedEpisodesMap && typeof rating.watchedEpisodesMap === 'object') {
+            Object.entries(rating.watchedEpisodesMap).slice(0, 1000).forEach(([episode, watched]) => {
+                const safeEpisode = escapeHtml(episode, 20);
+                safeWatchedEpisodesMap[safeEpisode] = !!watched;
+            });
+        }
         const safeFriendId = normalizeUsername(friendId) || escapeHtml(friendId, 80);
         const nextRating = {
             ...rating,
@@ -339,7 +346,8 @@ function sanitizeRatings(ratings) {
             status: escapeHtml(rating.status || 'Plan to Watch', 80),
             episodesWatched: Number.isFinite(Number(rating.episodesWatched)) ? Number(rating.episodesWatched) : 0,
             updatedAt: escapeHtml(rating.updatedAt || '', 40),
-            episodeRatings: safeEpisodeRatings
+            episodeRatings: safeEpisodeRatings,
+            watchedEpisodesMap: safeWatchedEpisodesMap
         };
         safeRatings[safeFriendId] = ratingStrength(safeRatings[safeFriendId]) >= ratingStrength(nextRating)
             ? { ...nextRating, ...safeRatings[safeFriendId] }

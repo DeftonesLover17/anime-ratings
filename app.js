@@ -2160,10 +2160,16 @@ class AppState {
                 overall: 0,
                 status: 'Plan to Watch',
                 episodesWatched: 0,
-                episodeRatings: {}
+                episodeRatings: {},
+                watchedEpisodesMap: {}
             };
-        } else if (!anime.ratings[friendId].episodeRatings) {
-            anime.ratings[friendId].episodeRatings = {};
+        } else {
+            if (!anime.ratings[friendId].episodeRatings) {
+                anime.ratings[friendId].episodeRatings = {};
+            }
+            if (!anime.ratings[friendId].watchedEpisodesMap) {
+                anime.ratings[friendId].watchedEpisodesMap = {};
+            }
         }
     }
 
@@ -2220,9 +2226,16 @@ class AppState {
                 r.episodeRatings[epNum] = parseFloat(ratingVal);
                 // Also implicitly mark as watched if rated!
                 const epInt = parseInt(epNum);
-                if ((r.episodesWatched || 0) < epInt) {
-                    this.setEpisodesWatched(animeId, friendId, epInt);
+                if (!r.watchedEpisodesMap || typeof r.watchedEpisodesMap !== 'object') {
+                    r.watchedEpisodesMap = {};
+                    const prevWatched = parseInt(r.episodesWatched) || 0;
+                    for (let k = 1; k <= prevWatched; k++) {
+                        r.watchedEpisodesMap[k] = true;
+                    }
                 }
+                r.watchedEpisodesMap[epInt] = true;
+                const count = Object.values(r.watchedEpisodesMap).filter(Boolean).length;
+                r.episodesWatched = count;
             }
             
             // Recalculate overall rating
@@ -2275,14 +2288,18 @@ class AppState {
             const maxEps = parseInt(anime.episodes) || 0;
             const epInt = parseInt(epNum);
             
+            if (!r.watchedEpisodesMap || typeof r.watchedEpisodesMap !== 'object') {
+                r.watchedEpisodesMap = {};
+                const prevWatched = parseInt(r.episodesWatched) || 0;
+                for (let k = 1; k <= prevWatched; k++) {
+                    r.watchedEpisodesMap[k] = true;
+                }
+            }
+            
             if (isWatched) {
-                if ((r.episodesWatched || 0) < epInt) {
-                    this.setEpisodesWatched(animeId, friendId, epInt);
-                }
+                r.watchedEpisodesMap[epInt] = true;
             } else {
-                if ((r.episodesWatched || 0) >= epInt) {
-                    this.setEpisodesWatched(animeId, friendId, epInt - 1);
-                }
+                delete r.watchedEpisodesMap[epInt];
                 if (r.episodeRatings && r.episodeRatings[epNum]) {
                     delete r.episodeRatings[epNum];
                     const epOverall = this.calculateUserOverallFromEpisodes(anime, friendId);
@@ -2294,6 +2311,17 @@ class AppState {
                     }
                 }
             }
+            
+            const count = Object.values(r.watchedEpisodesMap).filter(Boolean).length;
+            r.episodesWatched = count;
+            
+            // Auto status transition
+            if (maxEps > 0 && count === maxEps) {
+                r.status = 'Completed';
+            } else if (count > 0 && r.status === 'Plan to Watch') {
+                r.status = 'Watching';
+            }
+            
             r.updatedAt = new Date().toISOString();
             this.save();
         }
@@ -2386,6 +2414,12 @@ class AppState {
             let val = Math.max(0, epCount);
             if (maxEps > 0) val = Math.min(val, maxEps);
             r.episodesWatched = val;
+            
+            // Sync watchedEpisodesMap to be contiguous up to val
+            r.watchedEpisodesMap = {};
+            for (let k = 1; k <= val; k++) {
+                r.watchedEpisodesMap[k] = true;
+            }
             
             // Auto status transition
             if (maxEps > 0 && val === maxEps) {
@@ -6601,7 +6635,7 @@ function openAnimeDetail(animeId) {
                 </div>
             `;
         } else if (maxEps === 1) {
-            const isWatched = 1 <= myEpsWatched;
+            const isWatched = myRating.watchedEpisodesMap && typeof myRating.watchedEpisodesMap === 'object' ? !!myRating.watchedEpisodesMap[1] : 1 <= myEpsWatched;
             const epRating = myRating.episodeRatings?.[1] || '';
             
             const row = document.createElement('div');
@@ -6678,7 +6712,7 @@ function openAnimeDetail(animeId) {
             epListContainer.appendChild(row);
         } else {
             for (let i = 1; i <= maxEps; i++) {
-                const isWatched = i <= myEpsWatched;
+                const isWatched = myRating.watchedEpisodesMap && typeof myRating.watchedEpisodesMap === 'object' ? !!myRating.watchedEpisodesMap[i] : i <= myEpsWatched;
                 const epRating = myRating.episodeRatings?.[i] || '';
                 
                 const row = document.createElement('div');
