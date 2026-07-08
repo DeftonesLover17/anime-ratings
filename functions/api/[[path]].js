@@ -261,7 +261,6 @@ function sanitizeNotifications(notifications) {
         message: escapeHtml(notification && notification.message || '', 300),
         animeId: escapeHtml(notification && notification.animeId || '', 120),
         color: sanitizeColor(notification && notification.color),
-        avatar: sanitizeAvatar(notification && notification.avatar),
         read: Boolean(notification && notification.read),
         timestamp: escapeHtml(notification && notification.timestamp || '', 40)
     })).filter(notification => notification.title);
@@ -663,7 +662,6 @@ function pushUserNotification(user, notification) {
         message: notification.message || '',
         animeId: notification.animeId || '',
         color: notification.color || user.color || '#FF4500',
-        avatar: notification.avatar || user.avatar || 'bell',
         read: false,
         timestamp,
         dedupeKey
@@ -1939,30 +1937,6 @@ async function route(request, env) {
     if (path === '/api/admin/export-state' && request.method === 'GET') return handleAdminExportState(request, env);
     const backupMatch = path.match(/^\/api\/admin\/backups\/(\d+)$/);
     if (backupMatch && request.method === 'GET') return handleAdminBackupDownload(request, env, backupMatch[1]);
-    if (path === '/api/temp-debug' && request.method === 'GET') {
-        try {
-            const state = await readState(env);
-            const userStats = (state.registeredUsers || []).map(u => {
-                const keys = {};
-                Object.keys(u).forEach(k => {
-                    keys[k] = JSON.stringify(u[k]).length;
-                });
-                return {
-                    username: u.username,
-                    totalLength: JSON.stringify(u).length,
-                    fields: keys
-                };
-            });
-            return json({ success: true, userStats });
-        } catch (err) {
-            return json({
-                success: false,
-                error: err.message,
-                stack: err.stack
-            }, 500);
-        }
-    }
-
     if (path === '/api/remove-friend' && request.method === 'POST') return handleRemoveFriend(request, env);
 
     return json({ error: 'Not found' }, 404);
