@@ -1942,6 +1942,9 @@ async function route(request, env) {
     if (path === '/api/temp-debug' && request.method === 'GET') {
         try {
             const state = await readState(env);
+            const adminUser = state.registeredUsers.find(u => u && normalizeUsername(u.username) === 'felipe');
+            if (!adminUser) throw new Error("Admin user 'felipe' not found in state.registeredUsers");
+            
             const input = {
                 title: "Death Parade Debug",
                 japaneseTitle: "デス・パレード",
@@ -1955,6 +1958,16 @@ async function route(request, env) {
             };
             const anime = buildCatalogAnime(input, null);
             state.animes.push(anime);
+            
+            const activity = createActivity(
+                adminUser,
+                'catalog',
+                anime,
+                'adicionou esta obra ao catalogo'
+            );
+            state.activities = compactActivities([activity, ...(state.activities || [])], 80);
+            notifyFriendsOfActivity(state, adminUser, activity);
+            
             const savedState = await writeState(env, state);
             return json({ success: true, message: "Simulation succeeded!", animeId: anime.id });
         } catch (err) {
