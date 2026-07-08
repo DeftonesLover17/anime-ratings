@@ -1939,6 +1939,34 @@ async function route(request, env) {
     if (path === '/api/admin/export-state' && request.method === 'GET') return handleAdminExportState(request, env);
     const backupMatch = path.match(/^\/api\/admin\/backups\/(\d+)$/);
     if (backupMatch && request.method === 'GET') return handleAdminBackupDownload(request, env, backupMatch[1]);
+    if (path === '/api/temp-debug' && request.method === 'GET') {
+        try {
+            const state = await readState(env);
+            const input = {
+                title: "Death Parade Debug",
+                japaneseTitle: "デス・パレード",
+                synopsis: "Debug synopsis",
+                genres: ["Mystery", "Psychological", "Thriller"],
+                studio: "MADHOUSE",
+                season: "Inverno 2015",
+                episodes: "12",
+                coverUrl: "https://media.kitsu.app/anime/poster_images/9969/large.jpg",
+                studioLogoUrl: "logos/madhouse.png"
+            };
+            const anime = buildCatalogAnime(input, null);
+            state.animes.push(anime);
+            const savedState = await writeState(env, state);
+            return json({ success: true, message: "Simulation succeeded!", animeId: anime.id });
+        } catch (err) {
+            return json({
+                success: false,
+                error: err.message,
+                stack: err.stack,
+                message: "Simulation failed!"
+            }, 500);
+        }
+    }
+
     if (path === '/api/remove-friend' && request.method === 'POST') return handleRemoveFriend(request, env);
 
     return json({ error: 'Not found' }, 404);
