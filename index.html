@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" href="favicon.png">
     <!-- EmailJS SDK for real email delivery (optional) -->
     <script defer src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <link rel="stylesheet" href="assets/tailwind.53e9dec661b0.css">
+    <link rel="stylesheet" href="assets/tailwind.5efea54912ad.css">
     <!-- Iconify Icons CDN -->
     <script defer src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
     
@@ -19,7 +19,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syncopate:wght@700&family=Syne:wght@800&family=Lexend+Tera:wght@900&display=swap" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="assets/styles.b08740b0a9bb.css">
+    <link rel="stylesheet" href="assets/styles.5cc862bcc3f7.css">
     
     <meta name="theme-color" content="#050505">
 </head>
@@ -257,7 +257,7 @@
         </div>
     </div><!-- 2. MAIN NAV NAVIGATION -->
     <nav id="main-nav" class="fixed top-0 left-0 right-0 z-40 bg-bgDark/80 backdrop-blur-md border-b border-white/5 py-4 transition-all duration-300">
-        <div class="container mx-auto px-6 flex items-center justify-between">
+        <div class="av-wrap flex items-center justify-between">
             <a href="#" class="text-lg md:text-xl font-black tracking-[0.18em] font-sans-wide flex items-center gap-1 hover:scale-95 transition-all text-white uppercase select-none">
                 <span>ANIV</span><span class="text-brand">Ø</span><span>ID</span>
             </a>
@@ -334,7 +334,7 @@
 
 
     <!-- 4. ACERVO / real filters and catalog -->
-    <main id="anime-grid-section" class="av-archive"><div class="container">
+    <main id="anime-grid-section" class="av-archive"><div class="av-wrap">
             <div id="grid-header-section" class="flex flex-col gap-8 mb-16">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div>
@@ -366,7 +366,7 @@
                 <div class="glass-panel border border-white/5 rounded-3xl p-6 flex flex-col gap-4">
                     <div class="flex flex-col lg:flex-row justify-between gap-4">
                         <!-- Search, Sort and Toggle Filters -->
-                        <div class="flex flex-col sm:flex-row gap-4 flex-grow max-w-3xl">
+                        <div class="flex flex-col sm:flex-row gap-4 flex-grow min-w-0 w-full">
                             <div class="relative flex-grow">
                                 <iconify-icon icon="lucide:search" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></iconify-icon>
                                 <input type="text" id="search-anime" aria-label="Pesquisar animes por titulo ou estudio" placeholder="Título, estúdio, outro universo…" class="w-full bg-white/5 border border-white/10 rounded-full py-2.5 pl-11 pr-4 text-xs font-light tracking-wide focus:outline-none focus:border-brand/50 transition-colors">

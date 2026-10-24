@@ -10,6 +10,7 @@
     --av-display: 'Anivoid Display', sans-serif;
     --av-body: 'Anivoid Text', sans-serif;
     --av-ease: cubic-bezier(.22,1,.36,1);
+    --av-page-gutter: clamp(22px,4.5vw,76px);
     --bg: var(--av-bg);
 }
 :root[data-color-scheme="light"] {
@@ -34,7 +35,8 @@ body.av-app { background: var(--av-bg) !important; }
 .av-app :is(#featured-banner-wrapper,#anime-grid-section,#anime-detail-page) { scroll-margin-top: 72px; }
 .av-app :is(#av-about,#av-notes,#av-community) { scroll-margin-top: 100px; }
 .av-app :is(.ambient-depth-stage,.ambient-depth-orb) { display: none; }
-.av-wrap { width: min(1440px,100%); margin-inline: auto; padding-inline: clamp(22px,4.5vw,76px); }
+/* Every page shares the viewport width and the same outer gutters. */
+.av-wrap { width: 100%; max-width: none; margin-inline: 0; padding-inline: var(--av-page-gutter); }
 .av-app [hidden] { display: none !important; }
 .av-app :is(button,a,input,textarea,select):not(#splash-screen *) { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 .av-app :is(button,a,input,textarea,select):not(#splash-screen *):focus-visible { outline: 2px solid var(--av-accent); outline-offset: 5px; }
@@ -61,7 +63,7 @@ body.av-app { background: var(--av-bg) !important; }
 
 /* Stable navigation is the frame around every scene. */
 :root[data-color-scheme] body.av-app #main-nav { height: 76px; padding: 0; background: var(--av-bg) !important; border-bottom: 1px solid var(--av-line); box-shadow: none; }
-.av-app #main-nav > div { width: min(1530px,100%); height: 100%; padding-inline: clamp(22px,3.4vw,60px); }
+.av-app #main-nav > div { height: 100%; }
 .av-app #main-nav > div > a { font-size: 23px; gap: 0; }
 .av-app #main-nav > div > a .text-brand { color: var(--av-accent) !important; }
 .av-nav-links { display: flex; gap: 32px; align-items: center; }
@@ -113,7 +115,6 @@ body.av-app { background: var(--av-bg) !important; }
 
 /* Archive / an index, not a dashboard of equal-weight panels. */
 .av-app #anime-grid-section { padding-block: 88px !important; }
-.av-app #anime-grid-section > .container { width: min(1440px,100%); max-width: none; padding-inline: clamp(22px,4.5vw,76px); }
 .av-app #grid-header-section { gap: 28px; margin-bottom: 45px; }
 .av-app #grid-header-section h2 { font: 600 clamp(36px,4.8vw,72px)/1.04 var(--av-display) !important; letter-spacing: -.055em; color: var(--av-ink) !important; text-wrap: balance; }
 .av-app #grid-header-section h2 span { font: inherit; font-style: normal; color: var(--av-muted) !important; }
@@ -273,7 +274,8 @@ body.av-app { background: var(--av-bg) !important; }
 .av-footer-word { display: block; font: 800 clamp(45px,14vw,220px)/.85 var(--av-display); letter-spacing: -.09em; color: var(--av-ink); }
 .av-footer-bottom { display: flex; justify-content: space-between; gap: 20px; margin-top: 35px; font-size: 10px; color: var(--av-muted); }
 
-@media(min-width:1600px) { .av-app #anime-grid-container { grid-template-columns: repeat(5,minmax(0,1fr)); } }
+@media(min-width:1600px) { .av-app #anime-grid-container,.av-studio-catalog { grid-template-columns: repeat(5,minmax(0,1fr)); } }
+@media(min-width:2200px) { .av-app #anime-grid-container,.av-studio-catalog { grid-template-columns: repeat(6,minmax(0,1fr)); } }
 @media(max-width:1100px) {
     .av-nav-links { gap: 20px; }
     .av-app #active-name { display: none; }
@@ -399,7 +401,8 @@ body.av-app { background: var(--av-bg) !important; }
     .av-studio-credit:hover .av-credit-arrow svg { transform: translate(3px,-3px); }
 }
 @media(max-width:380px) {
-    .av-app #main-nav > div { padding-inline: 16px; gap: 6px; }
+    :root { --av-page-gutter: 16px; }
+    .av-app #main-nav > div { gap: 6px; }
     .av-app #main-nav > div > a { font-size: 16px; letter-spacing: .12em; }
     .av-app #main-nav .nav-theme-slot { gap: 6px; }
     .av-app #av-score-input { font-size: 74px; width: 3.4ch; }

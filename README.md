@@ -56,6 +56,8 @@ Para novos recursos, criar um módulo no domínio correspondente em `frontend/`.
 
 ## Interface e compatibilidade
 
+As telas usam toda a largura disponível com o shell compartilhado `.av-wrap` e o token `--av-page-gutter`. Cabeçalho, descoberta, acervo, detalhe, estúdios e rodapé compartilham as mesmas margens laterais. Não reintroduzir um limite fixo de largura nos shells. Limites de leitura de textos e larguras de modais continuam próprios de cada componente.
+
 A descoberta, o catálogo, o detalhe da obra, a avaliação e os estúdios são telas da aplicação real. O estudo visual externo não é um substituto do produto nem uma fonte de dados fictícios para produção.
 
 O editor mantém rascunhos durante a navegação entre episódios e obras na sessão. A confirmação de salvamento acompanha a resposta da API; falhas deixam os dados locais e oferecem nova tentativa. Rascunhos não publicados ficam na memória da aba, com aviso ao sair, e não representam um backup persistente.

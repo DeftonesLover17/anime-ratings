@@ -11,6 +11,7 @@
 - Evitar estado global implícito, dependências circulares, funções com várias responsabilidades e abstrações sem uso concreto.
 - Preferir nomes claros e comentários que expliquem decisões. Remover código substituído em vez de manter implementações paralelas ou comentários obsoletos.
 - CSS novo fica junto do módulo de interface. Organizar tokens, componentes, temas, responsividade e movimento em seções. Evitar camadas sucessivas de sobrescritas; exceções de compatibilidade com CSS legado devem ter escopo e motivo.
+- Os shells das telas usam toda a largura disponível com `.av-wrap` e `--av-page-gutter`, mantendo as margens de cabeçalho, conteúdo e rodapé alinhadas. Não reintroduzir contêineres fixos de 1.440/1.530 px nas páginas.
 - Nunca editar `assets/` ou `dist/` manualmente. São gerados por `npm run build:pages`.
 - Testes pertencem a `tests/`; ferramentas de desenvolvimento a `scripts/`. Não versionar fixtures pessoais, capturas de sessão, credenciais ou arquivos temporários.
 - Quando alterar a estrutura, atualizar o mapa do `README.md` na mesma mudança.
