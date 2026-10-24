@@ -401,7 +401,7 @@ body.av-app { background: var(--av-bg) !important; }
     .av-hero-bottom > a { gap: 15px; font-size: 9px; }
     .av-app #anime-grid-section { padding-block: 58px !important; }
     .av-app #grid-header-section { gap: 23px; margin-bottom: 32px; }
-    .av-app #grid-header-section h2 { font-size: 39px !important; line-height: 1.12 !important; padding-bottom: 0.12em; }
+    .av-app #grid-header-section h2 { font-size: clamp(24px, 6.8vw, 36px) !important; line-height: 1.12 !important; padding-bottom: 0.12em; }
     .av-app #grid-header-section .mal-tab { font-size: 11px; padding-inline: 8px; }
     .av-app #anime-grid-container,.av-studio-catalog { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 34px 17px; }
     .av-card-meta { font-size: 8px; margin-top: 12px; align-items: start; }
