@@ -1,0 +1,20 @@
+/* One reveal language. Media carries the scene transition; controls stay interactive. */
+[data-av-reveal][data-entered=false] { opacity: 0; transform: translateY(25px); }
+[data-av-reveal] { transition: opacity .65s var(--av-ease),transform .75s var(--av-ease); transition-delay: var(--av-delay,0ms); }
+.av-hero-title[data-av-reveal][data-entered=false] { transform: translateY(45px); }
+::view-transition { pointer-events: none; }
+::view-transition-group(av-scene-media) { animation-duration: .55s; animation-timing-function: cubic-bezier(.76,0,.24,1); }
+::view-transition-group(av-scene-logo) { animation-duration: .45s; animation-timing-function: cubic-bezier(.76,0,.24,1); }
+::view-transition-old(av-scene-logo),::view-transition-new(av-scene-logo) { height: 100%; object-fit: contain; mix-blend-mode: normal; }
+:root[data-av-scene=back]::view-transition-group(av-scene-media) { animation-duration: .42s; }
+::view-transition-old(av-scene-media),::view-transition-new(av-scene-media) { height: 100%; object-fit: cover; mix-blend-mode: normal; }
+::view-transition-old(root) { animation: av-scene-out .18s ease both; }
+::view-transition-new(root) { animation: av-scene-in .38s var(--av-ease) both; }
+@keyframes av-scene-out { to { opacity: 0; } }
+@keyframes av-scene-in { from { opacity: 0; } to { opacity: 1; } }
+@media(prefers-reduced-motion:reduce) {
+    [data-av-reveal][data-entered=false] { opacity: 1; transform: none; }
+    [data-av-reveal],.av-art-frame img,.av-card-poster img,.av-card-invitation,.av-studio-mark img { transition: none !important; }
+    ::view-transition-group(*),::view-transition-old(*),::view-transition-new(*) { animation: none !important; }
+}
+@media(hover:none),(pointer:coarse) { .av-card-invitation { transform: none; } }

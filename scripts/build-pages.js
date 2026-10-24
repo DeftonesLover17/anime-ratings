@@ -15,7 +15,7 @@ async function build() {
     fs.rmSync(publicAssets, { recursive: true, force: true });
     fs.mkdirSync(dist, { recursive: true });
     fs.mkdirSync(publicAssets, { recursive: true });
-    for (const folder of ['covers', 'logos']) fs.cpSync(path.join(root, folder), path.join(dist, folder), { recursive: true });
+    for (const folder of ['covers', 'logos', 'fonts']) fs.cpSync(path.join(root, folder), path.join(dist, folder), { recursive: true });
     for (const file of ['favicon.png', 'logo.png']) fs.copyFileSync(path.join(root, file), path.join(dist, file));
     const config = require(path.join(root, 'tailwind.config.js'));
     config.content = config.content.map(file => path.resolve(root, file));
@@ -27,7 +27,7 @@ async function build() {
     let html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
     const assets = [
         ['tailwind.css', generated.css, 'css'],
-        ['styles.css', fs.readFileSync(path.join(root, 'styles.css'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'frontend/ui/ui.css'), 'utf8'), 'css'],
+        ['styles.css', ['styles.css', 'frontend/ui/ui.css', 'frontend/site/fonts.css', 'frontend/site/site.css', 'frontend/ratings/ratings.css', 'frontend/community/community.css', 'frontend/site/motion.css'].map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n'), 'css'],
         ['shared/sync-state.js', fs.readFileSync(path.join(root, 'shared/sync-state.js'), 'utf8'), 'js'],
         ['app.js', fs.readFileSync(path.join(root, 'app.js'), 'utf8'), 'js'],
         ['ui.js', uiBundle, 'js']

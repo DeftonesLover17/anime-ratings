@@ -139,7 +139,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
 :root[data-color-scheme="light"] [class~="text-[#f1c40f]"] {
     color: #805b12;
 }
-:root[data-color-scheme="light"] :where(input, textarea, select):not(#splash-screen *) {
+:root[data-color-scheme="light"] :where(input, textarea, select):not(#splash-screen *, .av-workbench *, .av-conversation-grid *) {
     color: #19251e;
     background-color: #fffdf8;
     border-color: #b3bcb4;

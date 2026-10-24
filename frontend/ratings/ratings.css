@@ -1,0 +1,79 @@
+/* The editor is a workspace: stable inputs, local drafts, explicit confirmation. */
+.av-workbench { display: grid; grid-template-columns: minmax(220px,.65fr) minmax(0,1.9fr); border-block: 1px solid var(--av-line); }
+.av-episode-index { border-right: 1px solid var(--av-line); padding: 27px 25px 25px 0; }
+.av-rail-heading { display: flex; justify-content: space-between; align-items: center; padding-bottom: 24px; }
+.av-rail-heading h3 { font: 600 20px/1.3 var(--av-display); letter-spacing: -.03em; }
+.av-rail-heading > span { font-size: 11px; color: var(--av-muted); }
+.av-episode-buttons { max-height: 470px; overflow-y: auto; overscroll-behavior: contain; }
+.av-episode-buttons > button { display: grid; grid-template-columns: 22px 1fr auto; gap: 9px; align-items: center; width: 100%; text-align: left; padding: 17px 12px; min-height: 75px; border: 0; border-top: 1px solid var(--av-line); border-left: 1px solid transparent; background: transparent; color: var(--av-ink); font-size: 12px; }
+.av-episode-buttons > button[aria-pressed=true] { background: var(--av-surface); border-left-color: var(--av-accent); }
+.av-episode-buttons > button > span:first-child { font-size: 10px; color: var(--av-muted); }
+.av-episode-buttons small { display: block; font-size: 10px; margin-top: 4px; color: var(--av-muted); }
+.av-episode-buttons .av-score { font-size: 20px; font-family: var(--av-display); }
+.av-episode-pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid var(--av-line); margin-top: 16px; padding-top: 12px; font-size: 10px; color: var(--av-muted); }
+.av-episode-pagination button { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--av-line); background: transparent; color: var(--av-ink); }
+.av-episode-pagination svg { width: 16px; height: 16px; }
+.av-episode-pagination button:disabled { opacity: .3; }
+.av-episode-index > .av-quiet { margin-top: 24px; font-size: 11px; }
+.av-mobile-picker { display: none; }
+.av-rating-editor { padding: 28px 0 30px 38px; min-width: 0; }
+.av-editor-heading { display: flex; align-items: start; justify-content: space-between; gap: 20px; margin-bottom: 25px; }
+.av-editor-heading h3 { font: 600 32px/1.2 var(--av-display); letter-spacing: -.05em; margin-top: 8px; }
+.av-watched { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 11px; color: var(--av-muted); cursor: pointer; }
+.av-watched input { width: 18px; height: 18px; accent-color: var(--av-accent); }
+.av-score-label { display: block; font-size: 12px; color: var(--av-muted); margin-bottom: 10px; }
+.av-score-row { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+.av-score-row > div:first-child { min-width: 0; display: flex; align-items: baseline; gap: 12px; }
+.av-app #av-score-input { width: 3.7ch; min-width: 0; border: 0; border-radius: 0; padding: 0; margin: 0; background: transparent; color: var(--av-rating-color,var(--score-neutral)); font: 500 clamp(80px,8.5vw,132px)/1.2 var(--av-body); font-variant-numeric: tabular-nums; letter-spacing: -.085em; }
+.av-app #av-score-input::placeholder { color: var(--score-neutral); }
+.av-score-row > div > span { color: var(--av-muted); font-size: 13px; }
+.av-step-buttons { display: flex; gap: 8px; }
+.av-step-buttons button { min-width: 44px; height: 44px; border: 1px solid var(--av-line); border-radius: 3px; background: transparent; font-size: 20px; color: var(--av-ink); }
+.av-step-buttons button:disabled { opacity: .4; }
+.av-score-range { appearance: none; -webkit-appearance: none; width: 100%; height: 30px; cursor: pointer; background: transparent !important; border: 0 !important; margin: 3px 0 0; padding: 0; }
+input.av-score-range::-webkit-slider-runnable-track { height: 2px; background: linear-gradient(to right,var(--av-rating-color) var(--av-fill,50%),var(--av-line) var(--av-fill,50%)); }
+input.av-score-range::-webkit-slider-thumb { -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%; margin-top: -6px; background: var(--av-rating-color); border: 3px solid var(--av-bg); box-shadow: 0 0 0 1px var(--av-rating-color); }
+input.av-score-range::-moz-range-track { height: 2px; background: var(--av-line); }
+input.av-score-range::-moz-range-progress { height: 2px; background: var(--av-rating-color); }
+input.av-score-range::-moz-range-thumb { width: 11px; height: 11px; background: var(--av-rating-color); border: 2px solid var(--av-bg); border-radius: 50%; }
+.av-scale-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--av-muted); margin-bottom: 20px; }
+.av-scale-labels > span:nth-child(2) { text-transform: uppercase; letter-spacing: .1em; font-size: 9px; }
+.av-editor-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 15px; }
+.av-save-feedback { min-height: 40px; font-size: 12px; color: var(--av-muted); padding-top: 20px; line-height: 1.7; }
+.av-rating-tools { display: flex; flex-wrap: wrap; gap: 20px; border-top: 1px solid var(--av-line); padding-top: 18px; margin-top: 20px; }
+.av-rating-tools button { min-height: 44px; padding: 3px 0; font-size: 11px; background: none; border: 0; text-decoration: underline; text-underline-offset: 4px; text-decoration-color: var(--av-line); color: var(--av-muted); }
+.av-rating-tools button:disabled { opacity: .35; }
+.av-bulk { border-top: 1px solid var(--av-line); padding-top: 22px; margin-top: 20px; }
+.av-bulk summary { cursor: pointer; font-size: 11px; min-height: 44px; color: var(--av-muted); }
+.av-bulk form { padding-top: 20px; }
+.av-bulk form > label { display: block; font-size: 12px; margin-bottom: 8px; }
+.av-bulk form > div { display: flex; gap: 12px; }
+.av-bulk input { width: 130px; border: 1px solid var(--av-line); padding: 12px; background: var(--av-surface); color: var(--av-ink); }
+.av-bulk p { margin-top: 15px; }
+.av-bulk [role=alert] { font-size: 12px; color: var(--score-low); }
+.av-workbench-film { grid-template-columns: 1fr; }
+.av-workbench-film .av-episode-index { display: none; }
+.av-workbench-film .av-rating-editor { padding: 30px 0; }
+@media(max-width:760px) {
+    .av-workbench { grid-template-columns: 1fr; }
+    .av-episode-index { padding: 22px 0; border-right: 0; border-bottom: 1px solid var(--av-line); }
+    .av-rail-heading,.av-episode-buttons,.av-episode-index > .av-quiet { display: none; }
+    .av-mobile-picker { display: flex; flex-direction: column; gap: 12px; font-size: 11px; color: var(--av-muted); }
+    .av-mobile-picker select { min-height: 48px; padding: 12px; font-size: 14px; color: var(--av-ink); background: var(--av-surface); border: 1px solid var(--av-line); border-radius: 2px; }
+    .av-episode-pagination { margin-top: 12px; padding-top: 0; border-top: 0; }
+    .av-rating-editor { padding: 25px 0; }
+    .av-editor-heading { margin-bottom: 25px; }
+    .av-editor-heading h3 { font-size: 27px; }
+    .av-editor-heading .av-eyebrow { font-size: 9px; }
+    .av-watched { font-size: 10px; }
+    .av-app #av-score-input { font-size: clamp(78px,21vw,105px); width: 3.6ch; }
+    .av-score-row { gap: 10px; }
+    .av-score-row > div:first-child { gap: 9px; }
+    .av-score-row > div > span { font-size: 11px; }
+    .av-step-buttons { gap: 7px; }
+    .av-step-buttons button { min-width: 44px; }
+    .av-editor-actions { gap: 10px; }
+    .av-editor-actions .av-button { padding-inline: 16px; font-size: 12px; gap: 15px; }
+    .av-rating-tools { gap: 15px; }
+    .av-rating-tools button { font-size: 10px; }
+}

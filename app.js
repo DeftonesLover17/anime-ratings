@@ -1516,6 +1516,7 @@ class AppState {
     }
 
     async syncWithServerNow() {
+        this.lastSyncError = null;
         try {
             let registeredUsers = [];
             try {
@@ -1720,6 +1721,7 @@ class AppState {
 
             return hasChanged;
         } catch (err) {
+            this.lastSyncError = err;
             console.error('Error during state synchronization:', err);
             return false;
         }
@@ -2163,7 +2165,7 @@ class AppState {
                 r.episodeRatings[epNum] = parseFloat(ratingVal);
                 // Also implicitly mark as watched if rated!
                 const epInt = parseInt(epNum);
-                if (!r.watchedEpisodesMap || typeof r.watchedEpisodesMap !== 'object') {
+                if (!r.watchedEpisodesMap || typeof r.watchedEpisodesMap !== 'object' || Object.keys(r.watchedEpisodesMap).length === 0) {
                     r.watchedEpisodesMap = {};
                     const prevWatched = parseInt(r.episodesWatched) || 0;
                     for (let k = 1; k <= prevWatched; k++) {
@@ -2173,6 +2175,9 @@ class AppState {
                 r.watchedEpisodesMap[epInt] = true;
                 const count = Object.values(r.watchedEpisodesMap).filter(Boolean).length;
                 r.episodesWatched = count;
+                const maxEps = parseInt(anime.episodes) || 0;
+                if (maxEps > 0 && count === maxEps) r.status = 'Completed';
+                else if (count > 0 && r.status === 'Plan to Watch') r.status = 'Watching';
             }
             
             // Recalculate overall rating
@@ -2225,7 +2230,7 @@ class AppState {
             const maxEps = parseInt(anime.episodes) || 0;
             const epInt = parseInt(epNum);
             
-            if (!r.watchedEpisodesMap || typeof r.watchedEpisodesMap !== 'object') {
+            if (!r.watchedEpisodesMap || typeof r.watchedEpisodesMap !== 'object' || Object.keys(r.watchedEpisodesMap).length === 0) {
                 r.watchedEpisodesMap = {};
                 const prevWatched = parseInt(r.episodesWatched) || 0;
                 for (let k = 1; k <= prevWatched; k++) {
@@ -2262,6 +2267,8 @@ class AppState {
             // Auto status transition
             if (maxEps > 0 && count === maxEps) {
                 r.status = 'Completed';
+            } else if (r.status === 'Completed') {
+                r.status = count > 0 ? 'Watching' : 'Plan to Watch';
             } else if (count > 0 && r.status === 'Plan to Watch') {
                 r.status = 'Watching';
             }
@@ -2368,6 +2375,8 @@ class AppState {
             // Auto status transition
             if (maxEps > 0 && val === maxEps) {
                 r.status = 'Completed';
+            } else if (r.status === 'Completed') {
+                r.status = val > 0 ? 'Watching' : 'Plan to Watch';
             } else if (val > 0 && r.status === 'Plan to Watch') {
                 r.status = 'Watching';
             }
@@ -2407,6 +2416,7 @@ class AppState {
         const anime = this.animes.find(a => a.id === animeId);
         const stats = { 'Watching': 0, 'Completed': 0, 'On Hold': 0, 'Dropped': 0, 'Plan to Watch': 0 };
         if (!anime || !anime.ratings) return stats;
+        const counted = new Set();
 
         // Include logged-in user status
         if (this.loggedInUser) {
@@ -2414,12 +2424,15 @@ class AppState {
             const r = anime.ratings[myId];
             if (r && r.status) {
                 stats[r.status] = (stats[r.status] || 0) + 1;
+                counted.add(myId);
             }
         }
 
         // Group members statuses
         if (this.friends && Array.isArray(this.friends)) {
             this.friends.forEach(f => {
+                if (counted.has(f.id)) return;
+                counted.add(f.id);
                 const r = anime.ratings[f.id];
                 const status = r?.status || 'Plan to Watch';
                 stats[status] = (stats[status] || 0) + 1;
@@ -2428,7 +2441,7 @@ class AppState {
         return stats;
     }
 
-    addComment(animeId, friendId, text) {
+    addComment(animeId, friendId, text, metadata = {}) {
         if (!friendId || typeof friendId !== 'string') return;
         const anime = this.animes.find(a => a.id === animeId);
         let friend = this.friends.find(f => f.id === friendId);
@@ -2454,6 +2467,7 @@ class AppState {
                 friendId: friendId,
                 friendName: friend.name.replace(' (Você)', ''),
                 comment: text.trim(),
+                ...window.AnivoidSync.commentMetadata(metadata),
                 timestamp: new Date().toISOString(),
                 likes: [],
                 replies: []
@@ -2673,6 +2687,24 @@ class AppState {
 // Initialise Global State
 const state = new AppState();
 window.__anivoidState = state;
+const projectUI = window.AnivoidUI?.site.connect({
+    state,
+    statuses: STATUS_MAP,
+    users: getRegisteredUsersSafe,
+    viewerId: getLoggedInProfileId,
+    normalizeId: normalizeProfileId,
+    studioLogo: getStudioLogo,
+    studioDescription: getStudioDescription,
+    standardStudio: getStandardStudioName,
+    open: (id, animate = true) => openAnimeDetail(id, animate),
+    studio: (name, animate = true) => window.switchTabToStudio(name, animate),
+    catalog: () => window.switchTabToAll(),
+    allStudios: () => window.backToStudiosLanding(),
+    like: toggleCommentLike,
+    history: renderAnimeHistory,
+    metadata: value => window.AnivoidSync.commentMetadata(value),
+    status: renderDetailStatus
+});
 
 const NOTIFICATIONS_KEY = 'anivoid_notifications_v1';
 
@@ -3252,55 +3284,10 @@ function renderRecommendationsRail() {
     const rail = document.getElementById('recommendations-rail');
     const list = document.getElementById('recommendations-rail-list');
     if (!rail || !list) return;
-    if (state.activeDetailAnimeId || state.filterMALStatus === 'Studios') {
-        rail.classList.add('hidden');
-        return;
-    }
-    const recs = buildPersonalRecommendations(3, state.currentFriendId || getLoggedInProfileId());
-    if (recs.length === 0) {
-        rail.classList.add('hidden');
-        return;
-    }
-
-    rail.classList.remove('hidden');
-    list.innerHTML = recs.map(rec => {
-        const avg = rec.friendAvg > 0 ? rec.friendAvg.toFixed(1) : state.calculateAverageScore(rec.anime.id).toFixed(1);
-        const color = getScoreColor(avg);
-        const scoreCallout = rec.friendAvg > 0 ? `
-                        <div class="recommendation-score-callout mt-3" style="--rec-score-color:${color.text}; --rec-score-glow:${color.glow}">
-                            <span>M&eacute;dia dos amigos</span>
-                            <strong>&#9733; ${avg}</strong>
-                        </div>
-        ` : `
-                        <div class="recommendation-score-callout recommendation-score-callout--muted mt-3" style="--rec-score-color:${color.text}; --rec-score-glow:${color.glow}">
-                            <span>Nota geral</span>
-                            <strong>&#9733; ${avg}</strong>
-                        </div>
-        `;
-        return `
-            <button class="recommendation-card tilt-card group text-left rounded-3xl overflow-hidden border border-white/8 bg-white/[0.035] hover:bg-white/[0.055] transition-all" data-anime-id="${escapeHtml(rec.anime.id)}">
-                <div class="flex gap-4 p-4">
-                    <img src="${escapeHtml(rec.anime.coverUrl)}" class="w-16 h-24 rounded-2xl object-cover border border-white/10 shadow-lg group-hover:scale-105 transition-transform" alt="${escapeHtml(rec.anime.title)}">
-                    <div class="min-w-0 flex-grow">
-                        <div class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[8px] font-mono uppercase tracking-widest mb-3" style="color:${color.text}; border-color:color-mix(in srgb, ${color.text} 33%, transparent); background:color-mix(in srgb, ${color.text} 7%, transparent)">
-                            <iconify-icon icon="lucide:radar" class="text-[11px]"></iconify-icon>
-                            Recomendado
-                        </div>
-                        <h4 class="text-sm font-serif font-bold text-white line-clamp-2">${escapeHtml(rec.anime.title)}</h4>
-                        <p class="recommendation-reason text-[10px] font-mono mt-1">${escapeHtml(rec.reason)}</p>
-                        ${scoreCallout}
-                        <div class="mt-2 flex items-center gap-2 text-[10px] font-mono">
-                            <span class="text-white/40">${escapeHtml(rec.anime.studio || 'Studio')}</span>
-                        </div>
-                    </div>
-                </div>
-            </button>
-        `;
-    }).join('');
-
-    list.querySelectorAll('.recommendation-card').forEach(card => {
-        card.addEventListener('click', () => openAnimeDetail(card.dataset.animeId));
-    });
+    const hidden = !!state.activeDetailAnimeId || state.filterMALStatus === 'Studios';
+    const recommendations = hidden ? [] : buildPersonalRecommendations(3, state.currentFriendId || getLoggedInProfileId());
+    rail.classList.toggle('hidden', !recommendations.length);
+    if (recommendations.length) projectUI.renderRecommendations(list, recommendations);
 }
 
 function renderAnimeHistory(anime) {
@@ -3867,6 +3854,8 @@ function showRegistrationGate() {
 
 // --- DOM ELEMENTS AND EVENT LISTENERS ---
 function startApp() {
+    window.AnivoidUI.site.mount();
+    window.AnivoidUI.site.navigation.configure({ open: openAnimeDetail, studio: (name, animate) => window.switchTabToStudio(name, animate), catalog: () => window.switchTabToAll(), featured: () => window.switchTabToFeatured() });
     // 1. Reveal Elements on Scroll
     const revealObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
@@ -3937,6 +3926,7 @@ function startApp() {
 
     // Trigger asynchronous central state synchronization and periodic polling
     state.syncWithServer().then(() => {
+        window.AnivoidUI.site.navigation.applyRoute(true);
         initUI();
     });
 
@@ -4214,7 +4204,7 @@ function initUI() {
     setupFormSubmissions();
     
     // Setup Comments handler
-    setupCommentForm();
+
 
     // Setup Profile Editor Modal
     setupEditProfileModal();
@@ -4523,141 +4513,9 @@ function getScoreColor(score) {
 }
 
 function renderFeaturedBanner() {
-    const bannerContainer = document.getElementById('featured-banner-wrapper');
-    if (!bannerContainer || state.animes.length === 0) return;
-
-    // Get the featured anime for the currently viewed user (currentFriendId)
-    let viewedFeaturedId = null;
-    try {
-        const regUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
-        const viewedUser = regUsers.find(u => u && u.username &&
-            u.username.toLowerCase().replace(/[^a-z0-9]/g, '') === state.currentFriendId);
-        if (viewedUser && viewedUser.featuredAnimeId) {
-            viewedFeaturedId = viewedUser.featuredAnimeId;
-        }
-    } catch(e) {}
-
-    // Fallback: if viewing ourselves, use our own state.featuredAnimeId
-    const isViewingMe = state.friends.length > 0 && state.friends[0]?.id === state.currentFriendId;
-    if (!viewedFeaturedId && isViewingMe) {
-        viewedFeaturedId = state.featuredAnimeId;
-    }
-
-    // Get custom featured anime or top anime by group score
-    let featuredAnime = null;
-    if (viewedFeaturedId) {
-        featuredAnime = state.animes.find(a => a.id === viewedFeaturedId);
-    }
-    
-    if (!featuredAnime) {
-        let maxScore = -1;
-        featuredAnime = state.animes[0];
-        state.animes.forEach(a => {
-            const score = state.calculateAverageScore(a.id);
-            if (score > maxScore) {
-                maxScore = score;
-                featuredAnime = a;
-            }
-        });
-    }
-
-    const avgScore = state.calculateAverageScore(featuredAnime.id);
-    const friendRating = featuredAnime.ratings?.[state.currentFriendId];
-    const myScore = friendRating?.overall || '-';
-    const myStatus = friendRating?.status || 'Plan to Watch';
-    const myStatusObj = STATUS_MAP[myStatus] || STATUS_MAP['Plan to Watch'];
-    const myEps = friendRating?.episodesWatched || 0;
-    const maxEps = parseInt(featuredAnime.episodes) || 0;
-
-    const avgColorInfo = getScoreColor(avgScore);
-    const scoreColorInfo = getScoreColor(myScore);
-    const boxStyle = myScore !== '-' ? `border-color: color-mix(in srgb, ${scoreColorInfo.text} 21%, transparent); box-shadow: 0 0 15px ${scoreColorInfo.glow}` : '';
-    const textStyle = myScore !== '-' ? `color: ${scoreColorInfo.text}; text-shadow: 0 0 8px ${scoreColorInfo.glow}` : 'color: #7f8c8d';
-
-    const isPinned = viewedFeaturedId === featuredAnime.id;
-    const highlightColor = avgColorInfo.text !== '#7f8c8d' ? avgColorInfo.text : '#FF4500';
-    const highlightGlow = avgColorInfo.glow !== 'rgba(127, 140, 141, 0)' ? avgColorInfo.glow : 'rgba(255, 69, 0, 0.4)';
-
-    const posterCardHtml = isPinned
-        ? `
-        <!-- Pinned Highlight Poster Card -->
-        <div class="featured-poster-3d relative shrink-0 w-56 sm:w-64 lg:w-72 aspect-[3/4] rounded-3xl overflow-hidden border-2 transition-all duration-200 self-center z-10" style="border-color: ${highlightColor}">
-            <img src="${featuredAnime.coverUrl}" class="w-full h-full object-cover" alt="${featuredAnime.title}">
-            <div class="absolute top-4 right-4 bg-brand text-white text-[9px] font-bold font-mono tracking-widest px-2.5 py-1 rounded-full border border-brand/50 shadow-[0_4px_12px_rgba(255,69,0,0.4)] uppercase flex items-center gap-1 select-none">
-                <iconify-icon icon="lucide:pin" class="text-[10px] animate-bounce"></iconify-icon>
-                <span>Destaque Fixo</span>
-            </div>
-            <!-- Ambient Inner Border Glow -->
-            <div class="absolute inset-0 border border-white/10 pointer-events-none rounded-3xl"></div>
-        </div>
-        `
-        : `
-        <!-- Normal Highlight Poster Card -->
-        <div class="featured-poster-3d relative shrink-0 w-48 sm:w-56 lg:w-60 aspect-[3/4] rounded-2xl overflow-hidden border border-white/10 transition-all duration-200 self-center z-10">
-            <img src="${featuredAnime.coverUrl}" class="w-full h-full object-cover" alt="${featuredAnime.title}">
-        </div>
-        `;
-
-    bannerContainer.innerHTML = `
-        <div class="absolute inset-0 z-0">
-            <img src="${featuredAnime.coverUrl}" alt="Featured Banner" class="w-full h-full object-cover object-center opacity-25 blur-md scale-105 select-none">
-            <div class="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/50 to-transparent"></div>
-        </div>
-        
-        <div class="container mx-auto px-6 relative z-10 flex flex-col lg:flex-row justify-between items-center gap-12 w-full py-6">
-            <div class="max-w-2xl flex-grow">
-                <div class="flex flex-wrap items-center gap-3 mb-4">
-                    <span class="px-3 py-1 rounded-full border text-xs font-mono tracking-widest uppercase inline-block transition-all duration-300" style="${
-                        avgScore > 0 
-                            ? `border-color: color-mix(in srgb, ${avgColorInfo.text} 31%, transparent); background-color: color-mix(in srgb, ${avgColorInfo.text} 8%, transparent); color: ${avgColorInfo.text}; box-shadow: 0 0 10px ${avgColorInfo.glow}; text-shadow: 0 0 4px ${avgColorInfo.glow}`
-                            : 'border-brand/50 bg-brand/10 text-brand'
-                    }">
-                        ${isPinned ? 'Destaque Escolhido 🌟' : `Destaque da Galera ⭐ ${avgScore || 'S/N'}`}
-                    </span>
-                    <span class="px-3 py-1 rounded-full border ${myStatusObj.border} ${myStatusObj.bg} text-xs font-mono tracking-widest ${myStatusObj.text} uppercase inline-block">
-                        ${myStatusObj.label}
-                    </span>
-                </div>
-                <h1 class="text-4xl md:text-6xl font-medium tracking-tight mb-4 font-serif leading-none">
-                    ${featuredAnime.title}
-                </h1>
-                <p class="text-gray-400 text-sm md:text-base line-clamp-3 leading-relaxed mb-6 font-light max-w-xl">
-                    ${featuredAnime.synopsis}
-                </p>
-                <div class="flex flex-wrap gap-2 mb-6">
-                    ${featuredAnime.genres && Array.isArray(featuredAnime.genres) ? featuredAnime.genres.map(g => `<span class="text-[10px] bg-white/5 border border-white/10 px-2 py-0.5 rounded text-white/60 font-mono">${g}</span>`).join('') : ''}
-                </div>
-                
-                <!-- Progress bar in hero -->
-                <div class="max-w-xs space-y-1.5 font-mono text-xs mb-8">
-                    <div class="flex justify-between text-white/50">
-                        <span>Progresso: <b class="text-white">${myEps} / ${maxEps > 0 ? maxEps : '?'} eps</b></span>
-                        <span>${maxEps > 0 ? Math.round((myEps / maxEps) * 100) : 0}%</span>
-                    </div>
-                    <div class="w-full h-1 bg-white/10 rounded-full overflow-hidden">
-                        <div class="h-full bg-brand" style="width: ${maxEps > 0 ? (myEps / maxEps) * 100 : 0}%"></div>
-                    </div>
-                </div>
-
-                <div class="flex flex-wrap items-center gap-4">
-                    <button onclick="openAnimeDetail('${featuredAnime.id}')" class="anivoid-action px-8 py-3.5 rounded-full text-xs uppercase tracking-widest font-bold bg-white text-black hover:scale-105 transition-all duration-300 shadow-xl cursor-pointer">
-                        Detalhes e Notas
-                    </button>
-                    <div class="flex items-center bg-white/5 border border-white/10 rounded-2xl px-5 py-3 gap-3 transition-all duration-300" style="${boxStyle}">
-                        <div class="flex flex-col">
-                            <span class="text-[8px] uppercase text-white/40 tracking-wider font-mono">Sua Nota</span>
-                            <span class="text-[8px] text-brand font-mono font-semibold">Geral</span>
-                        </div>
-                        <span class="text-2xl font-serif font-bold transition-all duration-300" style="${textStyle}">${myScore}</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Right Side: Poster -->
-            ${posterCardHtml}
-        </div>
-    `;
-    markViewEntered(bannerContainer);
+    if (state.activeDetailAnimeId) return;
+    const container = document.getElementById('featured-banner-wrapper');
+    if (container) projectUI.renderFeatured(container);
 }
 
 let catalogPanelsFrame = null;
@@ -4717,12 +4575,11 @@ function renderAnimeGrid() {
         
     }
 
+    window.AnivoidUI.site.release(grid);
+    document.body.dataset.avView = 'catalog';
     grid.querySelectorAll('.reveal').forEach(element => window.releaseRevealElement?.(element));
     grid.innerHTML = '';
     const filteredList = state.getFilteredAnimeList();
-    const loggedInUserId = (state.loggedInUser || localStorage.getItem('anivoid_logged_in_username') || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const isViewingOtherProfile = Boolean(loggedInUserId && state.currentFriendId && state.currentFriendId !== loggedInUserId);
-    const shouldShowScoreComparison = isViewingOtherProfile && state.sortBy === 'my-score';
 
     if (filteredList.length === 0) {
         grid.innerHTML = `
@@ -4736,133 +4593,11 @@ function renderAnimeGrid() {
 
     const gridFragment = document.createDocumentFragment();
 
-    filteredList.forEach(anime => {
-        const avgScore = state.calculateAverageScore(anime.id);
-        const friendRating = anime.ratings?.[state.currentFriendId];
-        const myScore = friendRating?.overall || null;
-        const myStatus = friendRating?.status || 'Plan to Watch';
-        const myStatusObj = STATUS_MAP[myStatus] || STATUS_MAP['Plan to Watch'];
-        const myEps = friendRating?.episodesWatched || 0;
-        const maxEps = parseInt(anime.episodes) || 0;
-        const ownRating = loggedInUserId ? anime.ratings?.[loggedInUserId] : null;
-        const ownScore = ownRating?.overall || null;
-        
-        const avgColorInfo = getScoreColor(avgScore);
-        const avgBadgeStyle = avgScore > 0 ? `border-color: color-mix(in srgb, ${avgColorInfo.text} 19%, transparent); box-shadow: 0 0 8px ${avgColorInfo.glow}; color: ${avgColorInfo.text}; text-shadow: 0 0 4px ${avgColorInfo.glow}` : '';
-
-        const myScoreColorInfo = getScoreColor(myScore);
-        const ownScoreColorInfo = getScoreColor(ownScore);
-        const profileScoreNumber = parseFloat(myScore);
-        const ownScoreNumber = parseFloat(ownScore);
-        const hasProfileScore = Number.isFinite(profileScoreNumber) && profileScoreNumber > 0;
-        const hasOwnScore = Number.isFinite(ownScoreNumber) && ownScoreNumber > 0;
-        const comparisonHtml = shouldShowScoreComparison
-            ? `<div class="mb-3 rounded-2xl border border-white/15 bg-white/[0.055] p-2.5 shadow-[0_0_26px_rgba(255,255,255,0.055)]">
-                <div class="grid grid-cols-2 gap-2 text-center">
-                    <div class="rounded-xl border px-3 py-2.5" style="background: ${hasProfileScore ? `color-mix(in srgb, ${myScoreColorInfo.text} 7%, transparent)` : 'rgba(255,255,255,0.035)'}; border-color: ${hasProfileScore ? `color-mix(in srgb, ${myScoreColorInfo.text} 33%, transparent)` : 'rgba(255,255,255,0.1)'}; box-shadow: ${hasProfileScore ? `0 0 16px ${myScoreColorInfo.glow}` : 'none'}">
-                        <span class="block text-[8px] font-mono uppercase tracking-widest text-white/45">Perfil</span>
-                        <b class="block text-2xl font-serif leading-none mt-1" style="color: ${hasProfileScore ? myScoreColorInfo.text : '#6b7280'}; text-shadow: ${hasProfileScore ? `0 0 12px ${myScoreColorInfo.glow}` : 'none'}">${hasProfileScore ? myScore : '-'}</b>
-                    </div>
-                    <div class="rounded-xl border px-3 py-2.5" style="background: ${hasOwnScore ? `color-mix(in srgb, ${ownScoreColorInfo.text} 7%, transparent)` : 'rgba(255,255,255,0.035)'}; border-color: ${hasOwnScore ? `color-mix(in srgb, ${ownScoreColorInfo.text} 33%, transparent)` : 'rgba(255,255,255,0.1)'}; box-shadow: ${hasOwnScore ? `0 0 16px ${ownScoreColorInfo.glow}` : 'none'}">
-                        <span class="block text-[8px] font-mono uppercase tracking-widest text-white/45">Voc&ecirc;</span>
-                        <b class="block text-2xl font-serif leading-none mt-1" style="color: ${hasOwnScore ? ownScoreColorInfo.text : '#6b7280'}; text-shadow: ${hasOwnScore ? `0 0 12px ${ownScoreColorInfo.glow}` : 'none'}">${hasOwnScore ? ownScore : '-'}</b>
-                    </div>
-                </div>
-               </div>`
-            : '';
-        const scoreBadgeLabel = isViewingOtherProfile ? 'Nota Perfil' : 'Sua Nota';
-        // Personal score badge on image (bottom-right overlay)
-        const myScoreBadgeHtml = myScore
-            ? `<div class="poster-depth-badge absolute bottom-10 right-3 flex flex-col items-center justify-center gap-0" style="z-index:2">
-                <div class="flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold font-mono" style="background: rgba(0,0,0,0.75); border: 2px solid ${myScoreColorInfo.text}; color: ${myScoreColorInfo.text}; font-size:18px; text-shadow: 0 0 16px ${myScoreColorInfo.glow}; box-shadow: 0 0 28px ${myScoreColorInfo.glow}, 0 0 10px ${myScoreColorInfo.glow}, inset 0 1px 0 color-mix(in srgb, ${myScoreColorInfo.text} 25%, transparent)">
-                    <span style="font-size:13px">★</span>
-                    <span>${myScore}</span>
-                </div>
-                <span class="text-[8px] font-mono font-bold uppercase tracking-widest mt-1" style="color: ${myScoreColorInfo.text}; text-shadow: 0 0 8px ${myScoreColorInfo.glow}">${scoreBadgeLabel}</span>
-               </div>`
-            : `<div class="poster-depth-badge absolute bottom-10 right-3 flex flex-col items-center justify-center gap-0" style="z-index:2">
-                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold font-mono backdrop-blur-md" style="font-size:16px; background: rgba(255,255,255,0.04); border: 2px dashed rgba(255,255,255,0.18); color: rgba(255,255,255,0.25)">
-                    <span style="font-size:12px">★</span>
-                    <span>—</span>
-                </div>
-                <span class="text-[7px] font-mono uppercase tracking-widest mt-1 text-white/25">${scoreBadgeLabel}</span>
-               </div>`;
-
-        const card = document.createElement('div');
-        card.dataset.animeId = anime.id;
-        card.className = 'glass-card anime-card-3d tilt-card rounded-2xl overflow-hidden flex flex-col justify-between h-full reveal';
-        card.innerHTML = `
-            <div class="anime-poster-surface relative w-full aspect-[2/3] overflow-hidden group cursor-pointer" onclick="openAnimeDetail('${anime.id}')">
-                <img src="${anime.coverUrl}" alt="${anime.title}" loading="lazy" decoding="async" class="poster-parallax w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
-                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent"></div>
-                
-                <!-- Group Average Score Badge (top-right) -->
-                <div class="poster-depth-badge absolute top-4 right-4 flex flex-col items-center gap-0.5 group" style="z-index:3">
-                    <div class="flex items-center justify-center gap-1 bg-[#050505]/90 backdrop-blur-sm border px-2.5 py-1 rounded-full text-xs font-semibold transition-all duration-300" style="${avgBadgeStyle}; border-width: 1.5px;">
-                        <span class="${avgScore > 0 ? '' : 'text-yellow-400'}">★</span>
-                        <span>${avgScore > 0 ? avgScore : 'S/N'}</span>
-                    </div>
-                    <span class="text-[7px] font-mono uppercase tracking-widest text-white font-bold px-1.5 py-0.5 rounded" style="background:rgba(0,0,0,0.75); letter-spacing:0.12em;">Nota Geral</span>
-                </div>
-
-                <!-- Personal Status Badge (top-left) -->
-                <div class="poster-depth-chip absolute top-4 left-4 flex items-center justify-center gap-1 ${myStatusObj.bg} ${myStatusObj.border} border backdrop-blur-sm px-2.5 py-1 rounded-full text-[9px] font-mono font-semibold uppercase tracking-wider ${myStatusObj.text}">
-                    ${myStatusObj.label}
-                </div>
-                
-                <!-- Personal Score Badge (bottom-right overlay) -->
-                ${myScoreBadgeHtml}
-
-                <span onclick="event.stopPropagation(); window.switchTabToStudio('${anime.studio}')" class="poster-depth-chip absolute bottom-3 left-4 text-[10px] uppercase font-mono tracking-wider text-white/60 bg-black/40 hover:bg-brand/20 hover:border-brand/40 hover:text-white transition-all px-2 py-0.5 rounded border border-white/5 cursor-pointer hover:scale-105">
-                    ${anime.studio}
-                </span>
-            </div>
-            
-            <div class="p-4 flex-grow flex flex-col justify-between">
-                <div>
-                    <h3 class="text-base font-serif font-semibold text-white/95 line-clamp-1 leading-snug cursor-pointer hover:text-brand transition-colors" onclick="openAnimeDetail('${anime.id}')">
-                        ${anime.title}
-                    </h3>
-                    <p class="text-[9px] text-gray-500 font-mono mb-2 line-clamp-1">${anime.japaneseTitle}</p>
-                    
-                    <p class="text-xs text-gray-400 font-light line-clamp-2 leading-relaxed mb-3">
-                        ${anime.synopsis}
-                    </p>
-                    ${comparisonHtml}
-                </div>
-                
-                <div>
-                    <!-- Watched Episodes Progress Bar -->
-                    <div class="flex justify-between items-center text-[9px] text-gray-500 font-mono mb-1">
-                        <span>Progresso: <b class="text-white/80">${myEps} / ${maxEps > 0 ? maxEps : '?'} eps</b></span>
-                        ${myStatus !== 'Completed' && maxEps > 0 && myEps < maxEps ? `
-                            <button onclick="event.stopPropagation(); quickAddEpisode('${anime.id}')" class="px-2 py-0.5 rounded bg-white/5 border border-white/10 hover:bg-brand/20 hover:border-brand/40 text-[8px] text-white/80 hover:text-white transition-all font-semibold uppercase tracking-wider font-mono">
-                                +1 Ep
-                            </button>
-                        ` : ''}
-                    </div>
-                    <div class="w-full h-1 bg-white/5 rounded-full overflow-hidden mb-3">
-                        <div class="h-full bg-brand" style="width: ${maxEps > 0 ? (myEps / maxEps) * 100 : 0}%; transition: width 0.3s ease;"></div>
-                    </div>
-
-                    <div class="flex flex-wrap gap-1 mb-3">
-                        ${anime.genres && Array.isArray(anime.genres) ? anime.genres.slice(0, 3).map(g => `<span class="text-[8px] bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-white/50 font-mono">${g}</span>`).join('') : ''}
-                    </div>
-                    
-                    <div class="w-full h-px bg-white/5 mb-3"></div>
-                    
-                    <div class="flex justify-between items-center">
-                        <span class="text-[9px] text-gray-500 font-mono uppercase">${anime.season}</span>
-                    </div>
-                </div>
-            </div>
-        `;
-        gridFragment.appendChild(card);
-    });
+    filteredList.forEach((anime, index) => gridFragment.appendChild(projectUI.createCard(anime, index)));
 
     grid.appendChild(gridFragment);
 
-    if (window.initObserver) window.initObserver(grid);
+    window.AnivoidUI.site.reveal(grid);
     markViewEntered(grid);
     catalogPanelsFrame = requestAnimationFrame(() => {
         catalogPanelsFrame = null;
@@ -4872,15 +4607,6 @@ function renderAnimeGrid() {
 }
 
 let activeStudioName = null;
-
-// Helper to get studio initials logo fallback
-function getStudioInitials(name) {
-    const parts = name.split(/\s+/);
-    if (parts.length >= 2) {
-        return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-    return name.slice(0, 2).toUpperCase();
-}
 
 // Helper to get descriptive text for studio profiles
 function getStudioDescription(name, animes) {
@@ -5133,458 +4859,44 @@ const STUDIO_BRAND_COLORS = {
     'asread.':            { border: 'rgba(0, 112, 74, 0.4)', glow: 'rgba(0, 112, 74, 0.15)', text: '#00704a' }
 };
 
-function animateStudioEntry(onEnter) {
-    window.AnivoidUI.cancel('studio');
-    if (onEnter) onEnter();
-    const destination = document.getElementById('studios-directory-container');
-    return window.AnivoidUI.animate(destination,
-        [{ opacity: 0.55 }, { opacity: 1 }],
-        { channel: 'studio', duration: 360, easing: 'cubic-bezier(.22,1,.36,1)' });
-}
 
-// Render dynamic, glassmorphic studio directory
+
 function renderStudiosDirectory() {
     const container = document.getElementById('studios-directory-container');
-    if (!container) return;
-    hydrateStudioLogosFromAnimes(state.animes);
-
-    container.innerHTML = '';
-
-    // Group anime by studio (skip animes without a known studio)
-    // First deduplicate by normalized title globally
-    const _titleDedup = new Map();
-    state.animes.forEach(a => {
-        const key = (a.title || '').toLowerCase().trim().replace(/\s+/g, ' ');
-        if (!_titleDedup.has(key)) {
-            _titleDedup.set(key, a);
-        } else {
-            const ex = _titleDedup.get(key);
-            if (Object.keys(a.ratings || {}).length > Object.keys(ex.ratings || {}).length) {
-                _titleDedup.set(key, a);
-            }
-        }
-    });
-    const dedupedForStudios = Array.from(_titleDedup.values());
-
-    const studiosMap = {};
-    dedupedForStudios.forEach(anime => {
-        const rawStudio = anime.studio && anime.studio.trim() ? anime.studio.trim() : null;
-        if (!rawStudio || rawStudio.toLowerCase() === 'desconhecido') return;
-        const studio = getStandardStudioName(rawStudio);
-        if (!studiosMap[studio]) studiosMap[studio] = [];
-        studiosMap[studio].push(anime);
-    });
-
-    const studiosList = Object.keys(studiosMap).sort();
-
-    if (studiosList.length === 0) {
-        container.innerHTML = `
-            <div class="py-20 text-center glass-panel rounded-3xl p-12 border border-white/5">
-                <p class="text-gray-500 font-light text-lg">Nenhum estúdio encontrado.</p>
-            </div>
-        `;
-        return;
-    }
-
-    // ── STATE A: NO STUDIO SELECTED → show landing grid ──────────────────────
-    if (!activeStudioName || !studiosList.includes(activeStudioName)) {
-        const landingHeader = document.createElement('div');
-        landingHeader.className = 'mb-10';
-        landingHeader.innerHTML = `
-            <button onclick="window.switchTabToAll()" class="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-gray-400 hover:text-brand mb-6 group transition-colors cursor-pointer">
-                <iconify-icon icon="lucide:arrow-left" class="text-sm group-hover:-translate-x-1 transition-transform"></iconify-icon>
-                <span>Voltar para a Temporada</span>
-            </button>
-            <h2 class="text-4xl md:text-6xl font-serif text-white/90 mb-2">
-                Diretório de <span class="italic text-brand font-light">Estúdios</span>
-            </h2>
-            <p class="text-xs text-gray-500 font-mono tracking-widest uppercase">Selecione um estúdio para explorar seu perfil completo</p>
-            <div class="w-full h-px bg-white/5 mt-8"></div>
-        `;
-        container.appendChild(landingHeader);
-
-        const grid = document.createElement('div');
-        grid.className = 'grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6';
-
-        studiosList.forEach((studioName, i) => {
-            const animes = studiosMap[studioName];
-            const logoSrc = getStudioLogo(studioName) || null;
-            const initials = getStudioInitials(studioName);
-            const scores = animes.map(a => state.calculateAverageScore(a.id)).filter(s => s > 0);
-            const avg = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : null;
-            const scoreCfg = getScoreColor(avg);
-            const count = animes.length;
-            const countText = count === 1 ? '1 Anime' : `${count} Animes`;
-
-            const card = document.createElement('button');
-            card.type = 'button';
-            card.dataset.studio = studioName;
-            card.className = 'studio-landing-card studio-card-animate tilt-card h-72 group text-left';
-            card.style.animationDelay = `${i * 80}ms`;
-
-            const hoverCfg = STUDIO_BRAND_COLORS[studioName] || { border: 'rgba(255, 69, 0, 0.4)', glow: 'rgba(255, 69, 0, 0.15)', text: '#FF4500' };
-
-            card.style.setProperty('--studio-brand-color', hoverCfg.border);
-            card.style.setProperty('--studio-glow-color', hoverCfg.glow);
-            card.style.setProperty('--studio-text-color', hoverCfg.text);
-
-            card.innerHTML = `
-                <div class="studio-logo-bg"></div>
-                ${avg ? `
-                    <div class="studio-score-badge" style="--score-color: ${scoreCfg.text}; --score-glow: ${scoreCfg.glow};">
-                        <span class="studio-score-star">&#9733;</span>
-                        <span class="studio-score-value">${avg}</span>
-                        <span class="studio-score-label">M&eacute;dia</span>
-                    </div>
-                ` : ''}
-
-                <!-- Logo image or initials fallback (transparent, borderless, clean on themed radial spotlight glow) -->
-                <div class="w-full h-[80%] flex flex-col items-center justify-center p-2 relative">
-                    <!-- Ambient radial spotlight under the logo -->
-                    <div class="absolute w-[240px] h-[240px] rounded-full filter blur-[20px] opacity-35 pointer-events-none transition-transform duration-500 group-hover:scale-125" style="background: radial-gradient(circle, ${hoverCfg.border} 0%, transparent 70%);"></div>
-                    
-                    ${logoSrc
-                        ? (() => {
-                            const logoSizes = {
-                                'A-1 Pictures':   'max-w-[270px] max-h-[160px]',
-                                'Ufotable':       'max-w-[300px] max-h-[175px]',
-                                'Production I.G': 'max-w-[280px] max-h-[170px]',
-                                'CloverWorks':    'max-w-[280px] max-h-[170px]',
-                            };
-                            const maxWCls = logoSizes[studioName] || 'max-w-[250px] max-h-[155px]';
-                            return `<img src="${logoSrc}" alt="${studioName}" class="studio-logo-mark ${maxWCls} h-auto object-contain select-none relative z-10 transition-transform duration-500 group-hover:scale-105" style="">`;
-                          })()
-                        : `<div class="studio-logo-mark w-24 h-24 rounded-full flex items-center justify-center text-4xl font-serif font-black transition-all duration-300 relative z-10" style="color:${hoverCfg.text}; background:color-mix(in srgb, ${hoverCfg.text} 6%, transparent); border:1px solid ${hoverCfg.border}; text-shadow:0 0 15px ${hoverCfg.border}">${initials}</div>`
-                    }
-                </div>
-
-                <!-- Name overlay at bottom -->
-                <div class="studio-name-overlay">
-                    <p class="text-white font-serif font-bold text-xl tracking-tight transition-colors duration-300 group-hover:text-[var(--studio-text-color)]">${studioName}</p>
-                    <div class="flex items-center gap-3 mt-1">
-                        <span class="text-[10px] font-mono text-gray-400 uppercase">${countText}</span>
-                    </div>
-                </div>
-            `;
-
-            card.addEventListener('click', () => {
-                animateStudioEntry(() => {
-                    activeStudioName = studioName;
-                    renderStudiosDirectory();
-                });
-            });
-
-            grid.appendChild(card);
-        });
-
-        container.appendChild(grid);
-        if (window.initObserver) window.initObserver();
-        markViewEntered(grid);
-        return;
-    }
-
-    // ── STATE B: STUDIO SELECTED → show studio profile ───────────────────────
-    // Deduplicate by id to avoid duplicate cards
-    const activeAnimes = Array.from(new Map((studiosMap[activeStudioName] || []).map(a => [a.id, a])).values());
-    const initials = getStudioInitials(activeStudioName);
-    const description = getStudioDescription(activeStudioName, activeAnimes);
-    const logoSrc = getStudioLogo(activeStudioName) || null;
-
-    // Calculate studio average score
-    const scores = activeAnimes.map(a => state.calculateAverageScore(a.id)).filter(s => s > 0);
-    const avgScore = scores.length > 0 ? parseFloat((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1)) : 0;
-    const colorInfo = getScoreColor(avgScore);
-
-    // Top anime by score
-    let topAnime = null;
-    let topScore = 0;
-    activeAnimes.forEach(a => {
-        const s = state.calculateAverageScore(a.id);
-        if (s > topScore) { topScore = s; topAnime = a; }
-    });
-
-    const countText = activeAnimes.length === 1 ? '1 Anime produzido' : `${activeAnimes.length} Animes produzidos`;
-    const ratingBadgeHtml = avgScore > 0
-        ? `<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border" style="color:${colorInfo.text}; border-color:color-mix(in srgb, ${colorInfo.text} 31%, transparent); background:color-mix(in srgb, ${colorInfo.text} 8%, transparent); box-shadow:0 0 12px ${colorInfo.glow}">★ ${avgScore.toFixed(1)}</div>`
-        : '';
-
-    // Calculate dynamic genre counts
-    const genreCounts = {};
-    activeAnimes.forEach(anime => {
-        if (anime.genres && Array.isArray(anime.genres)) {
-            anime.genres.forEach(g => {
-                genreCounts[g] = (genreCounts[g] || 0) + 1;
-            });
-        }
-    });
-    const topGenres = Object.keys(genreCounts)
-        .sort((a, b) => genreCounts[b] - genreCounts[a])
-        .slice(0, 3);
-
-    const themeColors = {
-        'A-1 Pictures':       'rgba(0, 85, 255, 0.45)',
-        'Ufotable':           'rgba(255, 69, 0, 0.4)',
-        'Production I.G':     'rgba(255, 255, 255, 0.3)',
-        'CloverWorks':        'rgba(0, 204, 102, 0.45)',
-        'Madhouse':           'rgba(114, 9, 183, 0.45)',
-        'MAPPA':              'rgba(235, 94, 40, 0.45)',
-        'Bones':              'rgba(0, 180, 216, 0.45)',
-        'Wit Studio':         'rgba(46, 196, 182, 0.45)',
-        'Gainax':             'rgba(247, 127, 0, 0.45)',
-        'Kyoto Animation':    'rgba(255, 112, 166, 0.45)',
-        'White Fox':          'rgba(255, 255, 255, 0.35)',
-        'CoMix Wave Films':   'rgba(0, 48, 73, 0.45)',
-        'Sunrise':            'rgba(230, 57, 70, 0.45)',
-        'Studio Ghibli':      'rgba(170, 204, 0, 0.45)',
-        'Shaft':              'rgba(208, 0, 0, 0.45)',
-        'Tokyo Movie Shinsha':'rgba(255, 0, 110, 0.45)',
-        'Tatsunoko Production':'rgba(255, 190, 11, 0.45)',
-        'Bug Film':           'rgba(255, 209, 102, 0.45)',
-        'BUG FILMS':          'rgba(255, 209, 102, 0.45)',
-        'Bug Films':          'rgba(255, 209, 102, 0.45)',
-        'Science Saru':       'rgba(255, 0, 127, 0.45)',
-        'Toei Animation':     'rgba(251, 133, 0, 0.45)',
-        'Pierrot':            'rgba(78, 168, 222, 0.45)',
-        'David Production':   'rgba(42, 157, 143, 0.45)',
-        'J.C.Staff':          'rgba(255, 77, 109, 0.45)',
-        'Studio Bind':        'rgba(155, 93, 229, 0.45)',
-        'Kinema Citrus':      'rgba(247, 127, 0, 0.45)',
-        'Manglobe':           'rgba(6, 214, 160, 0.45)',
-        'Artland':            'rgba(214, 40, 40, 0.45)',
-        'Triangle Staff':     'rgba(255, 190, 11, 0.45)',
-        'Trigger':            'rgba(230, 57, 70, 0.45)'
-    };
-    const themeColor = themeColors[activeStudioName] || 'rgba(255, 69, 0, 0.4)';
-
-    const profile = document.createElement('div');
-    profile.className = 'w-full space-y-10 animate-profile-enter';
-
-    profile.innerHTML = `
-        <!-- Back button -->
-        <button onclick="window.backToStudiosLanding()" class="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-gray-400 hover:text-brand group transition-colors cursor-pointer mb-2">
-            <iconify-icon icon="lucide:arrow-left" class="text-sm group-hover:-translate-x-1 transition-transform"></iconify-icon>
-            <span>Todos os Estúdios</span>
-        </button>
-
-        <!-- Hero Header -->
-        <div class="studio-profile-hero relative rounded-3xl overflow-hidden border border-white/10">
-            <div class="absolute inset-0 z-0 pointer-events-none">
-                <div class="absolute inset-0 bg-gradient-to-br from-[#121212] via-[#070707] to-[#050505]"></div>
-                <div class="absolute top-0 left-0 w-72 h-72 rounded-full bg-brand opacity-5 blur-[100px]"></div>
-                <div class="absolute bottom-0 right-0 w-56 h-56 rounded-full bg-white/5 opacity-5 blur-[80px]"></div>
-            </div>
-
-            <div class="relative z-10 p-8 md:p-12 flex flex-col md:flex-row items-center gap-10">
-                <!-- Logo or Initials (Transparent, borderless on themed spotlight glow) -->
-                <div class="studio-profile-logo shrink-0 relative flex items-center justify-center w-72 h-72 md:w-96 md:h-96">
-                    <!-- Ambient spotlight glow -->
-                    <div class="absolute w-[360px] h-[360px] rounded-full filter blur-[40px] opacity-40 pointer-events-none" style="background: radial-gradient(circle, ${themeColor} 0%, transparent 70%);"></div>
-                    
-                    ${logoSrc
-                        ? (() => {
-                            const logoSizes = {
-                                'A-1 Pictures':   'max-w-[320px] max-h-[220px]',
-                                'Ufotable':       'max-w-[360px] max-h-[240px]',
-                                'Production I.G': 'max-w-[340px] max-h-[230px]',
-                                'CloverWorks':    'max-w-[340px] max-h-[230px]'
-                            };
-                            const maxWCls = logoSizes[activeStudioName] || 'max-w-[320px] max-h-[210px]';
-                            return `<img src="${logoSrc}" alt="${activeStudioName}" class="studio-logo-mark ${maxWCls} h-auto object-contain select-none relative z-10" style="">`;
-                          })()
-                        : `<div class="studio-logo-mark w-44 h-44 rounded-full flex items-center justify-center text-7xl font-serif font-black text-brand relative z-10" style="background:rgba(255,69,0,0.12); border:1px solid rgba(255,69,0,0.25)">
-                                ${initials}
-                           </div>`
-                    }
-                </div>
-
-                <!-- Name & Meta -->
-                <div class="flex-grow text-center md:text-left space-y-4">
-                    <div>
-                        <p class="text-[10px] font-mono uppercase tracking-[0.3em] text-brand/70 mb-2">Estúdio de Animação · Japão</p>
-                        <h2 class="text-4xl md:text-6xl font-serif font-black text-white tracking-tighter leading-none" style="text-shadow:0 2px 40px rgba(255,255,255,0.08)">${activeStudioName}</h2>
-                    </div>
-                    <div class="flex flex-wrap items-center justify-center md:justify-start gap-4">
-                        ${ratingBadgeHtml}
-                        <span class="text-xs text-gray-500 font-mono">${countText}</span>
-                        <div class="flex items-center gap-2.5 text-gray-500">
-                            <a href="#" class="hover:text-brand transition-colors text-base"><iconify-icon icon="lucide:globe"></iconify-icon></a>
-                            <a href="#" class="hover:text-brand transition-colors text-base"><iconify-icon icon="lucide:twitter"></iconify-icon></a>
-                            <a href="#" class="hover:text-brand transition-colors text-base"><iconify-icon icon="lucide:facebook"></iconify-icon></a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Topic Highlight: Sobre o Estúdio -->
-        <div class="glass-panel border-l-4 border-l-brand border-y-white/5 border-r-white/5 rounded-2xl p-8 hover:border-r-brand/10 transition-all duration-300 relative overflow-hidden group">
-            <div class="absolute -right-20 -top-20 w-48 h-48 rounded-full bg-brand/5 blur-[50px] pointer-events-none transition-transform group-hover:scale-110"></div>
-            
-            <div class="flex items-center gap-3 mb-4">
-                <iconify-icon icon="lucide:info" class="text-brand text-lg"></iconify-icon>
-                <h4 class="text-xs font-mono uppercase tracking-widest text-white/70">Sobre o Estúdio</h4>
-            </div>
-            <p class="text-base text-gray-300 font-light leading-relaxed font-serif italic">${description}</p>
-        </div>
-
-        <!-- Topic Highlight: Métricas de Desempenho -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <!-- Card 1: Média Geral -->
-            <div class="metric-depth-card glass-panel border border-white/5 rounded-2xl p-6 flex flex-col justify-between hover:border-brand/20 transition-all duration-300">
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-[10px] uppercase tracking-widest text-gray-400 font-mono">Avaliação Média</span>
-                    <iconify-icon icon="lucide:star" class="text-brand text-base"></iconify-icon>
-                </div>
-                <div class="mt-4">
-                    <span class="text-4xl font-serif font-black" style="color: ${colorInfo.text}; text-shadow: 0 0 15px ${colorInfo.glow}">
-                        ${avgScore > 0 ? avgScore.toFixed(1) : 'S/N'}
-                    </span>
-                    <p class="text-xs text-gray-500 font-mono mt-1">Pontuação média no Anivoid</p>
-                </div>
-            </div>
-            
-            <!-- Card 2: Volume -->
-            <div class="metric-depth-card glass-panel border border-white/5 rounded-2xl p-6 flex flex-col justify-between hover:border-brand/20 transition-all duration-300">
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-[10px] uppercase tracking-widest text-gray-400 font-mono">Volume de Obras</span>
-                    <iconify-icon icon="lucide:clapperboard" class="text-brand text-base"></iconify-icon>
-                </div>
-                <div class="mt-4">
-                    <span class="text-4xl font-serif font-black text-white">
-                        ${activeAnimes.length}
-                    </span>
-                    <p class="text-xs text-gray-500 font-mono mt-1">${activeAnimes.length === 1 ? 'Anime cadastrado' : 'Animes cadastrados'}</p>
-                </div>
-            </div>
-            
-            <!-- Card 3: Especialidades -->
-            <div class="metric-depth-card glass-panel border border-white/5 rounded-2xl p-6 flex flex-col justify-between hover:border-brand/20 transition-all duration-300">
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-[10px] uppercase tracking-widest text-gray-400 font-mono">Foco de Gêneros</span>
-                    <iconify-icon icon="lucide:tags" class="text-brand text-base"></iconify-icon>
-                </div>
-                <div class="flex flex-wrap gap-1.5 mt-4">
-                    ${topGenres.map(g => `<span class="text-[10px] bg-white/5 border border-white/10 px-2 py-1 rounded text-white/70 font-mono hover:bg-brand/10 hover:border-brand/35 transition-colors cursor-default">${g}</span>`).join('')}
-                </div>
-            </div>
-        </div>
-
-        <div class="w-full h-px bg-white/5"></div>
-
-        <!-- Topic Highlight: Catálogo de Produções -->
-        <div class="space-y-6">
-            <div class="flex items-center gap-3 mb-2">
-                <iconify-icon icon="lucide:grid" class="text-brand text-lg"></iconify-icon>
-                <h4 class="text-xs font-mono uppercase tracking-widest text-white/70">Catálogo de Produções (${activeAnimes.length})</h4>
-            </div>
-            
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                ${activeAnimes.map(anime => {
-                    const animeAvg = state.calculateAverageScore(anime.id);
-                    const animeColor = getScoreColor(animeAvg);
-                    const animeRatingStyle = animeAvg > 0 ? `color: ${animeColor.text}; text-shadow: 0 0 5px ${animeColor.glow}` : 'color: #555';
-                    const avgBorderStyle = animeAvg > 0 ? `border-color: color-mix(in srgb, ${animeColor.text} 19%, transparent); box-shadow: 0 0 10px ${animeColor.glow}` : '';
-
-                    return `
-                        <div onclick="openAnimeDetail('${anime.id}')" class="studio-catalog-card glass-panel border border-white/5 hover:border-brand/25 rounded-2xl cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_12px_30px_rgba(0,0,0,0.5),_0_0_20px_rgba(255,69,0,0.08)] overflow-hidden group flex flex-col h-full">
-                            <div class="relative w-full aspect-[2/3] overflow-hidden">
-                                <img src="${anime.coverUrl}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="${anime.title}">
-                                <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent"></div>
-                                ${animeAvg > 0 ? `
-                                    <div class="absolute top-3 right-3 bg-[#050505]/85 backdrop-blur-sm px-2.5 py-1 rounded-full text-[10px] font-bold border border-white/10" style="${avgBorderStyle}">
-                                        <span style="${animeRatingStyle}">★ ${animeAvg.toFixed(1)}</span>
-                                    </div>
-                                ` : ''}
-                            </div>
-                            <div class="p-4 flex-grow flex flex-col justify-between">
-                                <p class="font-serif font-bold text-xs text-white/90 line-clamp-2 group-hover:text-brand transition-colors leading-snug">${anime.title}</p>
-                                <p class="text-[9px] text-gray-500 font-mono uppercase tracking-wider">${anime.season}</p>
-                            </div>
-                        </div>
-                    `;
-                }).join('')}
-            </div>
-        </div>
-    `;
-
-    container.appendChild(profile);
-    if (window.initObserver) window.initObserver();
-    markViewEntered(profile);
+    if (container) projectUI.renderStudios(container, activeStudioName);
 }
 
 window.switchTabToFeatured = () => {
-    window.switchTabToAll();
+    window.switchTabToAll('#featured-banner-wrapper');
     document.getElementById('featured-banner-wrapper')?.scrollIntoView({ behavior: 'instant' });
 };
 
-window.backToStudiosLanding = () => {
-    window.AnivoidUI.cancel('studio');
-    activeStudioName = null;
-    renderStudiosDirectory();
-    document.getElementById('anime-grid-section')?.scrollIntoView({ behavior: 'instant' });
-};
+window.backToStudiosLanding = () => window.switchTabToStudio(null);
 
-window.switchTabToAll = () => {
+window.switchTabToAll = (targetHash = '#anime-grid-section') => {
     state.filterMALStatus = 'All';
-    const malTabs = ['mal-tab-All', 'mal-tab-Watching', 'mal-tab-Completed', 'mal-tab-OnHold', 'mal-tab-Dropped', 'mal-tab-PlanToWatch'];
-    malTabs.forEach(tabId => {
-        const tabBtn = document.getElementById(tabId);
-        if (tabBtn) {
-            if (tabId === 'mal-tab-All') {
-                tabBtn.className = 'mal-tab py-3 border-b-2 font-semibold transition-all px-2 whitespace-nowrap text-brand border-brand';
-            } else {
-                tabBtn.className = 'mal-tab py-3 border-b-2 font-semibold transition-all px-2 whitespace-nowrap text-white/40 border-transparent hover:text-white';
-            }
-        }
+    ['mal-tab-All','mal-tab-Watching','mal-tab-Completed','mal-tab-OnHold','mal-tab-Dropped','mal-tab-PlanToWatch'].forEach(id => {
+        const tab = document.getElementById(id);
+        if (tab) { tab.classList.toggle('text-brand', id === 'mal-tab-All'); tab.classList.toggle('border-brand', id === 'mal-tab-All'); tab.classList.toggle('border-transparent', id !== 'mal-tab-All'); }
     });
-    window.AnivoidUI.cancel('studio');
-    if (state.activeDetailAnimeId) closeAnimeDetail();
-    else renderAnimeGrid();
+    if (state.activeDetailAnimeId) closeAnimeDetail(false, targetHash);
+    else { window.AnivoidUI.site.navigation.mark(targetHash); renderAnimeGrid(); }
+    renderFeaturedBanner();
     document.getElementById('anime-grid-section')?.scrollIntoView({ behavior: 'instant' });
 };
 
-window.switchTabToStudio = (studioName) => {
-    const doSwitch = () => {
-        state.filterMALStatus = 'Studios';
-        activeStudioName = studioName || null;
-        
-        const malTabs = ['mal-tab-All', 'mal-tab-Watching', 'mal-tab-Completed', 'mal-tab-OnHold', 'mal-tab-Dropped', 'mal-tab-PlanToWatch'];
-        malTabs.forEach(tabId => {
-            const tabBtn = document.getElementById(tabId);
-            if (tabBtn) {
-                tabBtn.className = 'mal-tab py-3 border-b-2 font-semibold transition-all px-2 whitespace-nowrap text-white/40 border-transparent hover:text-white';
-            }
-        });
-
-        const detailPage = document.getElementById('anime-detail-page');
-        const isDetailOpen = detailPage && !detailPage.classList.contains('hidden');
-
-        if (isDetailOpen) {
-            // Switch synchronously; the destination owns the entry animation.
-            detailPage.classList.remove('page-transition-active');
-            detailPage.classList.add('hidden');
-            const banner = document.getElementById('featured-banner-wrapper');
-            const grid = document.getElementById('anime-grid-section');
-            if (banner) banner.style.display = '';
-            if (grid) grid.style.display = '';
-            state.activeDetailAnimeId = null;
-        }
-
+window.switchTabToStudio = (studioName, animate = true) => {
+    const update = () => {
+        state.filterMALStatus = 'Studios'; activeStudioName = studioName || null;
+        const detail = document.getElementById('anime-detail-page');
+        if (detail) detail.classList.add('hidden');
+        state.activeDetailAnimeId = null;
+        const grid = document.getElementById('anime-grid-section');
+        if (grid) grid.style.display = '';
         renderAnimeGrid();
-        renderFeaturedBanner();
-
-        // Scroll instantly to grid section
-        const gridSection = document.getElementById('anime-grid-section');
-        if (gridSection) {
-            gridSection.scrollIntoView({ behavior: 'instant' });
-        }
+        grid?.scrollIntoView({ behavior: 'instant' });
     };
-
-    if (studioName) {
-        animateStudioEntry(doSwitch);
-    } else {
-        doSwitch();
-    }
+    window.AnivoidUI.site.navigation.studio(studioName, update, animate === true);
 };
 
 window.quickAddEpisode = (animeId) => {
@@ -5658,48 +4970,11 @@ function renderSortDropdown() {
 }
 
 // Helper to render radial SVG progress chart for ratings with dynamic color based on score (red to green)
-function commitEpisodeScore(animeId, episodeNumber, value) {
-    state.setEpisodeRating(animeId, state.currentFriendId, episodeNumber, value);
-    renderAnimeGrid();
-    const scores = Array.from(document.querySelectorAll('.ep-rating-input'))
-        .map(input => Number.parseFloat(input.value)).filter(score => Number.isFinite(score) && score > 0);
-    const average = scores.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length * 10) / 10 : 0;
-    renderCircularRating('my-rating-overall-container', average);
-    const label = document.getElementById('quick-fill-avg-label');
-    const output = document.getElementById('quick-fill-avg-value');
-    if (label && output) {
-        label.style.display = scores.length ? '' : 'none';
-        output.textContent = scores.length ? average : '';
-        output.style.color = getScoreColor(average).text;
-    }
-}
+
 
 function renderCircularRating(containerId, score) {
     const container = document.getElementById(containerId);
-    if (!container) return;
-    
-    const numScore = parseFloat(score);
-    const displayScore = isNaN(numScore) || numScore === 0 ? '-' : numScore.toFixed(1);
-    const percent = isNaN(numScore) || numScore === 0 ? 0 : Math.round(numScore * 10);
-    
-    const colors = getScoreColor(score);
-    
-    // Create perfectly round wrapper with border-radius and box-shadow to prevent square clipping bug on SVG path filters
-    const wrapperStyle = numScore > 0 
-        ? `box-shadow: 0 0 14px ${colors.glow}, inset 0 0 8px ${colors.glow}; border: 1px solid color-mix(in srgb, ${colors.text} 21%, transparent); background: var(--rating-surface);`
-        : `border: 1px solid var(--glass-border); background: var(--rating-surface);`;
-
-    container.innerHTML = `
-        <div class="relative flex items-center justify-center w-12 h-12 rounded-full transition-all duration-500" style="${wrapperStyle}">
-            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                <!-- Background track -->
-                <path stroke="var(--glass-border)" stroke-width="3" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                <!-- Filled circular path with dynamic stroke color -->
-                <path class="transition-all duration-1000 ease-out" stroke-width="3" stroke-dasharray="${percent}, 100" stroke-linecap="round" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" style="stroke: ${colors.text};" />
-            </svg>
-            <span class="absolute text-xs font-mono font-bold" style="color: ${colors.text};">${displayScore}</span>
-        </div>
-    `;
+    if (container) container.innerHTML = window.AnivoidUI.site.scoreMarkup(score);
 }
 
 // Custom select dropdown component renderer matching premium crimson design system
@@ -5932,98 +5207,55 @@ function renderCustomDropdown(container, options, currentValue, onChange, isComp
 }
 
 
+function renderDetailStatus(anime) {
+    const container = document.getElementById('status-select-container');
+    if (!container) return;
+    const status = anime.ratings?.[state.currentFriendId]?.status || 'Plan to Watch';
+    const readOnly = state.currentFriendId !== getLoggedInProfileId();
+    const key = [anime.id, state.currentFriendId, status, readOnly].join(':');
+    if (container.dataset.avStatus === key) return;
+    const options = Object.entries(STATUS_MAP).map(([value, item]) => ({ value, label: item.label }));
+    renderCustomDropdown(container, options, status, newStatus => {
+        state.setStatus(anime.id, state.currentFriendId, newStatus);
+        updateAnimeDetailView(anime.id);
+        renderAnimeGrid();
+        renderFeaturedBanner();
+    }, false, readOnly, true);
+    container.dataset.avStatus = key;
+}
+
 function updateAnimeDetailView(animeId) {
-    const anime = state.animes.find(a => a.id === animeId);
+    const anime = state.animes.find(item => item.id === animeId);
     if (!anime) return;
-    const currentFriend = state.friends.find(f => f.id === state.currentFriendId) || state.friends[0] || { id: 'felipe', name: 'Felipe!', color: '#FF4500' };
-    state.initFriendRatingIfMissing(anime, state.currentFriendId);
-    const myRating = anime.ratings[state.currentFriendId];
-    const maxEps = parseInt(anime.episodes) || 0;
-    const myEpsWatched = myRating.episodesWatched || 0;
-
-    // Progress numbers & bar
-    const epWatchedLabel = document.getElementById('detail-ep-watched-label');
-    const epTotalLabel = document.getElementById('detail-ep-total-label');
-    const progressFill = document.getElementById('detail-progress-bar');
-    if (epWatchedLabel) epWatchedLabel.textContent = myEpsWatched;
-    if (epTotalLabel) epTotalLabel.textContent = maxEps > 0 ? maxEps : '?';
-    if (progressFill) {
-        const percentage = maxEps > 0 ? (myEpsWatched / maxEps) * 100 : 0;
-        progressFill.style.width = `${percentage}%`;
-    }
-
-    // Status dropdown text update
-    const statusBtnText = document.getElementById('status-select-container')?.querySelector('button span');
-    if (statusBtnText && STATUS_MAP[myRating.status]) {
-        statusBtnText.textContent = STATUS_MAP[myRating.status].label;
-    }
-
-    // Update episode list checkboxes and rows
-    const epListContainer = document.getElementById('detail-episodes-rating-list');
-    if (epListContainer) {
-        if (maxEps === 1) {
-            const isWatched = myRating.watchedEpisodesMap && typeof myRating.watchedEpisodesMap === 'object'
-                ? !!myRating.watchedEpisodesMap[1]
-                : 1 <= myEpsWatched;
-            const chk = epListContainer.querySelector('#ep-checkbox-1');
-            const row = chk ? chk.closest('.episode-row') : null;
-            if (chk) chk.checked = isWatched;
-            if (row) {
-                if (isWatched) row.classList.add('watched-active');
-                else row.classList.remove('watched-active');
-            }
-        } else {
-            for (let i = 1; i <= maxEps; i++) {
-                const isWatched = myRating.watchedEpisodesMap && typeof myRating.watchedEpisodesMap === 'object'
-                    ? !!myRating.watchedEpisodesMap[i]
-                    : i <= myEpsWatched;
-                const chk = epListContainer.querySelector(`#ep-checkbox-${i}`);
-                const row = chk ? chk.closest('.episode-row') : null;
-                if (chk) chk.checked = isWatched;
-                if (row) {
-                    if (isWatched) row.classList.add('watched-active');
-                    else row.classList.remove('watched-active');
-                }
-            }
-        }
-    }
-
-    // Update circular rating
-    renderCircularRating('my-rating-overall-container', myRating.overall);
-
-    // Update live average if elements exist
-    const allEpInputs = document.querySelectorAll('.ep-rating-input');
-    const epValsLive = Array.from(allEpInputs).map(el => parseFloat(el.value)).filter(n => !isNaN(n) && n > 0);
-                        renderCircularRating('my-rating-overall-container', epValsLive.length ? epValsLive.reduce((a,b) => a+b, 0) / epValsLive.length : 0);
-    const avgLabelEl = document.getElementById('quick-fill-avg-label');
-    const avgValEl = document.getElementById('quick-fill-avg-value');
-    if (avgLabelEl && avgValEl) {
-        if (epValsLive.length > 0) {
-            const liveAvg = Math.round((epValsLive.reduce((a, b) => a + b, 0) / epValsLive.length) * 10) / 10;
-            avgValEl.textContent = liveAvg;
-                                avgValEl.style.color = getScoreColor(liveAvg).text;
-            avgLabelEl.style.display = '';
-        } else {
-            avgLabelEl.style.display = 'none';
-        }
-    }
-
-    renderAnimeGrid();
-    renderFeaturedBanner();
+    projectUI.refreshNumbers(animeId);
+    const readOnly = state.currentFriendId !== getLoggedInProfileId();
+    const host = document.getElementById('av-rating-workbench');
+    if (host) projectUI.renderWorkbench(host, anime, readOnly);
+    renderComments(anime);
+    renderAnimeHistory(anime);
 }
 
 // Open Detail Page
 let detailReturnContext = null;
 
-function openAnimeDetail(animeId) {
+function openAnimeDetail(animeId, animate = true) {
+    if (!state.animes.some(anime => anime.id === animeId)) return;
+    const returnHash = window.location.hash;
+    const update = () => showAnimeDetail(animeId, returnHash);
+    if (state.activeDetailAnimeId === animeId) update();
+    else window.AnivoidUI.site.navigation.anime(animeId, update, animate === true);
+}
+
+function showAnimeDetail(animeId, returnHash) {
     const anime = state.animes.find(item => item.id === animeId);
     const detailPage = document.getElementById('anime-detail-page');
     if (!anime || !detailPage) return;
     const alreadyOpen = !detailPage.classList.contains('hidden');
     const changingAnime = state.activeDetailAnimeId !== animeId;
     window.AnivoidUI.cancel('detail');
-    if (!alreadyOpen) detailReturnContext = { scrollTop: window.scrollY, animeId };
+    if (!alreadyOpen) detailReturnContext = { scrollTop: window.scrollY, animeId, hash: returnHash };
     state.activeDetailAnimeId = animeId;
+    document.body.dataset.avView = 'detail';
     const banner = document.getElementById('featured-banner-wrapper');
     const grid = document.getElementById('anime-grid-section');
     if (banner) banner.style.display = 'none';
@@ -6037,9 +5269,7 @@ function openAnimeDetail(animeId) {
         window.scrollTo({ top: 0, behavior: 'instant' });
         const title = document.getElementById('detail-title');
         if (title) { title.tabIndex = -1; title.focus({ preventScroll: true }); }
-        window.AnivoidUI.animate(detailPage,
-            [{ opacity: 0.45, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }],
-            { channel: 'detail', duration: 280, easing: 'cubic-bezier(.22,1,.36,1)' });
+
     }
 }
 
@@ -6047,14 +5277,15 @@ function renderAnimeDetailBody(anime) {
     const animeId = anime.id;
     const detailPage = document.getElementById('anime-detail-page');
     // Set anime base details
-    document.getElementById('detail-banner').src = anime.coverUrl;
-        const detailPoster = document.getElementById('detail-poster');
+    const detailPoster = document.getElementById('detail-poster');
     if (detailPoster) {
         detailPoster.src = anime.coverUrl;
+        detailPoster.dataset.avCover = anime.id;
+        detailPoster.alt = 'Capa de ' + anime.title;
     }
-    document.getElementById('detail-title').textContent = anime.title;
-    document.getElementById('detail-japanese-title').textContent = anime.japaneseTitle;
-    document.getElementById('detail-synopsis').textContent = anime.synopsis;
+    document.getElementById('detail-title').innerHTML = escapeHtml(anime.title);
+    document.getElementById('detail-japanese-title').innerHTML = escapeHtml(anime.japaneseTitle);
+    document.getElementById('detail-synopsis').innerHTML = escapeHtml(anime.synopsis);
 
     // Set Featured Anime Button (Fixar Destaque)
     const featuredBtn = document.getElementById('detail-set-featured-btn');
@@ -6064,7 +5295,7 @@ function renderAnimeDetailBody(anime) {
             featuredBtn.className = 'anivoid-action inline-flex items-center gap-1.5 px-3 py-1.5 border border-brand bg-brand text-white text-[10px] font-mono uppercase tracking-widest rounded-full transition-all mt-3 cursor-pointer shadow-lg';
             featuredBtn.innerHTML = `
                 <iconify-icon icon="lucide:check-circle" class="text-xs"></iconify-icon>
-                <span>Destaque Fixo 🌟</span>
+                <span>Destaque fixo</span>
             `;
         } else {
             featuredBtn.className = 'anivoid-action inline-flex items-center gap-1.5 px-3 py-1.5 border border-white/10 hover:border-brand/30 hover:bg-brand/5 text-gray-400 hover:text-white text-[10px] font-mono uppercase tracking-widest rounded-full transition-all mt-3 cursor-pointer';
@@ -6104,25 +5335,9 @@ function renderAnimeDetailBody(anime) {
         deleteAnimeButton.onclick = () => deleteAnimeAsAdmin(anime);
     }
     
-    // Highlighted Studio Badge
     const studioBadge = document.getElementById('detail-studio');
-    if (studioBadge) {
-        studioBadge.setAttribute('aria-label', `Explorar estúdio ${anime.studio || 'Desconhecido'}`);
-        studioBadge.className = 'group studio-glow px-5 py-2.5 rounded-full text-xs font-mono tracking-widest font-semibold uppercase bg-brand/15 border border-brand text-white inline-flex items-center gap-2.5 cursor-pointer shadow-lg select-none';
-        studioBadge.innerHTML = `
-            <span class="relative flex h-2 w-2">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-2 w-2 bg-brand"></span>
-            </span>
-            <span class="font-bold tracking-widest text-white/90 group-hover:text-white">${escapeHtml(anime.studio || 'Desconhecido')}</span>
-            <iconify-icon icon="lucide:arrow-up-right" class="text-white/50 transition-all duration-300 group-hover:text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 text-[11px]"></iconify-icon>
-        `;
-        studioBadge.onclick = (e) => {
-            e.stopPropagation();
-            window.switchTabToStudio(anime.studio);
-        };
-    }
-    
+    if (studioBadge) projectUI.renderCredit(studioBadge, anime);
+
     const maxEps = parseInt(anime.episodes) || 0;
 
     document.getElementById('detail-season').textContent = anime.season;
@@ -6130,7 +5345,7 @@ function renderAnimeDetailBody(anime) {
 
     const avgScore = state.calculateAverageScore(animeId);
     
-    // Render Circular Rating SVGs
+    // Scores share the same color policy across cards and the workbench.
     const friendRating = anime.ratings?.[state.currentFriendId];
     const myRating = friendRating || { animation: 0, story: 0, sound: 0, overall: 0, status: 'Plan to Watch', episodesWatched: 0, episodeRatings: {} };
     const myOverall = myRating.overall || 0;
@@ -6159,16 +5374,7 @@ function renderAnimeDetailBody(anime) {
     }
 
     // Render custom status dropdown
-    const statusOptions = Object.entries(STATUS_MAP).map(([key, val]) => ({
-        value: key,
-        label: val.label
-    }));
-    renderCustomDropdown('status-select-container', statusOptions, myRating.status || 'Plan to Watch', (newStatus) => {
-        state.setStatus(anime.id, state.currentFriendId, newStatus);
-        updateAnimeDetailView(anime.id);
-        renderAnimeGrid();
-        renderFeaturedBanner();
-    }, false, isReadOnly, true);
+    renderDetailStatus(anime);
 
     // Set Episode progress labels and hide if movie
     const progressContainer = document.getElementById('detail-progress-container');
@@ -6188,212 +5394,8 @@ function renderAnimeDetailBody(anime) {
         progressFill.style.width = `${percentage}%`;
     }
 
-    // Render Episodes List with individual checkboxes and rating selectors
-    const epListContainer = document.getElementById('detail-episodes-rating-list');
-    if (epListContainer) {
-        epListContainer.innerHTML = '';
-        
-        // Remove or adjust scroll limit classes dynamically for movies or short series
-        if (maxEps <= 3) {
-            epListContainer.classList.remove('overflow-y-auto', 'max-h-[300px]');
-            epListContainer.style.overflow = 'visible';
-            epListContainer.style.maxHeight = 'none';
-        } else {
-            epListContainer.classList.add('overflow-y-auto', 'max-h-[300px]');
-            epListContainer.style.overflow = '';
-            epListContainer.style.maxHeight = '';
-        }
-        
-        const epHeader = epListContainer.previousElementSibling?.querySelector('h3');
-        if (epHeader) {
-            epHeader.textContent = maxEps === 1 ? 'Avaliar Filme' : 'Avaliar Episódios';
-        }
-
-        // Dynamic "Média Geral" display + quick-fill input in header
-        const epSectionHeader = epListContainer.previousElementSibling;
-        if (epSectionHeader) {
-            const existingQuickFill = epSectionHeader.querySelector('.quick-fill-area');
-            if (existingQuickFill) existingQuickFill.remove();
-
-            if (maxEps > 1 && !isReadOnly) {
-                // Compute avg from episodeRatings directly
-                const epVals = Object.values(myRating.episodeRatings || {}).map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
-                const computedAvg = epVals.length > 0 ? parseFloat((epVals.reduce((a,b)=>a+b,0)/epVals.length).toFixed(1)) : null;
-
-                const quickFill = document.createElement('div');
-                quickFill.className = 'quick-fill-area flex items-center gap-2 w-full mt-3 p-3 bg-brand/8 border border-brand/20 rounded-xl';
-                quickFill.innerHTML = `
-                    <iconify-icon icon="lucide:wand-2" class="text-brand text-sm shrink-0"></iconify-icon>
-                    <div class="flex-grow min-w-0">
-                        <p class="text-[9px] font-mono text-brand/80 uppercase tracking-widest">Nota Geral Rápida</p>
-                        <p class="text-[8px] text-gray-500 font-mono">Preenche todos os eps assistidos com essa nota base</p>
-                    </div>
-                    <div class="flex items-center gap-1.5 shrink-0">
-                        <span id="quick-fill-avg-label" class="text-[9px] text-gray-400 font-mono" style="${computedAvg !== null ? '' : 'display:none'}">Média atual: <b id="quick-fill-avg-value" style="color:${getScoreColor(computedAvg).text}">${computedAvg !== null ? computedAvg : ''}</b></span>
-                        <div id="quick-fill-rating-container" class="relative"></div>
-                    </div>
-                `;
-                epSectionHeader.appendChild(quickFill);
-
-                const qfContainer = quickFill.querySelector('#quick-fill-rating-container');
-                qfContainer.innerHTML = `
-                    <div class="flex items-center gap-1.5">
-                        <input
-                            id="quick-fill-input"
-                            type="number" min="0" max="10" step="0.1"
-                            aria-label="Nota base dos episódios de 0 a 10"
-                            placeholder="0–10"
-                            class="w-16 bg-white/5 border border-brand/30 rounded-lg px-2 py-1.5 text-xs font-mono text-center focus:outline-none focus:border-brand/70 transition-colors"
-                        >
-                        <button id="quick-fill-btn" class="px-3 py-1.5 rounded-lg bg-brand text-white text-[10px] font-mono uppercase tracking-widest hover:bg-brand/80 transition-colors font-bold">
-                            Ok
-                        </button>
-                    </div>
-                `;
-                const qfInput = qfContainer.querySelector('#quick-fill-input');
-                qfInput.addEventListener('input', () => { qfInput.style.color = getScoreColor(qfInput.value).text; });
-                const qfBtn = qfContainer.querySelector('#quick-fill-btn');
-                const applyQuickFill = () => {
-                    let val = parseFloat(qfInput.value);
-                    if (isNaN(val) || val < 0) return;
-                    if (val > 10) val = 10;
-                    val = Math.round(val * 10) / 10; // round to 1 decimal place
-                    state.setGeneralRating(anime.id, state.currentFriendId, val);
-                    updateAnimeDetailView(anime.id);
-                    renderAnimeGrid();
-                };
-                qfBtn.addEventListener('click', applyQuickFill);
-                qfInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyQuickFill(); });
-            } else if (maxEps > 1 && isReadOnly) {
-                const epVals = Object.values(myRating.episodeRatings || {}).map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
-                const computedAvg = epVals.length > 0 ? parseFloat((epVals.reduce((a,b)=>a+b,0)/epVals.length).toFixed(1)) : null;
-                if (computedAvg !== null) {
-                    const avgBadge = document.createElement('div');
-                    avgBadge.className = 'quick-fill-area mt-2 text-[9px] font-mono text-gray-400';
-                    avgBadge.textContent = `Média dos eps: ${computedAvg}`;
-                    epSectionHeader.appendChild(avgBadge);
-                }
-            }
-        }
-
-        const mediaGeralSpan = epListContainer.previousElementSibling?.querySelector('span.media-geral-span');
-        if (mediaGeralSpan) {
-            mediaGeralSpan.style.display = maxEps === 1 ? 'none' : 'inline';
-        }
-
-        if (maxEps === 0) {
-            epListContainer.innerHTML = `
-                <div class="py-4 text-center text-gray-500 font-light text-xs italic">
-                    Nenhum episódio cadastrado.
-                </div>
-            `;
-        } else if (maxEps === 1) {
-            const isWatched = myRating.watchedEpisodesMap && typeof myRating.watchedEpisodesMap === 'object' ? !!myRating.watchedEpisodesMap[1] : 1 <= myEpsWatched;
-            const epRating = myRating.episodeRatings?.[1] || '';
-            
-            const row = document.createElement('div');
-            row.className = `episode-row film-rating-row flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/5 gap-4 ${isWatched ? 'watched-active' : ''} ${isReadOnly ? 'opacity-80' : ''}`;
-            row.style.animationDelay = '0.04s';
-            
-            row.innerHTML = `
-                <div class="flex items-center gap-3">
-                    <label class="relative flex items-center cursor-pointer select-none group ${isReadOnly ? 'pointer-events-none' : ''}">
-                        <input type="checkbox" id="ep-checkbox-1" ${isWatched ? 'checked' : ''} ${isReadOnly ? 'disabled' : ''} class="sr-only peer">
-                        <div class="w-5 h-5 rounded-lg border border-white/20 bg-white/5 peer-checked:bg-brand peer-checked:border-brand peer-checked:box-glow transition-all duration-300 flex items-center justify-center group-hover:border-white/40">
-                            <iconify-icon icon="lucide:check" class="text-white text-xs scale-0 peer-checked:scale-100 transition-transform duration-300 font-bold"></iconify-icon>
-                        </div>
-                    </label>
-                    <span class="text-xs font-mono font-medium text-white/80">Marcar como Assistido</span>
-                </div>
-                
-                <div class="flex items-center gap-1.5">
-                    <span class="text-[9px] text-gray-500 font-mono">Nota do Filme:</span>
-                    <div id="ep-rating-container-1" class="relative"></div>
-                </div>
-            `;
-            
-            const chk = row.querySelector('#ep-checkbox-1');
-            if (!isReadOnly && chk) {
-                chk.addEventListener('change', (e) => {
-                    state.toggleEpisodeWatched(anime.id, state.currentFriendId, 1, e.target.checked);
-                    updateAnimeDetailView(anime.id);
-                });
-            }
-            
-            const epRatingContainer1 = row.querySelector('#ep-rating-container-1');
-            const currentVal1 = epRating ? String(epRating) : '';
-            epRatingContainer1.innerHTML = `
-                <input
-                    type="number" min="0" max="10" step="0.1"
-                    aria-label="Nota do filme de 0 a 10"
-                    value="${currentVal1}"
-                    placeholder="-"
-                    ${isReadOnly ? 'disabled' : ''}
-                    class="ep-rating-input w-14 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs font-mono text-center focus:outline-none focus:border-brand/60 transition-colors ${isReadOnly ? 'opacity-50 cursor-not-allowed' : 'hover:border-white/30'}"
-                    style="appearance:textfield;color:${getScoreColor(epRating).text};"
-                >
-            `;
-            if (!isReadOnly) {
-                window.AnivoidUI.bindScoreInput(epRatingContainer1.querySelector('input'), value => commitEpisodeScore(anime.id, 1, value));
-            }
-            
-            epListContainer.appendChild(row);
-        } else {
-            for (let i = 1; i <= maxEps; i++) {
-                const isWatched = myRating.watchedEpisodesMap && typeof myRating.watchedEpisodesMap === 'object' ? !!myRating.watchedEpisodesMap[i] : i <= myEpsWatched;
-                const epRating = myRating.episodeRatings?.[i] || '';
-                
-                const row = document.createElement('div');
-                row.className = `episode-row flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/5 gap-4 ${isWatched ? 'watched-active' : ''} ${isReadOnly ? 'opacity-80' : ''}`;
-                row.style.animationDelay = `${i * 0.04}s`;
-                
-                row.innerHTML = `
-                    <div class="flex items-center gap-3">
-                        <!-- Custom animated checkmark peer selector -->
-                        <label class="relative flex items-center cursor-pointer select-none group ${isReadOnly ? 'pointer-events-none' : ''}">
-                            <input type="checkbox" id="ep-checkbox-${i}" ${isWatched ? 'checked' : ''} ${isReadOnly ? 'disabled' : ''} class="sr-only peer">
-                            <div class="w-5 h-5 rounded-lg border border-white/20 bg-white/5 peer-checked:bg-brand peer-checked:border-brand peer-checked:box-glow transition-all duration-300 flex items-center justify-center group-hover:border-white/40">
-                                <iconify-icon icon="lucide:check" class="text-white text-xs scale-0 peer-checked:scale-100 transition-transform duration-300 font-bold"></iconify-icon>
-                            </div>
-                        </label>
-                        <span class="text-xs font-mono font-medium text-white/80">Ep. ${String(i).padStart(2, '0')}</span>
-                    </div>
-                    
-                    <div class="flex items-center gap-1.5">
-                        <span class="text-[9px] text-gray-500 font-mono">Nota:</span>
-                        <div id="ep-rating-container-${i}" class="relative"></div>
-                    </div>
-                `;
-                
-                const chk = row.querySelector(`#ep-checkbox-${i}`);
-                if (!isReadOnly && chk) {
-                    chk.addEventListener('change', (e) => {
-                        state.toggleEpisodeWatched(anime.id, state.currentFriendId, i, e.target.checked);
-                        updateAnimeDetailView(anime.id);
-                    });
-                }
-                
-                const epRatingContainerI = row.querySelector(`#ep-rating-container-${i}`);
-                const currentValI = epRating ? String(epRating) : '';
-                epRatingContainerI.innerHTML = `
-                    <input
-                        type="number" min="0" max="10" step="0.1"
-                        aria-label="Nota do episódio ${i} de 0 a 10"
-                        value="${currentValI}"
-                        placeholder="-"
-                        ${isReadOnly ? 'disabled' : ''}
-                        class="ep-rating-input w-14 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs font-mono text-center focus:outline-none focus:border-brand/60 transition-colors ${isReadOnly ? 'opacity-50 cursor-not-allowed' : 'hover:border-white/30'}"
-                        style="appearance:textfield;color:${getScoreColor(epRating).text};"
-                    >
-                `;
-                if (!isReadOnly) {
-                    window.AnivoidUI.bindScoreInput(epRatingContainerI.querySelector('input'), value => commitEpisodeScore(anime.id, i, value));
-                }
-                
-                epListContainer.appendChild(row);
-            }
-        }
-    }
+    const workbench = document.getElementById('av-rating-workbench');
+    if (workbench) projectUI.renderWorkbench(workbench, anime, isReadOnly);
 
     // Render Related Seasons
     const relatedSection = document.getElementById('detail-related-seasons-section');
@@ -6502,305 +5504,20 @@ function renderAnimeDetailBody(anime) {
     }
 }
 
-// Render comments section dynamically matching the crimson glassmorphic styling
+// The community module owns composition, drafts and publication rendering.
 function renderComments(anime) {
-    const commentsList = document.getElementById('comments-list');
-    if (!commentsList) return;
-
-    commentsList.innerHTML = '';
-    
-    // Populate current logged-in user profile info in the comment input box
-    const loggedInUsername = localStorage.getItem('anivoid_logged_in_username') || '';
-    const currentUser = state.friends.find(f => f.name.toLowerCase() === loggedInUsername.toLowerCase()) || { name: loggedInUsername || 'Você', avatar: '👤', color: '#ff4500' };
-    const commentAuthorContainer = document.getElementById('comment-input-author-container');
-    if (commentAuthorContainer) {
-        const authorAvatarHtml = currentUser.avatar && (currentUser.avatar.startsWith('data:') || currentUser.avatar.startsWith('http'))
-            ? `<img src="${currentUser.avatar}" class="w-12 h-12 rounded-full object-cover shrink-0" alt="">`
-            : `<div class="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-2xl shrink-0">${currentUser.avatar || '👤'}</div>`;
-            
-        const curUserAdminBadge = getUserBadgesHtml(currentUser);
-        commentAuthorContainer.innerHTML = `
-            ${authorAvatarHtml}
-            <div class="space-y-0.5">
-                <h4 class="text-[9px] font-mono uppercase tracking-[0.15em] text-gray-400">Escreva sua Review</h4>
-                <p class="text-[15px] font-bold font-mono leading-tight" style="color: ${currentUser.color}">${currentUser.name}${curUserAdminBadge} <span class="text-[10px] text-gray-500 font-normal font-sans">(Você)</span></p>
-            </div>
-        `;
-    }
-    
-    const comments = anime.comments || [];
-    if (comments.length === 0) {
-        commentsList.innerHTML = `
-            <div class="py-6 text-center text-gray-500 font-light text-xs italic bg-white/5 border border-white/5 rounded-2xl">
-                Nenhuma review deixada ainda. Seja o primeiro a comentar!
-            </div>
-        `;
-        return;
-    }
-
-    // Sort comments by timestamp (newest first)
-    const sortedComments = [...comments].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-    sortedComments.forEach(comment => {
-        // Try to find author in friends first, then fall back to registeredUsers
-        let friend = state.friends.find(f => f.id === comment.friendId);
-        if (!friend) {
-            try {
-                const regUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
-                const regUser = regUsers.find(u => u && u.username &&
-                    u.username.toLowerCase().replace(/[^a-z0-9]/g, '') === comment.friendId);
-                if (regUser) {
-                    friend = {
-                        id: comment.friendId,
-                        name: regUser.username,
-                        avatar: regUser.avatar || '👤',
-                        color: regUser.color || '#7f8c8d'
-                    };
-                }
-            } catch(e) {}
-        }
-        if (!friend) {
-            friend = { id: comment.friendId, avatar: '👤', name: comment.friendName || 'Desconhecido', color: '#7f8c8d' };
-        }
-
-        // Get this user's overall score for this anime
-        const userRating = anime.ratings?.[comment.friendId];
-        const userScore = userRating?.overall > 0 ? userRating.overall : null;
-        let dateText = '';
-        try {
-            const date = new Date(comment.timestamp);
-            dateText = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' às ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        } catch (e) { dateText = ''; }
-
-        const div = document.createElement('div');
-        const isAdminComment = comment.friendId && comment.friendId.toLowerCase() === 'felipe';
-        div.className = `glass-panel border rounded-2xl p-4 space-y-2.5 animate-[fadeIn_0.3s_ease-out] ${isAdminComment ? 'border-brand/35 shadow-[0_0_15px_rgba(255,69,0,0.12)] bg-brand/[0.03]' : 'border-white/5'}`;
-
-        const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
-            ? `<img src="${friend.avatar}" class="w-11 h-11 rounded-full object-cover shrink-0" alt="">`
-            : `<div class="w-11 h-11 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-2xl shrink-0">${friend.avatar || '👤'}</div>`;
-
-        const isMyComment = loggedInUsername && comment.friendId && comment.friendId.toLowerCase() === loggedInUsername.toLowerCase().replace(/[^a-z0-9]/g, '');
-        const myActionsHtml = isMyComment ? `
-            <button class="edit-comment-btn hover:text-brand transition-colors flex items-center gap-0.5 cursor-pointer bg-transparent border-none p-0 text-gray-500">
-                <iconify-icon icon="lucide:edit-3" class="text-[10px]"></iconify-icon><span class="text-[10px] font-mono"> Editar</span>
-            </button>
-            <span class="text-white/10 text-[10px]">|</span>
-            <button class="delete-comment-btn hover:text-red-500 transition-colors flex items-center gap-0.5 cursor-pointer bg-transparent border-none p-0 text-gray-500">
-                <iconify-icon icon="lucide:trash-2" class="text-[10px]"></iconify-icon><span class="text-[10px] font-mono"> Apagar</span>
-            </button>
-            <span class="text-white/10 text-[10px]">|</span>
-        ` : '';
-
-        const adminBadgeHtml = getUserBadgesHtml(friend);
-        const repliesCount = (comment.replies || []).length;
-        const repliesLabel = repliesCount > 0 ? `${repliesCount} resposta${repliesCount > 1 ? 's' : ''}` : 'Responder';
-        const commentLikes = Array.isArray(comment.likes) ? comment.likes.map(normalizeProfileId).filter(Boolean) : [];
-        const likedByMe = commentLikes.includes(getLoggedInProfileId());
-        const likeLabel = commentLikes.length > 0 ? `${commentLikes.length}` : 'Curtir';
-
-        // Score badge shown next to the commenter's name
-        let scoreBadgeHtml = '';
-        if (userScore !== null && userScore !== undefined) {
-            const scoreColorInfo = getScoreColor(userScore);
-            scoreBadgeHtml = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold ml-1.5" style="background: color-mix(in srgb, ${scoreColorInfo.text} 9%, transparent); border: 1px solid color-mix(in srgb, ${scoreColorInfo.text} 25%, transparent); color: ${scoreColorInfo.text}; text-shadow: 0 0 6px ${scoreColorInfo.glow}">★ ${userScore}</span>`;
-        }
-
-        div.innerHTML = `
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    ${avatarHtml}
-                    <span class="font-mono text-sm font-bold" style="color: ${friend.color}">${friend.name}${adminBadgeHtml}${scoreBadgeHtml}</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <div class="flex items-center gap-2 text-[10px] mr-1">
-                        ${myActionsHtml}
-                        <button class="like-comment-btn ${likedByMe ? 'active' : ''} flex items-center gap-1 text-gray-500 hover:text-brand transition-colors cursor-pointer bg-transparent border-none p-0 font-mono" title="Curtir review">
-                            <iconify-icon icon="lucide:heart" class="text-[11px]"></iconify-icon>
-                            <span>${likeLabel}</span>
-                        </button>
-                        <span class="text-white/10 text-[10px]">|</span>
-                        <button class="reply-toggle-btn flex items-center gap-1 text-gray-500 hover:text-brand transition-colors cursor-pointer bg-transparent border-none p-0 font-mono">
-                            <iconify-icon icon="lucide:message-circle" class="text-[11px]"></iconify-icon>
-                            <span class="reply-btn-label">${repliesLabel}</span>
-                        </button>
-                    </div>
-                    <span class="text-[9px] text-gray-500 font-mono">${dateText}</span>
-                </div>
-            </div>
-            <div class="comment-content-container">
-                <p class="text-xs text-gray-300 font-light leading-relaxed whitespace-pre-wrap comment-text">${comment.comment}</p>
-            </div>
-
-            <!-- Replies section: auto-visible when there are replies -->
-            <div class="replies-section mt-1${repliesCount > 0 ? '' : ' hidden'}">
-                <!-- Existing replies -->
-                <div class="replies-list space-y-2 mb-3 pl-4 border-l-2 border-white/8">
-                    ${(comment.replies || []).map(reply => {
-                        const rf = state.friends.find(f => f.id === reply.friendId) || { avatar: '👤', name: reply.friendName || '?', color: '#7f8c8d' };
-                        let rDate = '';
-                        try { const d = new Date(reply.timestamp); rDate = d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}) + ' às ' + d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); } catch(e){}
-                        const rAvatar = rf.avatar && (rf.avatar.startsWith('data:') || rf.avatar.startsWith('http'))
-                            ? `<img src="${rf.avatar}" class="w-7 h-7 rounded-full object-cover shrink-0" alt="">`
-                            : `<div class="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-base shrink-0">${rf.avatar || '👤'}</div>`;
-                        const rBadge = getUserBadgesHtml(rf);
-                        return `
-                            <div class="flex gap-2.5 py-2" data-reply-id="${reply.id}">
-                                ${rAvatar}
-                                <div class="flex-grow min-w-0">
-                                    <div class="flex items-center justify-between gap-2 mb-0.5">
-                                        <span class="font-mono text-[11px] font-bold" style="color:${rf.color}">${rf.name}${rBadge}</span>
-                                        <span class="text-[9px] text-gray-600 font-mono shrink-0">${rDate}</span>
-                                    </div>
-                                    <p class="text-[11px] text-gray-300 font-light leading-relaxed">${reply.reply}</p>
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-                <!-- Reply input -->
-                <div class="reply-input-area flex gap-2.5 items-start">
-                    <div class="reply-user-avatar-slot w-7 h-7 shrink-0"></div>
-                    <div class="flex-grow relative">
-                        <textarea class="reply-textarea w-full bg-white/5 border border-white/8 rounded-xl px-3 py-2 text-[11px] text-white placeholder-gray-600 focus:outline-none focus:border-brand/40 focus:bg-white/8 resize-none font-sans transition-all duration-200" rows="2" placeholder="Escreva uma resposta..."></textarea>
-                        <div class="flex justify-end mt-1.5 gap-2">
-                            <button class="cancel-reply-btn px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[9px] font-mono text-white/60 hover:text-white hover:bg-white/10 transition-all cursor-pointer uppercase tracking-wide">Cancelar</button>
-                            <button class="submit-reply-btn px-3 py-1 rounded-lg bg-brand text-white text-[9px] font-mono font-semibold hover:bg-brand/80 hover:scale-105 active:scale-95 transition-all cursor-pointer uppercase tracking-wide shadow-[0_2px_8px_rgba(255,69,0,0.3)]">Enviar</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // ── Reply toggle logic ─────────────────────────────────────────────────
-        const replyToggleBtn = div.querySelector('.reply-toggle-btn');
-        const repliesSection = div.querySelector('.replies-section');
-        const replyTextarea = div.querySelector('.reply-textarea');
-        const cancelReplyBtn = div.querySelector('.cancel-reply-btn');
-        const submitReplyBtn = div.querySelector('.submit-reply-btn');
-        const replyBtnLabel = div.querySelector('.reply-btn-label');
-        const replyAvatarSlot = div.querySelector('.reply-user-avatar-slot');
-        const likeCommentBtn = div.querySelector('.like-comment-btn');
-
-        if (likeCommentBtn) {
-            likeCommentBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                toggleCommentLike(anime.id, comment.id);
-            });
-        }
-
-        // Fill current user avatar in reply box
-        const cuAvatar = currentUser.avatar;
-        if (replyAvatarSlot) {
-            replyAvatarSlot.innerHTML = cuAvatar && (cuAvatar.startsWith('data:') || cuAvatar.startsWith('http'))
-                ? `<img src="${cuAvatar}" class="w-7 h-7 rounded-full object-cover" alt="">`
-                : `<div class="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-base">${cuAvatar || '👤'}</div>`;
-        }
-
-        replyToggleBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            // Always open the section (never close it if it has replies)
-            repliesSection.classList.remove('hidden');
-            replyTextarea.focus();
-        });
-
-        cancelReplyBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            replyTextarea.value = '';
-            // Only hide section if there are no existing replies
-            if ((comment.replies || []).length === 0) {
-                repliesSection.classList.add('hidden');
-            }
-        });
-
-        submitReplyBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const replyText = replyTextarea.value.trim();
-            if (!replyText) return;
-            const authorId = loggedInUsername ? loggedInUsername.toLowerCase().replace(/[^a-z0-9]/g, '') : state.currentFriendId;
-            state.addReply(anime.id, comment.id, authorId, replyText);
-
-            // Inject the new reply directly into the DOM (avoid full re-render that collapses replies)
-            const newReply = comment.replies[comment.replies.length - 1];
-            const rf = currentUser;
-            const rAvatar = rf.avatar && (rf.avatar.startsWith('data:') || rf.avatar.startsWith('http'))
-                ? `<img src="${rf.avatar}" class="w-7 h-7 rounded-full object-cover shrink-0" alt="">`
-                : `<div class="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-base shrink-0">${rf.avatar || '👤'}</div>`;
-            const rBadge = getUserBadgesHtml(rf);
-            const now = new Date();
-            const rDate = now.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}) + ' às ' + now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-
-            const replyEl = document.createElement('div');
-            replyEl.className = 'flex gap-2.5 py-2 animate-[fadeIn_0.25s_ease-out]';
-            replyEl.dataset.replyId = newReply.id;
-            replyEl.innerHTML = `
-                ${rAvatar}
-                <div class="flex-grow min-w-0">
-                    <div class="flex items-center justify-between gap-2 mb-0.5">
-                        <span class="font-mono text-[11px] font-bold" style="color:${rf.color}">${rf.name}${rBadge}</span>
-                        <span class="text-[9px] text-gray-600 font-mono shrink-0">${rDate}</span>
-                    </div>
-                    <p class="text-[11px] text-gray-300 font-light leading-relaxed">${newReply.reply}</p>
-                </div>
-            `;
-
-            const repliesList = div.querySelector('.replies-list');
-            if (repliesList) repliesList.appendChild(replyEl);
-
-            // Update button label count
-            const count = comment.replies.length;
-            if (replyBtnLabel) replyBtnLabel.textContent = `${count} resposta${count > 1 ? 's' : ''}`;
-
-            replyTextarea.value = '';
-            replyTextarea.focus();
-        });
-
-        // ── Edit & Delete (my comment) ─────────────────────────────────────────
-        if (isMyComment) {
-            const editBtn = div.querySelector('.edit-comment-btn');
-            const deleteBtn = div.querySelector('.delete-comment-btn');
-            const contentContainer = div.querySelector('.comment-content-container');
-            const originalText = comment.comment;
-
-            if (editBtn && contentContainer) {
-                editBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    contentContainer.innerHTML = `
-                        <textarea class="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-brand/40 resize-none font-sans font-light mt-1" rows="3">${originalText}</textarea>
-                        <div class="flex justify-end gap-2 mt-2">
-                            <button class="cancel-edit-btn px-2.5 py-1 bg-white/5 border border-white/10 text-white/70 text-[9px] font-mono rounded-lg hover:bg-white/10 transition-colors uppercase cursor-pointer">Cancelar</button>
-                            <button class="save-edit-btn px-2.5 py-1 bg-brand text-white text-[9px] font-mono rounded-lg hover:bg-brand/80 transition-colors uppercase font-semibold cursor-pointer">Salvar</button>
-                        </div>
-                    `;
-                    const cancelBtn = contentContainer.querySelector('.cancel-edit-btn');
-                    const saveBtn = contentContainer.querySelector('.save-edit-btn');
-                    const textarea = contentContainer.querySelector('textarea');
-                    cancelBtn.addEventListener('click', (ev) => { ev.stopPropagation(); renderComments(anime); });
-                    saveBtn.addEventListener('click', (ev) => {
-                        ev.stopPropagation();
-                        const updatedText = textarea.value.trim();
-                        if (updatedText) { comment.comment = updatedText; state.save(); renderComments(anime); }
-                    });
-                });
-            }
-
-            if (deleteBtn) {
-                deleteBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (confirm("Deseja realmente apagar esta review?")) {
-                        anime.comments = anime.comments.filter(c => c.id !== comment.id);
-                        state.save();
-                        renderComments(anime);
-                    }
-                });
-            }
-        }
-
-        commentsList.appendChild(div);
-    });
+    const host = document.getElementById('av-conversation');
+    if (host) projectUI.renderConversation(host, anime);
 }
 
-function closeAnimeDetail() {
+function closeAnimeDetail(animate = true, targetHash) {
+    const detail = document.getElementById('anime-detail-page');
+    if (!detail || detail.classList.contains('hidden')) return;
+    const useMotion = typeof animate === 'boolean' ? animate : animate.detail > 0;
+    window.AnivoidUI.site.navigation.catalog(hideAnimeDetail, useMotion, targetHash || detailReturnContext?.hash);
+}
+
+function hideAnimeDetail() {
     const detailPage = document.getElementById('anime-detail-page');
     if (!detailPage || detailPage.classList.contains('hidden')) return;
     window.AnivoidUI.cancel('detail');
@@ -6821,36 +5538,9 @@ function closeAnimeDetail() {
     window.scrollTo({ top: context?.scrollTop || 0, behavior: 'instant' });
     const origin = Array.from(document.querySelectorAll('[data-anime-id]')).find(item => item.dataset.animeId === context?.animeId);
     if (origin) { origin.tabIndex = -1; origin.focus({ preventScroll: true }); }
-    window.AnivoidUI.animate(grid,
-        [{ opacity: 0.65 }, { opacity: 1 }],
-        { channel: 'detail', duration: 180, easing: 'cubic-bezier(.22,1,.36,1)' });
+
 }
 
-// Setup Comments logic
-function setupCommentForm() {
-    const submitBtn = document.getElementById('submit-comment-btn');
-    const commentInput = document.getElementById('comment-textarea');
-
-    if (submitBtn && commentInput) {
-        bindElementOnce(submitBtn, 'submitComment', 'click', () => {
-            const commentText = commentInput.value;
-            if (!commentText.trim() || !state.activeDetailAnimeId) return;
-
-            // Save comment under the logged-in user's ID
-            const loggedInUsername = localStorage.getItem('anivoid_logged_in_username') || '';
-            const authorId = loggedInUsername ? loggedInUsername.toLowerCase().replace(/[^a-z0-9]/g, '') : state.currentFriendId;
-
-            state.addComment(state.activeDetailAnimeId, authorId, commentText);
-            commentInput.value = '';
-
-            // Re-render comments list
-            const anime = state.animes.find(a => a.id === state.activeDetailAnimeId);
-            renderComments(anime);
-        });
-    }
-}
-
-// Forms: Add Anime & Add Friend
 function setupFormSubmissions() {
     // Add Anime Form
     const addAnimeForm = document.getElementById('add-anime-form');

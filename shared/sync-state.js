@@ -3,6 +3,7 @@
 (function (root) {
     const profileFields = ['email', 'color', 'avatar', 'favoriteGenres', 'favoriteStudios', 'favoriteAnimes', 'activeTitle', 'featuredAnimeId'];
     const ratingFields = ['animation', 'story', 'sound', 'overall', 'status', 'episodesWatched', 'updatedAt', 'episodeRatings', 'watchedEpisodesMap'];
+    const commentFields = ['friendName', 'comment', 'timestamp', 'kind', 'title', 'episode', 'spoiler'];
     const blockedKeys = new Set(['__proto__', 'prototype', 'constructor']);
     const copy = value => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
     const userId = value => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -29,6 +30,18 @@
         return Object.fromEntries(fields.filter(key => record && Object.hasOwn(record, key)).map(key => [key, copy(record[key])]));
     }
 
+    function commentMetadata(record) {
+        const metadata = {};
+        if (record?.kind === 'review' || record?.kind === 'comment') metadata.kind = record.kind;
+        if (Object.hasOwn(record || {}, 'title')) metadata.title = String(record.title || '').trim().slice(0, 160);
+        if (Object.hasOwn(record || {}, 'spoiler')) metadata.spoiler = record.spoiler === true;
+        if (Object.hasOwn(record || {}, 'episode')) {
+            const episode = Number(record.episode);
+            metadata.episode = Number.isSafeInteger(episode) && episode > 0 ? episode : null;
+        }
+        return metadata;
+    }
+
     function clientSnapshot(state, username) {
         const id = userId(username);
         const me = (state.registeredUsers || []).find(user => userId(user.username) === id);
@@ -40,7 +53,9 @@
                 comments: (anime.comments || []).map(comment => ({
                     id: comment.id, friendId: comment.friendId, friendName: comment.friendName,
                     comment: comment.comment, timestamp: comment.timestamp,
-                    likes: comment.likes || [], replies: comment.replies || []
+                    ...commentMetadata(comment),
+                    // A sync baseline must not share mutable arrays with the live UI.
+                    likes: copy(comment.likes || []), replies: copy(comment.replies || [])
                 }))
             })),
             activities: (state.activities || []).filter(activity => userId(activity.username) === id),
@@ -70,7 +85,7 @@
     }
 
     function mergeComments(base, local, server, id) {
-        const result = mergeOwnedRecords(base, local, server, id, ['friendName', 'comment', 'timestamp']);
+        const result = mergeOwnedRecords(base, local, server, id, commentFields);
         for (const comment of result) {
             const previous = (base || []).find(item => item.id === comment.id);
             const changed = (local || []).find(item => item.id === comment.id);
@@ -134,7 +149,7 @@
         return next;
     }
 
-    const api = { applyChanges, clientSnapshot, mergeClientState, equal };
+    const api = { applyChanges, clientSnapshot, mergeClientState, equal, commentMetadata };
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.AnivoidSync = api;
 })(typeof globalThis === 'object' ? globalThis : this);
