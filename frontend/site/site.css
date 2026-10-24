@@ -117,7 +117,7 @@ body.av-app { background: var(--av-bg) !important; }
 /* Archive / an index, not a dashboard of equal-weight panels. */
 .av-app #anime-grid-section { padding-block: 88px !important; }
 .av-app #grid-header-section { gap: 28px; margin-bottom: 45px; }
-.av-app #grid-header-section h2 { font: 600 clamp(36px,4.8vw,72px)/1.04 var(--av-display) !important; letter-spacing: -.055em; color: var(--av-ink) !important; text-wrap: balance; }
+.av-app #grid-header-section h2 { font: 600 clamp(36px,4.8vw,72px)/1.04 var(--av-display) !important; letter-spacing: -.055em; color: var(--av-ink) !important; white-space: nowrap; }
 .av-app #grid-header-section h2 span { font: inherit; font-style: normal; color: var(--av-muted) !important; }
 .av-app #grid-header-section > div:first-child > div > p { font: 11px/1.6 var(--av-body); letter-spacing: .08em; color: var(--av-muted) !important; margin-top: 17px; }
 .av-app #grid-header-section .mal-tab { font: 11px/1.5 var(--av-body); text-transform: none; letter-spacing: 0; padding: 15px 5px; min-height: 44px; color: var(--av-muted); border-bottom-width: 1px; }
@@ -326,7 +326,7 @@ body.av-app { background: var(--av-bg) !important; }
     .av-hero-bottom > a { gap: 15px; font-size: 9px; }
     .av-app #anime-grid-section { padding-block: 58px !important; }
     .av-app #grid-header-section { gap: 23px; margin-bottom: 32px; }
-    .av-app #grid-header-section h2 { font-size: 39px !important; }
+    .av-app #grid-header-section h2 { font-size: clamp(20px,5.8vw,32px) !important; }
     .av-app #grid-header-section .mal-tab { font-size: 11px; padding-inline: 8px; }
     .av-app #anime-grid-container,.av-studio-catalog { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 34px 17px; }
     .av-card-meta { font-size: 8px; margin-top: 12px; align-items: start; }
