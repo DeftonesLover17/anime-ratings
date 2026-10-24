@@ -57,7 +57,6 @@ function createCatalogCard(model, actions, index) {
         element(`<article class="av-anime-card" data-anime-id="${e(anime.id)}" data-av-reveal>
         <a class="av-card-poster av-poster-surface" href="#obra/${encodeURIComponent(anime.id)}" aria-label="Abrir ${e(anime.title)}">
             <img data-av-cover="${e(anime.id)}" src="${e(imageUrl(anime.coverUrl))}" width="400" height="600" loading="lazy" decoding="async" alt="Capa de ${e(anime.title)}">
-            <span class="av-card-position">${String(index + 1).padStart(2, '0')}</span>
             <span class="av-card-invitation">Entrar na obra ${arrow()}</span>
         </a>
         <div class="av-card-meta"><span>${e(anime.season || 'Sem temporada')}</span>${scoreMarkup(groupScore)}</div>
