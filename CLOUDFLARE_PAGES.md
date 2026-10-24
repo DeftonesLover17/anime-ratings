@@ -5,6 +5,7 @@
 - Instale as dependencias com `npm ci`.
 - Rode `npm test` e `npm run build:pages` antes de publicar.
 - O build gera Tailwind localmente e publica CSS e JavaScript compactados, com nomes baseados no conteudo.
+- `assets/` contem a saida compilada e deve acompanhar `index.html` no commit. Isso tambem atende a configuracao atual que publica a raiz do repositorio; `dist` continua disponivel para projetos configurados com essa pasta de saida.
 - Use Node 24 para executar tambem o teste com SQLite real. Em Node 18 esse teste especifico e pulado.
 
 O estado usa uma revisao numerica dentro do JSON existente do D1. Cada gravacao verifica essa revisao de forma atomica; conflitos sao relidos e repetidos ate tres vezes. O navegador envia alteracoes em relacao ao ultimo snapshot, preservando mudancas feitas em outros dispositivos. Abas abertas em versoes anteriores precisam recarregar antes de salvar.
