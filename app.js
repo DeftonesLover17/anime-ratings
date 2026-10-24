@@ -994,13 +994,12 @@ const DEFAULT_ANIMES = [
 ];
 
 // App State Management
-const RENDER_API_BASE_URL = 'https://anime-ratings.onrender.com';
-const API_BASE_URL = window.ANIVOID_API_BASE_URL
-    || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? ''
-        : (window.location.hostname === 'anime-ratings.onrender.com' ? RENDER_API_BASE_URL : ''));
+const currentOrigin = (typeof window !== 'undefined' && window.location && window.location.origin)
+    ? window.location.origin
+    : 'https://anime-ratings.pages.dev';
+const API_BASE_URL = (typeof window !== 'undefined' && window.ANIVOID_API_BASE_URL) || '';
 const originalFetch = window.fetch;
-const ANIVOID_API_ORIGIN = new URL(API_BASE_URL || window.location.origin, window.location.origin).origin;
+const ANIVOID_API_ORIGIN = new URL(API_BASE_URL || currentOrigin, currentOrigin).origin;
 
 function isAniVoidApiRequest(input) {
     try {
