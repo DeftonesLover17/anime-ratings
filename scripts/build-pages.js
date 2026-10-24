@@ -20,12 +20,17 @@ async function build() {
     const config = require(path.join(root, 'tailwind.config.js'));
     config.content = config.content.map(file => path.resolve(root, file));
     const generated = await postcss([tailwind(config)]).process('@tailwind base; @tailwind components; @tailwind utilities;', { from: undefined });
+    const uiBundle = esbuild.buildSync({
+        entryPoints: [path.join(root, 'frontend/ui/index.js')],
+        bundle: true, write: false, format: 'iife', platform: 'browser', target: 'es2020'
+    }).outputFiles[0].text;
     let html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
     const assets = [
         ['tailwind.css', generated.css, 'css'],
-        ['styles.css', fs.readFileSync(path.join(root, 'styles.css'), 'utf8'), 'css'],
+        ['styles.css', fs.readFileSync(path.join(root, 'styles.css'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'frontend/ui/ui.css'), 'utf8'), 'css'],
         ['shared/sync-state.js', fs.readFileSync(path.join(root, 'shared/sync-state.js'), 'utf8'), 'js'],
-        ['app.js', fs.readFileSync(path.join(root, 'app.js'), 'utf8'), 'js']
+        ['app.js', fs.readFileSync(path.join(root, 'app.js'), 'utf8'), 'js'],
+        ['ui.js', uiBundle, 'js']
     ];
     for (const [name, source, loader] of assets) {
         const output = esbuild.transformSync(source, { loader, minifyWhitespace: true, minifySyntax: true, minifyIdentifiers: false, charset: 'utf8', target: 'es2020' }).code;
@@ -36,6 +41,7 @@ async function build() {
         fs.writeFileSync(path.join(dist, hashed), output);
         fs.writeFileSync(path.join(root, hashed), output);
         const patterns = {
+            'ui.js': /((?:src|href)=["'])(?:assets\/)?ui(?:-preferences)?(?:\.[a-f0-9]{12})?\.js(["'])/g,
             'app.js': /((?:src|href)=["'])(?:assets\/)?app(?:\.[a-f0-9]{12})?\.js(?:\?v=\d+)?(["'])/g,
             'styles.css': /((?:src|href)=["'])(?:assets\/)?styles(?:\.[a-f0-9]{12})?\.css(?:\?v=\d+)?(["'])/g,
             'tailwind.css': /((?:src|href)=["'])(?:assets\/)?tailwind(?:\.[a-f0-9]{12})?\.css(["'])/g,

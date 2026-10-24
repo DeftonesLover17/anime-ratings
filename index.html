@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="assets/ui.ebb45e5232fb.js"></script>
     <title>ANIVØID | Season Ratings</title>
     <!-- Favicon / Logo -->
     <link rel="icon" type="image/png" href="favicon.png">
     <!-- EmailJS SDK for real email delivery (optional) -->
     <script defer src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <link rel="stylesheet" href="assets/tailwind.c3b11a148f0e.css">
+    <link rel="stylesheet" href="assets/tailwind.e80a84187a90.css">
     <!-- Iconify Icons CDN -->
     <script defer src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
     
@@ -18,7 +19,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syncopate:wght@700&family=Syne:wght@800&family=Lexend+Tera:wght@900&display=swap" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="assets/styles.ca0012fe0942.css">
+    <link rel="stylesheet" href="assets/styles.1ee341198026.css">
     
     <meta name="theme-color" content="#050505">
 </head>
@@ -74,6 +75,7 @@
                 <p id="reg-header-desc" class="text-xs text-gray-400 font-mono font-light leading-relaxed">Antes de entrar, precisamos de algumas informações para personalizar sua experiência.</p>
             </div>
 
+            <div class="flex justify-end"><button type="button" class="theme-toggle" data-theme-toggle aria-label="Ativar modo claro"><span data-theme-symbol aria-hidden="true">☼</span><span data-theme-label>Claro</span></button></div>
             <!-- Tab Switcher -->
             <div class="flex bg-white/5 border border-white/10 rounded-full p-1 select-none font-mono text-[9px] w-full max-w-xs mx-auto mb-4">
                 <button type="button" id="tab-register" class="flex-grow py-1.5 rounded-full text-white bg-brand font-bold transition-all uppercase tracking-wider text-center">Criar Conta</button>
@@ -266,6 +268,9 @@
                 <a href="#anime-grid-section" onclick="resetFilters()" class="hover:text-white transition-colors duration-300">Resetar Filtros</a>
             </div>
 
+            <!-- Theme preference is independent of user accounts. -->
+            <div class="nav-theme-slot">
+            <button type="button" class="theme-toggle" data-theme-toggle aria-label="Ativar modo claro"><span data-theme-symbol aria-hidden="true">☼</span><span data-theme-label>Claro</span></button>
             <!-- Top Right Profile Selector -->
             <div class="relative">
                 <button id="profile-indicator" class="relative flex items-center gap-3 px-4 py-2 border rounded-full bg-white/5 hover:bg-white/10 transition-all duration-300">
@@ -321,6 +326,7 @@
                     </button>
                 </div>
             </div>
+        </div>
         </div>
     </nav>
 
@@ -494,9 +500,9 @@
                     
                     <!-- Highlighted Studio Badge overlaying the banner -->
                     <div class="absolute bottom-6 right-6 md:right-10 z-20">
-                        <span id="detail-studio" class="studio-glow px-4 py-2 rounded-full text-xs font-mono tracking-widest font-semibold uppercase bg-brand/20 border border-brand text-white inline-block">
+                        <button type="button" id="detail-studio" class="studio-glow px-4 py-2 rounded-full text-xs font-mono tracking-widest font-semibold uppercase bg-brand/20 border border-brand text-white inline-block">
                             STUDIO
-                        </span>
+                        </button>
                     </div>
                 </div>
 
@@ -1341,6 +1347,6 @@
 
     <!-- Scripts Integration -->
     <script src="assets/sync-state.afa276a74875.js"></script>
-    <script src="assets/app.b7cde3b3b580.js"></script>
+    <script src="assets/app.6628738d6733.js"></script>
 </body>
 </html>

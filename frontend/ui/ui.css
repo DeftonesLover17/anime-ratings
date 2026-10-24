@@ -1,0 +1,268 @@
+/* Rating tokens and native scrolling. The splash retains its original CSS. */
+:root {
+    --score-high: #78dfa3;
+    --score-good: #a0d58b;
+    --score-mid: #f0c16c;
+    --score-low: #ff9691;
+    --score-neutral: #a8afac;
+    --score-high-glow: rgb(120 223 163 / .16);
+    --score-good-glow: rgb(160 213 139 / .14);
+    --score-mid-glow: rgb(240 193 108 / .13);
+    --score-low-glow: rgb(255 150 145 / .14);
+    --score-neutral-glow: transparent;
+    --motion-ease: cubic-bezier(.22, 1, .36, 1);
+    --rating-surface: #101511;
+}
+html, body {
+    scrollbar-width: none;
+}
+html::-webkit-scrollbar, body::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+/* Shared appearance control and rating touch targets. */
+.theme-toggle {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 9px 13px;
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    color: inherit;
+    background: transparent;
+    font-size: 11px;
+    cursor: pointer;
+}
+.nav-theme-slot {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.theme-toggle:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+}
+.ep-rating-input, #quick-fill-input, #quick-fill-btn {
+    min-height: 44px;
+}
+.episode-row label {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+}
+[data-theme-symbol] {
+    font-size: 19px;
+    line-height: 1;
+}
+@media(max-width: 480px) {
+    .nav-theme-slot {
+        gap: 7px;
+    }
+    .theme-toggle {
+        padding: 8px;
+    }
+    .theme-toggle [data-theme-label] {
+        display: none;
+    }
+    #main-nav > div {
+        gap: 8px;
+    }
+    .film-rating-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    .film-rating-row > div:last-child {
+        justify-content: space-between;
+    }
+}
+/* Light theme. Scoped adapters are required by the legacy hard-coded utilities. */
+:root[data-color-scheme="light"] {
+    --bg: #f5f3ed;
+    --glass-border: rgb(25 36 30 / .15);
+    --text-muted: #59665d;
+    --rating-surface: #fffdf8;
+    --score-high: #13643d;
+    --score-good: #35682b;
+    --score-mid: #895600;
+    --score-low: #b42b35;
+    --score-neutral: #5c6660;
+    --score-high-glow: rgb(19 100 61 / .08);
+    --score-good-glow: rgb(53 104 43 / .07);
+    --score-mid-glow: rgb(137 86 0 / .07);
+    --score-low-glow: rgb(180 43 53 / .07);
+}
+:root[data-color-scheme="light"] body {
+    background: var(--bg) !important;
+    color: #19251e;
+}
+:root[data-color-scheme="light"] :where(.glass-panel, .glass-card, .toast-card):not(#featured-banner-wrapper *) {
+    background: #fffdf8;
+    border-color: var(--glass-border);
+    box-shadow: none;
+}
+:root[data-color-scheme="light"] #main-nav,
+:root[data-color-scheme="light"] #anime-detail-page {
+    background: var(--bg) !important;
+}
+:root[data-color-scheme="light"] #featured-banner-wrapper {
+    color: #fff;
+}
+:root[data-color-scheme="light"] :where([class~="bg-cardDark"], [class~="bg-[#050505]"], [class~="bg-[#0a0a0a]"], [class~="bg-[#111111]"], [class~="bg-[#0d0d0d]"], [class~="bg-[#111]"]):not(#splash-screen, #splash-screen *) {
+    background-color: #fffdf8 !important;
+}
+:root[data-color-scheme="light"] :where([class~="text-white"], [class*="text-white/"]):not(#splash-screen, #splash-screen *, #featured-banner-wrapper *, .anime-poster-surface *, .studio-profile-hero *, .studio-landing-card *, .bg-brand, .bg-brand *, [class*="bg-emerald-"], [class*="bg-blue-"], [class*="bg-rose-"]) {
+    color: #19251e !important;
+}
+:root[data-color-scheme="light"] :where([class*="text-gray-"], [class*="text-neutral-"]):not(#splash-screen, #splash-screen *, #featured-banner-wrapper *, .anime-poster-surface *, .studio-profile-hero *, .studio-landing-card *, .bg-brand *) {
+    color: #58655d !important;
+}
+:root[data-color-scheme="light"] :where([class*="border-white/"]):not(#splash-screen, #splash-screen *, #featured-banner-wrapper *, .anime-poster-surface *) {
+    border-color: var(--glass-border) !important;
+}
+:root[data-color-scheme="light"] :where([class*="bg-white/"]):not(#splash-screen, #splash-screen *, #featured-banner-wrapper *, .anime-poster-surface *) {
+    background-color: rgb(25 36 30 / .035);
+}
+:root[data-color-scheme="light"] :where([class*="bg-bgDark/"]):not(#splash-screen, #splash-screen *, #featured-banner-wrapper *, .anime-poster-surface *) {
+    background-color: #eeeee7;
+}
+:root[data-color-scheme="light"] [class~="text-[#2db039]"] {
+    color: #25643b;
+}
+:root[data-color-scheme="light"] [class~="text-[#26448f]"] {
+    color: #26448f;
+}
+:root[data-color-scheme="light"] [class~="text-[#f1c40f]"] {
+    color: #805b12;
+}
+:root[data-color-scheme="light"] :where(input, textarea, select):not(#splash-screen *) {
+    color: #19251e;
+    background-color: #fffdf8;
+    border-color: #b3bcb4;
+}
+:root[data-color-scheme="light"] :where(input, textarea)::placeholder {
+    color: #68766c;
+}
+:root[data-color-scheme="light"] :where(.recommendation-reason, .recommendation-score-callout span) {
+    color: #58655d;
+}
+:root[data-color-scheme="light"] #detail-studio {
+    background-color: #fffdf8;
+}
+:root[data-color-scheme="light"] :where([class*="text-red-"]) {
+    color: var(--score-low);
+}
+#detail-studio {
+    min-height: 44px;
+}
+#detail-studio:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+}
+:root[data-color-scheme="light"] .ambient-depth-stage {
+    opacity: .12;
+}
+:root[data-color-scheme="light"] .studio-logo-bg {
+    background: #151513;
+}
+/* Image overlays retain their dark surface and contrasting score palette. */
+:root[data-color-scheme="light"] :where(#featured-banner-wrapper, .anime-poster-surface, .studio-profile-hero, .studio-landing-card) {
+    --score-high: #78dfa3;
+    --score-good: #a0d58b;
+    --score-mid: #f0c16c;
+    --score-low: #ff9691;
+    --score-neutral: #a8afac;
+}
+.studio-profile-hero {
+    color: #fff;
+}
+:root[data-color-scheme="light"] .studio-profile-hero [class*="text-brand"] {
+    color: #c4cbc6;
+}
+.studio-profile-logo {
+    max-width: 100%;
+}
+.studio-profile-logo img {
+    max-width: 100%;
+}
+.studio-landing-card {
+    background: #101110;
+}
+.studio-landing-card .studio-logo-mark {
+    max-width: calc(100% - 12px);
+}
+.studio-score-value {
+    color: var(--score-color);
+}
+/* Motion: one transform per card; pointer and reduced-motion fallbacks. */
+.glass-card, .glass-panel {
+    will-change: auto;
+}
+.anime-card-3d, .studio-landing-card {
+    transition: transform .24s var(--motion-ease), border-color .2s ease, background-color .2s ease;
+}
+.anime-card-3d:hover, .studio-landing-card:hover {
+    transform: none;
+}
+.anime-card-3d .anime-poster-surface img {
+    transition: transform .35s var(--motion-ease) !important;
+}
+.anime-card-3d:focus-within, .studio-landing-card:focus-visible {
+    border-color: var(--accent);
+    outline-offset: 4px;
+}
+#main-nav a {
+    text-underline-offset: 6px;
+}
+#main-nav a:hover, #main-nav a:focus-visible {
+    text-decoration: underline;
+}
+@media(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .anime-card-3d:hover, .studio-landing-card:hover {
+        transform: translateY(-4px) !important;
+        border-color: color-mix(in srgb, var(--accent) 48%, transparent);
+    }
+    .anime-card-3d:hover .anime-poster-surface img {
+        transform: scale(1.035) !important;
+    }
+    .theme-toggle:hover {
+        border-color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 8%, transparent);
+    }
+}
+@media(prefers-reduced-motion: reduce) {
+    body :not(#splash-screen, #splash-screen *) {
+        animation: none !important;
+        transition: none !important;
+    }
+    .reveal {
+        opacity: 1 !important;
+        transform: none !important;
+    }
+}
+body :not(#splash-screen, #splash-screen *) {
+    scrollbar-width: none;
+}
+body ::-webkit-scrollbar {
+    display: none;
+}
+:root[data-color-scheme=light] img[src*='logos/sunrise-animation.'] {
+    background: #151513;
+    padding: 6px;
+    border-radius: 4px;
+}
+#detail-title:focus {
+    outline: none;
+}
+:root.theme-changing body :not(#splash-screen, #splash-screen *) {
+    transition: none !important;
+}
+@media(hover:none),(pointer:coarse),(prefers-reduced-motion:reduce) {
+    .anime-poster-surface img {
+        transform: none!important;
+    }
+}

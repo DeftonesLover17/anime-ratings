@@ -2673,7 +2673,6 @@ class AppState {
 // Initialise Global State
 const state = new AppState();
 window.__anivoidState = state;
-const tiltBoundCards = new WeakSet();
 
 const NOTIFICATIONS_KEY = 'anivoid_notifications_v1';
 
@@ -3253,6 +3252,10 @@ function renderRecommendationsRail() {
     const rail = document.getElementById('recommendations-rail');
     const list = document.getElementById('recommendations-rail-list');
     if (!rail || !list) return;
+    if (state.activeDetailAnimeId || state.filterMALStatus === 'Studios') {
+        rail.classList.add('hidden');
+        return;
+    }
     const recs = buildPersonalRecommendations(3, state.currentFriendId || getLoggedInProfileId());
     if (recs.length === 0) {
         rail.classList.add('hidden');
@@ -3279,7 +3282,7 @@ function renderRecommendationsRail() {
                 <div class="flex gap-4 p-4">
                     <img src="${escapeHtml(rec.anime.coverUrl)}" class="w-16 h-24 rounded-2xl object-cover border border-white/10 shadow-lg group-hover:scale-105 transition-transform" alt="${escapeHtml(rec.anime.title)}">
                     <div class="min-w-0 flex-grow">
-                        <div class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[8px] font-mono uppercase tracking-widest mb-3" style="color:${color.text}; border-color:${color.text}55; background:${color.text}13">
+                        <div class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[8px] font-mono uppercase tracking-widest mb-3" style="color:${color.text}; border-color:color-mix(in srgb, ${color.text} 33%, transparent); background:color-mix(in srgb, ${color.text} 7%, transparent)">
                             <iconify-icon icon="lucide:radar" class="text-[11px]"></iconify-icon>
                             Recomendado
                         </div>
@@ -3298,7 +3301,6 @@ function renderRecommendationsRail() {
     list.querySelectorAll('.recommendation-card').forEach(card => {
         card.addEventListener('click', () => openAnimeDetail(card.dataset.animeId));
     });
-    initSoftTiltCards(list);
 }
 
 function renderAnimeHistory(anime) {
@@ -3501,7 +3503,7 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
                 <div class="relative aspect-[3/4]">
                     <img src="${escapeHtml(item.anime.coverUrl)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="${escapeHtml(item.anime.title)}">
                     <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent"></div>
-                    <span class="absolute top-3 right-3 rounded-xl border bg-black/75 px-2 py-1 text-[10px] font-mono font-bold" style="color:${color.text}; border-color:${color.text}55; box-shadow:0 0 14px ${color.glow}">★ ${item.overall}</span>
+                    <span class="absolute top-3 right-3 rounded-xl border bg-black/75 px-2 py-1 text-[10px] font-mono font-bold" style="color:${color.text}; border-color:color-mix(in srgb, ${color.text} 33%, transparent); box-shadow:0 0 14px ${color.glow}">★ ${item.overall}</span>
                     <h4 class="absolute bottom-3 left-3 right-3 text-xs font-serif font-bold text-white line-clamp-2">${escapeHtml(item.anime.title)}</h4>
                 </div>
             </button>
@@ -3684,7 +3686,6 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
     });
     modal.classList.remove('hidden');
     modal.classList.add('flex');
-    initSoftTiltCards(content);
 }
 
 function setupUtilityModals() {
@@ -3790,57 +3791,6 @@ function setupUtilityModals() {
     bindOnce('import-backup-file', 'change', (event) => importBackupData(event.target.files?.[0]));
 }
 
-function initSoftTiltCards(root = document) {
-    return;
-    if (!root || !window.matchMedia || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    if (window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 1024) return;
-
-    // Keep pointer-driven 3D only on the large hero/detail posters. Binding it to
-    // every grid card makes the browser recalculate layout on every mouse move.
-    const cards = root.querySelectorAll ? root.querySelectorAll('.featured-poster-3d, .detail-poster-frame') : [];
-    cards.forEach(card => {
-        if (tiltBoundCards.has(card)) return;
-        tiltBoundCards.add(card);
-
-        let rect = null;
-        let frameId = null;
-        let latestEvent = null;
-
-        const updateTilt = () => {
-            frameId = null;
-            if (!latestEvent) return;
-            rect = rect || card.getBoundingClientRect();
-            if (!rect.width || !rect.height) return;
-            const x = (latestEvent.clientX - rect.left) / rect.width;
-            const y = (latestEvent.clientY - rect.top) / rect.height;
-            const rotateY = (x - 0.5) * 5.5;
-            const rotateX = (0.5 - y) * 5.5;
-            card.style.setProperty('--tilt-y', `${rotateY.toFixed(2)}deg`);
-            card.style.setProperty('--tilt-x', `${rotateX.toFixed(2)}deg`);
-        };
-
-        card.addEventListener('pointerenter', () => {
-            rect = card.getBoundingClientRect();
-        }, { passive: true });
-
-        card.addEventListener('pointermove', (event) => {
-            latestEvent = event;
-            if (frameId === null) {
-                frameId = requestAnimationFrame(updateTilt);
-            }
-        }, { passive: true });
-
-        card.addEventListener('pointerleave', () => {
-            if (frameId !== null) cancelAnimationFrame(frameId);
-            frameId = null;
-            latestEvent = null;
-            rect = null;
-            card.style.setProperty('--tilt-y', '0deg');
-            card.style.setProperty('--tilt-x', '0deg');
-        }, { passive: true });
-    });
-}
-
 function markViewEntered(element) {
     if (!element) return;
     if (element.dataset.viewEntered) return;
@@ -3922,15 +3872,20 @@ function startApp() {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
                 entry.target.classList.add('active');
+                revealObserver.unobserve(entry.target);
             }
         });
     }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
 
     window.initObserver = (root = document) => {
         const scope = root && root.querySelectorAll ? root : document;
-        scope.querySelectorAll('.reveal:not(.active)').forEach(el => revealObserver.observe(el));
-        initSoftTiltCards(scope);
+        scope.querySelectorAll('.reveal:not(.active)').forEach(el => {
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) el.classList.add('active');
+            else revealObserver.observe(el);
+        });
     };
+
+    window.releaseRevealElement = element => revealObserver.unobserve(element);
 
     // 2. Loading Splash Screen Setup
     setupSplashScreen();
@@ -4365,7 +4320,6 @@ function renderFriendsDropdown() {
 
         container.appendChild(item);
     });
-    initSoftTiltCards(container);
 }
 
 function renderFilters() {
@@ -4565,31 +4519,7 @@ function getUserBadgesHtml(user) {
 
 // Helper to calculate dynamic colors based on score (red to yellow to green)
 function getScoreColor(score) {
-    const numScore = parseFloat(score);
-    if (isNaN(numScore) || numScore === 0) {
-        return { text: '#7f8c8d', glow: 'rgba(127, 140, 141, 0)' };
-    }
-    const hue = Math.min(120, Math.max(0, (numScore / 10) * 120));
-    return {
-        text: `hsl(${hue}, 100%, 45%)`,
-        glow: `hsla(${hue}, 100%, 50%, 0.55)`
-    };
-}
-
-function getStudioScoreColor(score) {
-    const numScore = parseFloat(score);
-    if (isNaN(numScore) || numScore <= 0) {
-        return { text: '#facc15', glow: 'hsla(45, 95%, 55%, 0.45)' };
-    }
-
-    const clampedScore = Math.min(10, Math.max(0, numScore));
-    const normalizedScore = Math.min(1, Math.max(0, (clampedScore - 5) / 5));
-    const hue = Math.round(45 + normalizedScore * 85);
-
-    return {
-        text: `hsl(${hue}, 95%, 52%)`,
-        glow: `hsla(${hue}, 95%, 55%, 0.5)`
-    };
+    return window.AnivoidUI.scoreColor(score);
 }
 
 function renderFeaturedBanner() {
@@ -4641,7 +4571,7 @@ function renderFeaturedBanner() {
 
     const avgColorInfo = getScoreColor(avgScore);
     const scoreColorInfo = getScoreColor(myScore);
-    const boxStyle = myScore !== '-' ? `border-color: ${scoreColorInfo.text}35; box-shadow: 0 0 15px ${scoreColorInfo.glow}` : '';
+    const boxStyle = myScore !== '-' ? `border-color: color-mix(in srgb, ${scoreColorInfo.text} 21%, transparent); box-shadow: 0 0 15px ${scoreColorInfo.glow}` : '';
     const textStyle = myScore !== '-' ? `color: ${scoreColorInfo.text}; text-shadow: 0 0 8px ${scoreColorInfo.glow}` : 'color: #7f8c8d';
 
     const isPinned = viewedFeaturedId === featuredAnime.id;
@@ -4679,7 +4609,7 @@ function renderFeaturedBanner() {
                 <div class="flex flex-wrap items-center gap-3 mb-4">
                     <span class="px-3 py-1 rounded-full border text-xs font-mono tracking-widest uppercase inline-block transition-all duration-300" style="${
                         avgScore > 0 
-                            ? `border-color: ${avgColorInfo.text}50; background-color: ${avgColorInfo.text}15; color: ${avgColorInfo.text}; box-shadow: 0 0 10px ${avgColorInfo.glow}; text-shadow: 0 0 4px ${avgColorInfo.glow}` 
+                            ? `border-color: color-mix(in srgb, ${avgColorInfo.text} 31%, transparent); background-color: color-mix(in srgb, ${avgColorInfo.text} 8%, transparent); color: ${avgColorInfo.text}; box-shadow: 0 0 10px ${avgColorInfo.glow}; text-shadow: 0 0 4px ${avgColorInfo.glow}`
                             : 'border-brand/50 bg-brand/10 text-brand'
                     }">
                         ${isPinned ? 'Destaque Escolhido 🌟' : `Destaque da Galera ⭐ ${avgScore || 'S/N'}`}
@@ -4727,11 +4657,14 @@ function renderFeaturedBanner() {
             ${posterCardHtml}
         </div>
     `;
-    initSoftTiltCards(bannerContainer);
     markViewEntered(bannerContainer);
 }
 
+let catalogPanelsFrame = null;
+
 function renderAnimeGrid() {
+    if (catalogPanelsFrame !== null) cancelAnimationFrame(catalogPanelsFrame);
+    catalogPanelsFrame = null;
     const grid = document.getElementById('anime-grid-container');
     const studiosContainer = document.getElementById('studios-directory-container');
     const filterBar = document.querySelector('#anime-grid-section .glass-panel');
@@ -4782,9 +4715,9 @@ function renderAnimeGrid() {
         studiosContainer.classList.add('hidden');
         studiosContainer.classList.remove('block');
         
-        renderRecommendationsRail();
     }
 
+    grid.querySelectorAll('.reveal').forEach(element => window.releaseRevealElement?.(element));
     grid.innerHTML = '';
     const filteredList = state.getFilteredAnimeList();
     const loggedInUserId = (state.loggedInUser || localStorage.getItem('anivoid_logged_in_username') || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -4815,7 +4748,7 @@ function renderAnimeGrid() {
         const ownScore = ownRating?.overall || null;
         
         const avgColorInfo = getScoreColor(avgScore);
-        const avgBadgeStyle = avgScore > 0 ? `border-color: ${avgColorInfo.text}30; box-shadow: 0 0 8px ${avgColorInfo.glow}; color: ${avgColorInfo.text}; text-shadow: 0 0 4px ${avgColorInfo.glow}` : '';
+        const avgBadgeStyle = avgScore > 0 ? `border-color: color-mix(in srgb, ${avgColorInfo.text} 19%, transparent); box-shadow: 0 0 8px ${avgColorInfo.glow}; color: ${avgColorInfo.text}; text-shadow: 0 0 4px ${avgColorInfo.glow}` : '';
 
         const myScoreColorInfo = getScoreColor(myScore);
         const ownScoreColorInfo = getScoreColor(ownScore);
@@ -4826,11 +4759,11 @@ function renderAnimeGrid() {
         const comparisonHtml = shouldShowScoreComparison
             ? `<div class="mb-3 rounded-2xl border border-white/15 bg-white/[0.055] p-2.5 shadow-[0_0_26px_rgba(255,255,255,0.055)]">
                 <div class="grid grid-cols-2 gap-2 text-center">
-                    <div class="rounded-xl border px-3 py-2.5" style="background: ${hasProfileScore ? `${myScoreColorInfo.text}12` : 'rgba(255,255,255,0.035)'}; border-color: ${hasProfileScore ? `${myScoreColorInfo.text}55` : 'rgba(255,255,255,0.1)'}; box-shadow: ${hasProfileScore ? `0 0 16px ${myScoreColorInfo.glow}` : 'none'}">
+                    <div class="rounded-xl border px-3 py-2.5" style="background: ${hasProfileScore ? `color-mix(in srgb, ${myScoreColorInfo.text} 7%, transparent)` : 'rgba(255,255,255,0.035)'}; border-color: ${hasProfileScore ? `color-mix(in srgb, ${myScoreColorInfo.text} 33%, transparent)` : 'rgba(255,255,255,0.1)'}; box-shadow: ${hasProfileScore ? `0 0 16px ${myScoreColorInfo.glow}` : 'none'}">
                         <span class="block text-[8px] font-mono uppercase tracking-widest text-white/45">Perfil</span>
                         <b class="block text-2xl font-serif leading-none mt-1" style="color: ${hasProfileScore ? myScoreColorInfo.text : '#6b7280'}; text-shadow: ${hasProfileScore ? `0 0 12px ${myScoreColorInfo.glow}` : 'none'}">${hasProfileScore ? myScore : '-'}</b>
                     </div>
-                    <div class="rounded-xl border px-3 py-2.5" style="background: ${hasOwnScore ? `${ownScoreColorInfo.text}12` : 'rgba(255,255,255,0.035)'}; border-color: ${hasOwnScore ? `${ownScoreColorInfo.text}55` : 'rgba(255,255,255,0.1)'}; box-shadow: ${hasOwnScore ? `0 0 16px ${ownScoreColorInfo.glow}` : 'none'}">
+                    <div class="rounded-xl border px-3 py-2.5" style="background: ${hasOwnScore ? `color-mix(in srgb, ${ownScoreColorInfo.text} 7%, transparent)` : 'rgba(255,255,255,0.035)'}; border-color: ${hasOwnScore ? `color-mix(in srgb, ${ownScoreColorInfo.text} 33%, transparent)` : 'rgba(255,255,255,0.1)'}; box-shadow: ${hasOwnScore ? `0 0 16px ${ownScoreColorInfo.glow}` : 'none'}">
                         <span class="block text-[8px] font-mono uppercase tracking-widest text-white/45">Voc&ecirc;</span>
                         <b class="block text-2xl font-serif leading-none mt-1" style="color: ${hasOwnScore ? ownScoreColorInfo.text : '#6b7280'}; text-shadow: ${hasOwnScore ? `0 0 12px ${ownScoreColorInfo.glow}` : 'none'}">${hasOwnScore ? ownScore : '-'}</b>
                     </div>
@@ -4841,7 +4774,7 @@ function renderAnimeGrid() {
         // Personal score badge on image (bottom-right overlay)
         const myScoreBadgeHtml = myScore
             ? `<div class="poster-depth-badge absolute bottom-10 right-3 flex flex-col items-center justify-center gap-0" style="z-index:2">
-                <div class="flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold font-mono" style="background: rgba(0,0,0,0.75); border: 2px solid ${myScoreColorInfo.text}; color: ${myScoreColorInfo.text}; font-size:18px; text-shadow: 0 0 16px ${myScoreColorInfo.glow}; box-shadow: 0 0 28px ${myScoreColorInfo.glow}, 0 0 10px ${myScoreColorInfo.glow}60, inset 0 1px 0 ${myScoreColorInfo.text}40">
+                <div class="flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold font-mono" style="background: rgba(0,0,0,0.75); border: 2px solid ${myScoreColorInfo.text}; color: ${myScoreColorInfo.text}; font-size:18px; text-shadow: 0 0 16px ${myScoreColorInfo.glow}; box-shadow: 0 0 28px ${myScoreColorInfo.glow}, 0 0 10px ${myScoreColorInfo.glow}, inset 0 1px 0 color-mix(in srgb, ${myScoreColorInfo.text} 25%, transparent)">
                     <span style="font-size:13px">★</span>
                     <span>${myScore}</span>
                 </div>
@@ -4856,9 +4789,10 @@ function renderAnimeGrid() {
                </div>`;
 
         const card = document.createElement('div');
+        card.dataset.animeId = anime.id;
         card.className = 'glass-card anime-card-3d tilt-card rounded-2xl overflow-hidden flex flex-col justify-between h-full reveal';
         card.innerHTML = `
-            <div class="relative w-full aspect-[2/3] overflow-hidden group cursor-pointer" onclick="openAnimeDetail('${anime.id}')">
+            <div class="anime-poster-surface relative w-full aspect-[2/3] overflow-hidden group cursor-pointer" onclick="openAnimeDetail('${anime.id}')">
                 <img src="${anime.coverUrl}" alt="${anime.title}" loading="lazy" decoding="async" class="poster-parallax w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent"></div>
                 
@@ -4928,13 +4862,13 @@ function renderAnimeGrid() {
 
     grid.appendChild(gridFragment);
 
-    if (window.initObserver) {
-        window.initObserver(grid);
-    } else {
-        initSoftTiltCards(grid);
-    }
+    if (window.initObserver) window.initObserver(grid);
     markViewEntered(grid);
-    requestAnimationFrame(() => setTimeout(() => { renderActivitiesFeed(); renderRecommendationsRail(); }, 50));
+    catalogPanelsFrame = requestAnimationFrame(() => {
+        catalogPanelsFrame = null;
+        renderActivitiesFeed();
+        renderRecommendationsRail();
+    });
 }
 
 let activeStudioName = null;
@@ -4977,7 +4911,7 @@ const STUDIO_LOGOS = {
     'Kyoto Animation': 'logos/kyoto_animation.png',
     'White Fox': 'logos/white_fox.png',
     'CoMix Wave Films': 'logos/comix_wave_films.png',
-    'Sunrise': 'logos/sunrise.png',
+    'Sunrise': 'logos/sunrise-animation.png',
     'Studio Ghibli': 'logos/studio_ghibli.png',
     'Shaft': 'logos/shaft.png',
     'Tokyo Movie Shinsha': 'logos/tokyo_movie_shinsha.png',
@@ -5199,323 +5133,13 @@ const STUDIO_BRAND_COLORS = {
     'asread.':            { border: 'rgba(0, 112, 74, 0.4)', glow: 'rgba(0, 112, 74, 0.15)', text: '#00704a' }
 };
 
-// Dynamic cinematic transition for studio profile entries
-function triggerStudioTransition(studioName, onComplete) {
-    let logoSrc = getStudioLogo(studioName) || null;
-    if (studioName === 'A-1 Pictures') {
-        logoSrc = 'logos/a1_pictures_white.png';
-    }
-    const initials = getStudioInitials(studioName);
-
-    const dynamicImgStyle = studioName === 'Production I.G' ? 'filter: invert(1)' : '';
-
-    const logoTransitionSizes = {
-        'A-1 Pictures':   'max-w-[440px]',
-        'Ufotable':       'max-w-[460px]',
-        'Production I.G': 'max-w-[490px]',
-        'CloverWorks':    'max-w-[470px]',
-    };
-    const dynamicMaxW = logoTransitionSizes[studioName] || 'max-w-[440px]';
-
-    // Studio-specific transition colors (Auroras and spotlight)
-    const transitionThemes = {
-        'A-1 Pictures': {
-            aurora1: 'bg-[#0055ff]',
-            aurora2: 'bg-[#002288]',
-            spotlight: 'rgba(255, 255, 255, 0.55)',
-        },
-        'Ufotable': {
-            aurora1: 'bg-[#FF4500]',
-            aurora2: 'bg-[#800000]',
-            spotlight: 'rgba(255, 69, 0, 0.45)',
-        },
-        'Production I.G': {
-            aurora1: 'bg-[#ffffff]',
-            aurora2: 'bg-[#444444]',
-            spotlight: 'rgba(255, 255, 255, 0.35)',
-        },
-        'CloverWorks': {
-            aurora1: 'bg-[#00cc66]',
-            aurora2: 'bg-[#0077ff]',
-            spotlight: 'rgba(255, 255, 255, 0.55)',
-        },
-        'Madhouse': {
-            aurora1: 'bg-[#7209b7]',
-            aurora2: 'bg-[#3f37c9]',
-            spotlight: 'rgba(114, 9, 183, 0.45)',
-        },
-        'MAPPA': {
-            aurora1: 'bg-[#eb5e28]',
-            aurora2: 'bg-[#252422]',
-            spotlight: 'rgba(235, 94, 40, 0.45)',
-        },
-        'Bones': {
-            aurora1: 'bg-[#00b4d8]',
-            aurora2: 'bg-[#0077b6]',
-            spotlight: 'rgba(0, 180, 216, 0.45)',
-        },
-        'Wit Studio': {
-            aurora1: 'bg-[#2ec4b6]',
-            aurora2: 'bg-[#011627]',
-            spotlight: 'rgba(46, 196, 182, 0.45)',
-        },
-        'Gainax': {
-            aurora1: 'bg-[#f77f00]',
-            aurora2: 'bg-[#d62828]',
-            spotlight: 'rgba(247, 127, 0, 0.45)',
-        },
-        'Kyoto Animation': {
-            aurora1: 'bg-[#ff70a6]',
-            aurora2: 'bg-[#ff9770]',
-            spotlight: 'rgba(255, 112, 166, 0.45)',
-        },
-        'White Fox': {
-            aurora1: 'bg-[#f8f9fa]',
-            aurora2: 'bg-[#adb5bd]',
-            spotlight: 'rgba(255, 255, 255, 0.45)',
-        },
-        'CoMix Wave Films': {
-            aurora1: 'bg-[#003049]',
-            aurora2: 'bg-[#d62828]',
-            spotlight: 'rgba(0, 48, 73, 0.45)',
-        },
-        'Sunrise': {
-            aurora1: 'bg-[#e63946]',
-            aurora2: 'bg-[#1d3557]',
-            spotlight: 'rgba(230, 57, 70, 0.45)',
-        },
-        'Studio Ghibli': {
-            aurora1: 'bg-[#aacc00]',
-            aurora2: 'bg-[#007f5f]',
-            spotlight: 'rgba(170, 204, 0, 0.45)',
-        },
-        'Shaft': {
-            aurora1: 'bg-[#d00000]',
-            aurora2: 'bg-[#03071e]',
-            spotlight: 'rgba(208, 0, 0, 0.45)',
-        },
-        'Tokyo Movie Shinsha': {
-            aurora1: 'bg-[#ff006e]',
-            aurora2: 'bg-[#3a0ca3]',
-            spotlight: 'rgba(255, 0, 110, 0.45)',
-        },
-        'Tatsunoko Production': {
-            aurora1: 'bg-[#ffbe0b]',
-            aurora2: 'bg-[#fb5607]',
-            spotlight: 'rgba(255, 190, 11, 0.45)',
-        },
-        'Bug Film': {
-            aurora1: 'bg-[#ffd166]',
-            aurora2: 'bg-[#06d6a0]',
-            spotlight: 'rgba(255, 209, 102, 0.45)',
-        },
-        'BUG FILMS': {
-            aurora1: 'bg-[#ffd166]',
-            aurora2: 'bg-[#06d6a0]',
-            spotlight: 'rgba(255, 209, 102, 0.45)',
-        },
-        'Bug Films': {
-            aurora1: 'bg-[#ffd166]',
-            aurora2: 'bg-[#06d6a0]',
-            spotlight: 'rgba(255, 209, 102, 0.45)',
-        },
-        'Science Saru': {
-            aurora1: 'bg-[#ff007f]',
-            aurora2: 'bg-[#7b2cbf]',
-            spotlight: 'rgba(255, 0, 127, 0.45)',
-        },
-        'Toei Animation': {
-            aurora1: 'bg-[#ffb703]',
-            aurora2: 'bg-[#fb8500]',
-            spotlight: 'rgba(251, 133, 0, 0.45)',
-        },
-        'Pierrot': {
-            aurora1: 'bg-[#4ea8de]',
-            aurora2: 'bg-[#5e60ce]',
-            spotlight: 'rgba(78, 168, 222, 0.45)',
-        },
-        'David Production': {
-            aurora1: 'bg-[#2a9d8f]',
-            aurora2: 'bg-[#264653]',
-            spotlight: 'rgba(42, 157, 143, 0.45)',
-        },
-        'J.C.Staff': {
-            aurora1: 'bg-[#ff4d6d]',
-            aurora2: 'bg-[#800f2f]',
-            spotlight: 'rgba(255, 77, 109, 0.45)',
-        },
-        'Studio Bind': {
-            aurora1: 'bg-[#9b5de5]',
-            aurora2: 'bg-[#f15bb5]',
-            spotlight: 'rgba(155, 93, 229, 0.45)',
-        }
-    };
-
-    const theme = transitionThemes[studioName] || {
-        aurora1: 'bg-[#FF4500]',
-        aurora2: 'bg-[#800000]',
-        spotlight: 'rgba(255, 255, 255, 0.4)',
-    };
-
-    // Create overlay container
-    const overlay = document.createElement('div');
-    overlay.id = 'studio-cinematic-transition';
-    overlay.className = 'fixed inset-0 z-[10000] flex flex-col items-center justify-center bg-[#050505] transition-all duration-500 ease-out opacity-0 pointer-events-auto';
-    
-    overlay.innerHTML = `
-        <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none select-none">
-            <div class="absolute top-[15%] left-[-15%] w-[60vw] h-[60vw] rounded-full ${theme.aurora1} opacity-15 blur-[140px] animate-drift-left"></div>
-            <div class="absolute bottom-[10%] right-[-15%] w-[60vw] h-[60vw] rounded-full ${theme.aurora2} opacity-20 blur-[140px] animate-drift-right"></div>
-        </div>
-        
-        <div class="relative z-10 flex flex-col items-center justify-center w-full h-full text-center px-6">
-            <div id="transition-studio-card" class="relative flex flex-col items-center justify-center">
-                <!-- Ambient circular spotlight in the background -->
-                <div id="transition-spotlight" class="absolute w-[700px] h-[700px] rounded-full filter blur-[70px] opacity-0 pointer-events-none" style="background: radial-gradient(circle, ${theme.spotlight} 0%, transparent 70%); transform: scale(0.7); transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 1.2s ease;"></div>
-                
-                <!-- Floating dust particles for extra texture -->
-                <div class="absolute w-[680px] h-[400px] pointer-events-none z-0 overflow-hidden select-none">
-                    <div class="transition-particle absolute w-1 h-1 bg-white/40 rounded-full" style="top: 15%; left: 20%; animation-delay: 0.1s; animation-duration: 7s;"></div>
-                    <div class="transition-particle absolute w-1.5 h-1.5 bg-white/20 rounded-full" style="top: 65%; left: 12%; animation-delay: 0.6s; animation-duration: 9s;"></div>
-                    <div class="transition-particle absolute w-1.2 h-1.2 bg-white/35 rounded-full" style="top: 80%; left: 85%; animation-delay: 1.4s; animation-duration: 8s;"></div>
-                    <div class="transition-particle absolute w-2 h-2 bg-white/10 rounded-full" style="top: 25%; left: 78%; animation-delay: 0.9s; animation-duration: 10s;"></div>
-                    <div class="transition-particle absolute w-1 h-1 bg-white/30 rounded-full" style="top: 45%; left: 30%; animation-delay: 2.1s; animation-duration: 7.5s;"></div>
-                    <div class="transition-particle absolute w-1.5 h-1.5 bg-white/15 rounded-full" style="top: 50%; left: 70%; animation-delay: 1.8s; animation-duration: 8.5s;"></div>
-                </div>
-
-                <!-- Logo Section with slide reveal states -->
-                <div id="transition-logo-container" class="flex items-center justify-center w-[640px] h-[220px] opacity-0" style="transform: translateY(25px); transition: transform 0.9s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.9s ease, filter 0.9s ease; filter: blur(8px) brightness(1.3);">
-                    ${logoSrc 
-                        ? `<div class="shine-sweep-wrap flex items-center justify-center p-4">
-                               <img src="${logoSrc}" alt="${studioName}" class="${dynamicMaxW} h-auto max-h-[195px] object-contain select-none relative z-10" style="${dynamicImgStyle}">
-                           </div>`
-                        : `<div class="w-full h-full flex items-center justify-center text-7xl font-serif font-black text-brand select-none relative z-10" style="text-shadow: 0 0 25px rgba(255, 69, 0, 0.35);">${initials}</div>`
-                    }
-                </div>
-
-                <!-- Cinematic Separator Line -->
-                <div id="transition-separator" class="h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent my-6 opacity-0" style="width: 0px; transition: width 0.8s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.8s ease;"></div>
-
-                <!-- Text Section with elegant vertical mask reveal -->
-                <div id="transition-text-container" class="flex flex-col items-center justify-center">
-                    <div class="overflow-hidden h-4 mb-2 flex items-center justify-center">
-                        <p id="transition-subtitle" class="text-xs font-mono uppercase tracking-[0.85em] text-brand opacity-0" style="transform: translateY(100%); transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.7s ease, letter-spacing 1.1s cubic-bezier(0.16, 1, 0.3, 1);">Estúdio de Animação</p>
-                    </div>
-                    <div class="overflow-hidden py-1 flex items-center justify-center">
-                        <h3 id="transition-title" class="text-3xl sm:text-4xl md:text-5xl font-serif font-bold text-white tracking-wide leading-tight opacity-0" style="transform: translateY(100%); transition: transform 0.85s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.85s ease;">
-                            ${studioName}
-                        </h3>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    document.body.appendChild(overlay);
-
-    // Trigger reflow
-    void overlay.offsetWidth;
-
-    // Fade in overlay
-    overlay.classList.remove('opacity-0');
-
-    // Phase 1: Separator line expanding and spotlight acending (T=100ms)
-    setTimeout(() => {
-        const card = document.getElementById('transition-studio-card');
-        if (card) {
-            card.classList.add('transition-active');
-        }
-        
-        const spotlight = document.getElementById('transition-spotlight');
-        if (spotlight) {
-            spotlight.style.opacity = '0.65';
-            spotlight.style.transform = 'scale(1.0)';
-        }
-
-        const separator = document.getElementById('transition-separator');
-        if (separator) {
-            separator.style.width = '320px';
-            separator.style.opacity = '1';
-        }
-    }, 100);
-
-    // Phase 2: Logo slides in & fades (T=250ms)
-    setTimeout(() => {
-        const logoWrap = document.getElementById('transition-logo-container');
-        if (logoWrap) {
-            logoWrap.style.opacity = '1';
-            logoWrap.style.transform = 'translateY(0)';
-            logoWrap.style.filter = 'blur(0px) brightness(1)';
-        }
-    }, 250);
-
-    // Phase 3: Text elements reveal (T=400ms)
-    setTimeout(() => {
-        const subtitle = document.getElementById('transition-subtitle');
-        if (subtitle) {
-            subtitle.style.opacity = '0.85';
-            subtitle.style.transform = 'translateY(0)';
-            subtitle.style.letterSpacing = '0.6em';
-        }
-
-        const title = document.getElementById('transition-title');
-        if (title) {
-            title.style.opacity = '1';
-            title.style.transform = 'translateY(0)';
-        }
-    }, 400);
-
-    // Phase 4: Zoom In & Dissolve Exit (Passing through the logo to the destination page) (T=1350ms)
-    setTimeout(() => {
-        // Swap background content
-        if (onComplete) onComplete();
-
-        const logoWrap = document.getElementById('transition-logo-container');
-        if (logoWrap) {
-            logoWrap.style.transition = 'transform 0.7s cubic-bezier(0.19, 1, 0.22, 1), opacity 0.6s ease-out, filter 0.6s ease-out';
-            logoWrap.style.transform = 'scale(2.5)';
-            logoWrap.style.opacity = '0';
-            logoWrap.style.filter = 'blur(20px) brightness(1.6)';
-        }
-
-        const separator = document.getElementById('transition-separator');
-        if (separator) {
-            separator.style.width = '0px';
-            separator.style.opacity = '0';
-        }
-
-        const title = document.getElementById('transition-title');
-        if (title) {
-            title.style.transform = 'translateY(-30px)';
-            title.style.opacity = '0';
-        }
-
-        const subtitle = document.getElementById('transition-subtitle');
-        if (subtitle) {
-            subtitle.style.transform = 'translateY(-20px)';
-            subtitle.style.opacity = '0';
-        }
-
-        const spotlight = document.getElementById('transition-spotlight');
-        if (spotlight) {
-            spotlight.style.transition = 'transform 0.7s cubic-bezier(0.19, 1, 0.22, 1), opacity 0.6s ease-out';
-            spotlight.style.transform = 'scale(1.8)';
-            spotlight.style.opacity = '0';
-        }
-    }, 1350);
-
-    // Phase 5: Fade out full screen overlay smoothly (T=1950ms)
-    setTimeout(() => {
-        overlay.style.transition = 'opacity 0.5s cubic-bezier(0.19, 1, 0.22, 1)';
-        overlay.classList.add('opacity-0');
-        
-        // Phase 6: Cleanup DOM (T=2550ms)
-        setTimeout(() => {
-            if (overlay.parentNode) {
-                overlay.parentNode.removeChild(overlay);
-            }
-        }, 600);
-    }, 1950);
+function animateStudioEntry(onEnter) {
+    window.AnivoidUI.cancel('studio');
+    if (onEnter) onEnter();
+    const destination = document.getElementById('studios-directory-container');
+    return window.AnivoidUI.animate(destination,
+        [{ opacity: 0.55 }, { opacity: 1 }],
+        { channel: 'studio', duration: 360, easing: 'cubic-bezier(.22,1,.36,1)' });
 }
 
 // Render dynamic, glassmorphic studio directory
@@ -5588,12 +5212,14 @@ function renderStudiosDirectory() {
             const initials = getStudioInitials(studioName);
             const scores = animes.map(a => state.calculateAverageScore(a.id)).filter(s => s > 0);
             const avg = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : null;
-            const scoreCfg = getStudioScoreColor(avg);
+            const scoreCfg = getScoreColor(avg);
             const count = animes.length;
             const countText = count === 1 ? '1 Anime' : `${count} Animes`;
 
-            const card = document.createElement('div');
-            card.className = 'studio-landing-card studio-card-animate tilt-card h-72 group';
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.dataset.studio = studioName;
+            card.className = 'studio-landing-card studio-card-animate tilt-card h-72 group text-left';
             card.style.animationDelay = `${i * 80}ms`;
 
             const hoverCfg = STUDIO_BRAND_COLORS[studioName] || { border: 'rgba(255, 69, 0, 0.4)', glow: 'rgba(255, 69, 0, 0.15)', text: '#FF4500' };
@@ -5628,7 +5254,7 @@ function renderStudiosDirectory() {
                             const maxWCls = logoSizes[studioName] || 'max-w-[250px] max-h-[155px]';
                             return `<img src="${logoSrc}" alt="${studioName}" class="studio-logo-mark ${maxWCls} h-auto object-contain select-none relative z-10 transition-transform duration-500 group-hover:scale-105" style="">`;
                           })()
-                        : `<div class="studio-logo-mark w-24 h-24 rounded-full flex items-center justify-center text-4xl font-serif font-black transition-all duration-300 relative z-10" style="color:${hoverCfg.text}; background:${hoverCfg.text}10; border:1px solid ${hoverCfg.border}; text-shadow:0 0 15px ${hoverCfg.border}">${initials}</div>`
+                        : `<div class="studio-logo-mark w-24 h-24 rounded-full flex items-center justify-center text-4xl font-serif font-black transition-all duration-300 relative z-10" style="color:${hoverCfg.text}; background:color-mix(in srgb, ${hoverCfg.text} 6%, transparent); border:1px solid ${hoverCfg.border}; text-shadow:0 0 15px ${hoverCfg.border}">${initials}</div>`
                     }
                 </div>
 
@@ -5637,16 +5263,12 @@ function renderStudiosDirectory() {
                     <p class="text-white font-serif font-bold text-xl tracking-tight transition-colors duration-300 group-hover:text-[var(--studio-text-color)]">${studioName}</p>
                     <div class="flex items-center gap-3 mt-1">
                         <span class="text-[10px] font-mono text-gray-400 uppercase">${countText}</span>
-                        ${avg ? `<span class="text-[10px] font-mono font-semibold" style="color: ${hoverCfg.text}">★ ${avg}</span>` : ''}
                     </div>
                 </div>
             `;
 
-            const legacyInlineScore = card.querySelector('.studio-name-overlay span[style*="color"]');
-            if (legacyInlineScore) legacyInlineScore.remove();
-
             card.addEventListener('click', () => {
-                triggerStudioTransition(studioName, () => {
+                animateStudioEntry(() => {
                     activeStudioName = studioName;
                     renderStudiosDirectory();
                 });
@@ -5657,7 +5279,6 @@ function renderStudiosDirectory() {
 
         container.appendChild(grid);
         if (window.initObserver) window.initObserver();
-        initSoftTiltCards(grid);
         markViewEntered(grid);
         return;
     }
@@ -5684,7 +5305,7 @@ function renderStudiosDirectory() {
 
     const countText = activeAnimes.length === 1 ? '1 Anime produzido' : `${activeAnimes.length} Animes produzidos`;
     const ratingBadgeHtml = avgScore > 0
-        ? `<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border" style="color:${colorInfo.text}; border-color:${colorInfo.text}50; background:${colorInfo.text}15; box-shadow:0 0 12px ${colorInfo.glow}">★ ${avgScore.toFixed(1)}</div>`
+        ? `<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border" style="color:${colorInfo.text}; border-color:color-mix(in srgb, ${colorInfo.text} 31%, transparent); background:color-mix(in srgb, ${colorInfo.text} 8%, transparent); box-shadow:0 0 12px ${colorInfo.glow}">★ ${avgScore.toFixed(1)}</div>`
         : '';
 
     // Calculate dynamic genre counts
@@ -5755,7 +5376,7 @@ function renderStudiosDirectory() {
 
             <div class="relative z-10 p-8 md:p-12 flex flex-col md:flex-row items-center gap-10">
                 <!-- Logo or Initials (Transparent, borderless on themed spotlight glow) -->
-                <div class="shrink-0 relative flex items-center justify-center w-72 h-72 md:w-96 md:h-96">
+                <div class="studio-profile-logo shrink-0 relative flex items-center justify-center w-72 h-72 md:w-96 md:h-96">
                     <!-- Ambient spotlight glow -->
                     <div class="absolute w-[360px] h-[360px] rounded-full filter blur-[40px] opacity-40 pointer-events-none" style="background: radial-gradient(circle, ${themeColor} 0%, transparent 70%);"></div>
                     
@@ -5862,7 +5483,7 @@ function renderStudiosDirectory() {
                     const animeAvg = state.calculateAverageScore(anime.id);
                     const animeColor = getScoreColor(animeAvg);
                     const animeRatingStyle = animeAvg > 0 ? `color: ${animeColor.text}; text-shadow: 0 0 5px ${animeColor.glow}` : 'color: #555';
-                    const avgBorderStyle = animeAvg > 0 ? `border-color: ${animeColor.text}30; box-shadow: 0 0 10px ${animeColor.glow}` : '';
+                    const avgBorderStyle = animeAvg > 0 ? `border-color: color-mix(in srgb, ${animeColor.text} 19%, transparent); box-shadow: 0 0 10px ${animeColor.glow}` : '';
 
                     return `
                         <div onclick="openAnimeDetail('${anime.id}')" class="studio-catalog-card glass-panel border border-white/5 hover:border-brand/25 rounded-2xl cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_12px_30px_rgba(0,0,0,0.5),_0_0_20px_rgba(255,69,0,0.08)] overflow-hidden group flex flex-col h-full">
@@ -5888,18 +5509,19 @@ function renderStudiosDirectory() {
 
     container.appendChild(profile);
     if (window.initObserver) window.initObserver();
-    initSoftTiltCards(profile);
     markViewEntered(profile);
 }
 
 window.switchTabToFeatured = () => {
-    closeAnimeDetail();
+    window.switchTabToAll();
+    document.getElementById('featured-banner-wrapper')?.scrollIntoView({ behavior: 'instant' });
 };
 
-// Go back to studio landing grid with slide-in-from-right transition
 window.backToStudiosLanding = () => {
+    window.AnivoidUI.cancel('studio');
     activeStudioName = null;
     renderStudiosDirectory();
+    document.getElementById('anime-grid-section')?.scrollIntoView({ behavior: 'instant' });
 };
 
 window.switchTabToAll = () => {
@@ -5915,8 +5537,10 @@ window.switchTabToAll = () => {
             }
         }
     });
-    renderAnimeGrid();
-    closeAnimeDetail();
+    window.AnivoidUI.cancel('studio');
+    if (state.activeDetailAnimeId) closeAnimeDetail();
+    else renderAnimeGrid();
+    document.getElementById('anime-grid-section')?.scrollIntoView({ behavior: 'instant' });
 };
 
 window.switchTabToStudio = (studioName) => {
@@ -5936,7 +5560,7 @@ window.switchTabToStudio = (studioName) => {
         const isDetailOpen = detailPage && !detailPage.classList.contains('hidden');
 
         if (isDetailOpen) {
-            // Close detail page instantly under the cover of the overlay transition
+            // Switch synchronously; the destination owns the entry animation.
             detailPage.classList.remove('page-transition-active');
             detailPage.classList.add('hidden');
             const banner = document.getElementById('featured-banner-wrapper');
@@ -5952,20 +5576,12 @@ window.switchTabToStudio = (studioName) => {
         // Scroll instantly to grid section
         const gridSection = document.getElementById('anime-grid-section');
         if (gridSection) {
-            gridSection.scrollIntoView({ behavior: 'auto' });
-        }
-
-        // Trigger entry animation
-        const studiosContainer = document.getElementById('studios-directory-container');
-        if (studiosContainer) {
-            studiosContainer.classList.remove('animate-studio-in');
-            void studiosContainer.offsetWidth; // force browser layout recalculation
-            studiosContainer.classList.add('animate-studio-in');
+            gridSection.scrollIntoView({ behavior: 'instant' });
         }
     };
 
     if (studioName) {
-        triggerStudioTransition(studioName, doSwitch);
+        animateStudioEntry(doSwitch);
     } else {
         doSwitch();
     }
@@ -6042,6 +5658,22 @@ function renderSortDropdown() {
 }
 
 // Helper to render radial SVG progress chart for ratings with dynamic color based on score (red to green)
+function commitEpisodeScore(animeId, episodeNumber, value) {
+    state.setEpisodeRating(animeId, state.currentFriendId, episodeNumber, value);
+    renderAnimeGrid();
+    const scores = Array.from(document.querySelectorAll('.ep-rating-input'))
+        .map(input => Number.parseFloat(input.value)).filter(score => Number.isFinite(score) && score > 0);
+    const average = scores.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length * 10) / 10 : 0;
+    renderCircularRating('my-rating-overall-container', average);
+    const label = document.getElementById('quick-fill-avg-label');
+    const output = document.getElementById('quick-fill-avg-value');
+    if (label && output) {
+        label.style.display = scores.length ? '' : 'none';
+        output.textContent = scores.length ? average : '';
+        output.style.color = getScoreColor(average).text;
+    }
+}
+
 function renderCircularRating(containerId, score) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -6054,18 +5686,18 @@ function renderCircularRating(containerId, score) {
     
     // Create perfectly round wrapper with border-radius and box-shadow to prevent square clipping bug on SVG path filters
     const wrapperStyle = numScore > 0 
-        ? `box-shadow: 0 0 14px ${colors.glow}, inset 0 0 8px ${colors.glow}; border: 1px solid ${colors.text}35; background: rgba(5, 5, 5, 0.6);`
-        : `border: 1px solid rgba(255, 255, 255, 0.05); background: rgba(5, 5, 5, 0.2);`;
+        ? `box-shadow: 0 0 14px ${colors.glow}, inset 0 0 8px ${colors.glow}; border: 1px solid color-mix(in srgb, ${colors.text} 21%, transparent); background: var(--rating-surface);`
+        : `border: 1px solid var(--glass-border); background: var(--rating-surface);`;
 
     container.innerHTML = `
         <div class="relative flex items-center justify-center w-12 h-12 rounded-full transition-all duration-500" style="${wrapperStyle}">
             <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                 <!-- Background track -->
-                <path class="text-white/5 stroke-current" stroke-width="3" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path stroke="var(--glass-border)" stroke-width="3" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                 <!-- Filled circular path with dynamic stroke color -->
                 <path class="transition-all duration-1000 ease-out" stroke-width="3" stroke-dasharray="${percent}, 100" stroke-linecap="round" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" style="stroke: ${colors.text};" />
             </svg>
-            <span class="absolute text-xs font-mono font-bold text-white">${displayScore}</span>
+            <span class="absolute text-xs font-mono font-bold" style="color: ${colors.text};">${displayScore}</span>
         </div>
     `;
 }
@@ -6104,8 +5736,8 @@ function renderCustomDropdown(container, options, currentValue, onChange, isComp
             } else {
                 const colors = getScoreColor(currentValue);
                 trigger.className = 'inline-flex items-center justify-center border rounded-lg py-1 px-2.5 text-[11px] font-mono font-bold transition-all opacity-70';
-                trigger.style.borderColor = `${colors.text}30`;
-                trigger.style.backgroundColor = `${colors.text}08`;
+                trigger.style.borderColor = `color-mix(in srgb, ${colors.text} 19%, transparent)`;
+                trigger.style.backgroundColor = `color-mix(in srgb, ${colors.text} 3%, transparent)`;
                 trigger.style.color = colors.text;
                 trigger.style.boxShadow = `0 0 6px ${colors.glow}`;
                 trigger.style.textShadow = `0 0 2px ${colors.glow}`;
@@ -6121,8 +5753,8 @@ function renderCustomDropdown(container, options, currentValue, onChange, isComp
             } else {
                 const colors = getScoreColor(currentValue);
                 trigger.className = 'inline-flex items-center justify-center border rounded-lg py-1 px-2.5 text-[11px] font-mono font-bold transition-all hover:scale-105 cursor-pointer';
-                trigger.style.borderColor = `${colors.text}50`;
-                trigger.style.backgroundColor = `${colors.text}12`;
+                trigger.style.borderColor = `color-mix(in srgb, ${colors.text} 31%, transparent)`;
+                trigger.style.backgroundColor = `color-mix(in srgb, ${colors.text} 7%, transparent)`;
                 trigger.style.color = colors.text;
                 trigger.style.boxShadow = `0 0 10px ${colors.glow}`;
                 trigger.style.textShadow = `0 0 4px ${colors.glow}`;
@@ -6362,12 +5994,14 @@ function updateAnimeDetailView(animeId) {
     // Update live average if elements exist
     const allEpInputs = document.querySelectorAll('.ep-rating-input');
     const epValsLive = Array.from(allEpInputs).map(el => parseFloat(el.value)).filter(n => !isNaN(n) && n > 0);
+                        renderCircularRating('my-rating-overall-container', epValsLive.length ? epValsLive.reduce((a,b) => a+b, 0) / epValsLive.length : 0);
     const avgLabelEl = document.getElementById('quick-fill-avg-label');
     const avgValEl = document.getElementById('quick-fill-avg-value');
     if (avgLabelEl && avgValEl) {
         if (epValsLive.length > 0) {
             const liveAvg = Math.round((epValsLive.reduce((a, b) => a + b, 0) / epValsLive.length) * 10) / 10;
             avgValEl.textContent = liveAvg;
+                                avgValEl.style.color = getScoreColor(liveAvg).text;
             avgLabelEl.style.display = '';
         } else {
             avgLabelEl.style.display = 'none';
@@ -6379,69 +6013,34 @@ function updateAnimeDetailView(animeId) {
 }
 
 // Open Detail Page
+let detailReturnContext = null;
+
 function openAnimeDetail(animeId) {
-    const anime = state.animes.find(a => a.id === animeId);
-    if (!anime) return;
-
+    const anime = state.animes.find(item => item.id === animeId);
+    const detailPage = document.getElementById('anime-detail-page');
+    if (!anime || !detailPage) return;
+    const alreadyOpen = !detailPage.classList.contains('hidden');
+    const changingAnime = state.activeDetailAnimeId !== animeId;
+    window.AnivoidUI.cancel('detail');
+    if (!alreadyOpen) detailReturnContext = { scrollTop: window.scrollY, animeId };
     state.activeDetailAnimeId = animeId;
-
     const banner = document.getElementById('featured-banner-wrapper');
     const grid = document.getElementById('anime-grid-section');
-    const detailPage = document.getElementById('anime-detail-page');
-
-    const isAlreadyOpen = detailPage && !detailPage.classList.contains('hidden') && detailPage.style.display !== 'none';
-    if (isAlreadyOpen) {
-        renderAnimeDetailBody(anime);
-        return;
-    }
-
-    // Cinematic page transition — fade out current view, slide in detail
-    const transitionOverlay = document.createElement('div');
-    transitionOverlay.style.cssText = `
-        position:fixed; inset:0; z-index:10001;
-        background:#050505;
-        opacity:0; pointer-events:none;
-        transition: opacity 0.35s cubic-bezier(0.4,0,0.2,1);
-    `;
-    document.body.appendChild(transitionOverlay);
-
-    requestAnimationFrame(() => {
-        transitionOverlay.style.opacity = '1';
-    });
-
-    setTimeout(() => {
-        if (banner) banner.style.display = 'none';
-        if (grid) grid.style.display = 'none';
-
-        if (detailPage) {
-            detailPage.classList.remove('hidden');
-            detailPage.style.opacity = '0';
-            detailPage.style.transform = 'translateY(32px)';
-            detailPage.style.transition = 'none';
-        }
-
-        // Scroll to top
+    if (banner) banner.style.display = 'none';
+    if (grid) grid.style.display = 'none';
+    detailPage.classList.remove('hidden');
+    detailPage.style.opacity = '1';
+    detailPage.style.transform = 'none';
+    detailPage.style.transition = 'none';
+    renderAnimeDetailBody(anime);
+    if (!alreadyOpen || changingAnime) {
         window.scrollTo({ top: 0, behavior: 'instant' });
-
-        // Fade overlay out and slide detail page in
-        requestAnimationFrame(() => {
-            transitionOverlay.style.opacity = '0';
-            if (detailPage) {
-                detailPage.style.transition = 'opacity 0.45s cubic-bezier(0.4,0,0.2,1), transform 0.45s cubic-bezier(0.34,1.1,0.64,1)';
-                detailPage.style.opacity = '1';
-                detailPage.style.transform = 'translateY(0)';
-            }
-            setTimeout(() => {
-                transitionOverlay.remove();
-                if (detailPage) detailPage.classList.add('page-transition-active');
-            }, 450);
-        });
-    }, 350);
-
-    // Defer heavy DOM manipulation to unblock the cinematic transition frame
-    setTimeout(() => {
-        renderAnimeDetailBody(anime);
-    }, 350);
+        const title = document.getElementById('detail-title');
+        if (title) { title.tabIndex = -1; title.focus({ preventScroll: true }); }
+        window.AnivoidUI.animate(detailPage,
+            [{ opacity: 0.45, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }],
+            { channel: 'detail', duration: 280, easing: 'cubic-bezier(.22,1,.36,1)' });
+    }
 }
 
 function renderAnimeDetailBody(anime) {
@@ -6453,7 +6052,6 @@ function renderAnimeDetailBody(anime) {
     if (detailPoster) {
         detailPoster.src = anime.coverUrl;
     }
-    if (detailPage) initSoftTiltCards(detailPage);
     document.getElementById('detail-title').textContent = anime.title;
     document.getElementById('detail-japanese-title').textContent = anime.japaneseTitle;
     document.getElementById('detail-synopsis').textContent = anime.synopsis;
@@ -6509,13 +6107,14 @@ function renderAnimeDetailBody(anime) {
     // Highlighted Studio Badge
     const studioBadge = document.getElementById('detail-studio');
     if (studioBadge) {
+        studioBadge.setAttribute('aria-label', `Explorar estúdio ${anime.studio || 'Desconhecido'}`);
         studioBadge.className = 'group studio-glow px-5 py-2.5 rounded-full text-xs font-mono tracking-widest font-semibold uppercase bg-brand/15 border border-brand text-white inline-flex items-center gap-2.5 cursor-pointer shadow-lg select-none';
         studioBadge.innerHTML = `
             <span class="relative flex h-2 w-2">
                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75"></span>
                 <span class="relative inline-flex rounded-full h-2 w-2 bg-brand"></span>
             </span>
-            <span class="font-bold tracking-widest text-white/90 group-hover:text-white">${anime.studio || 'Desconhecido'}</span>
+            <span class="font-bold tracking-widest text-white/90 group-hover:text-white">${escapeHtml(anime.studio || 'Desconhecido')}</span>
             <iconify-icon icon="lucide:arrow-up-right" class="text-white/50 transition-all duration-300 group-hover:text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 text-[11px]"></iconify-icon>
         `;
         studioBadge.onclick = (e) => {
@@ -6630,7 +6229,7 @@ function renderAnimeDetailBody(anime) {
                         <p class="text-[8px] text-gray-500 font-mono">Preenche todos os eps assistidos com essa nota base</p>
                     </div>
                     <div class="flex items-center gap-1.5 shrink-0">
-                        <span id="quick-fill-avg-label" class="text-[9px] text-gray-400 font-mono" style="${computedAvg !== null ? '' : 'display:none'}">Média atual: <b id="quick-fill-avg-value" class="text-white">${computedAvg !== null ? computedAvg : ''}</b></span>
+                        <span id="quick-fill-avg-label" class="text-[9px] text-gray-400 font-mono" style="${computedAvg !== null ? '' : 'display:none'}">Média atual: <b id="quick-fill-avg-value" style="color:${getScoreColor(computedAvg).text}">${computedAvg !== null ? computedAvg : ''}</b></span>
                         <div id="quick-fill-rating-container" class="relative"></div>
                     </div>
                 `;
@@ -6642,8 +6241,9 @@ function renderAnimeDetailBody(anime) {
                         <input
                             id="quick-fill-input"
                             type="number" min="0" max="10" step="0.1"
+                            aria-label="Nota base dos episódios de 0 a 10"
                             placeholder="0–10"
-                            class="w-16 bg-white/5 border border-brand/30 rounded-lg px-2 py-1.5 text-xs font-mono text-white text-center focus:outline-none focus:border-brand/70 transition-colors"
+                            class="w-16 bg-white/5 border border-brand/30 rounded-lg px-2 py-1.5 text-xs font-mono text-center focus:outline-none focus:border-brand/70 transition-colors"
                         >
                         <button id="quick-fill-btn" class="px-3 py-1.5 rounded-lg bg-brand text-white text-[10px] font-mono uppercase tracking-widest hover:bg-brand/80 transition-colors font-bold">
                             Ok
@@ -6651,6 +6251,7 @@ function renderAnimeDetailBody(anime) {
                     </div>
                 `;
                 const qfInput = qfContainer.querySelector('#quick-fill-input');
+                qfInput.addEventListener('input', () => { qfInput.style.color = getScoreColor(qfInput.value).text; });
                 const qfBtn = qfContainer.querySelector('#quick-fill-btn');
                 const applyQuickFill = () => {
                     let val = parseFloat(qfInput.value);
@@ -6691,7 +6292,7 @@ function renderAnimeDetailBody(anime) {
             const epRating = myRating.episodeRatings?.[1] || '';
             
             const row = document.createElement('div');
-            row.className = `episode-row flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/5 gap-4 ${isWatched ? 'watched-active' : ''} ${isReadOnly ? 'opacity-80' : ''}`;
+            row.className = `episode-row film-rating-row flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/5 gap-4 ${isWatched ? 'watched-active' : ''} ${isReadOnly ? 'opacity-80' : ''}`;
             row.style.animationDelay = '0.04s';
             
             row.innerHTML = `
@@ -6723,42 +6324,17 @@ function renderAnimeDetailBody(anime) {
             const currentVal1 = epRating ? String(epRating) : '';
             epRatingContainer1.innerHTML = `
                 <input
-                    type="number" min="0" max="10" step="0.5"
+                    type="number" min="0" max="10" step="0.1"
+                    aria-label="Nota do filme de 0 a 10"
                     value="${currentVal1}"
                     placeholder="-"
                     ${isReadOnly ? 'disabled' : ''}
-                    class="ep-rating-input w-14 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs font-mono text-white text-center focus:outline-none focus:border-brand/60 transition-colors ${isReadOnly ? 'opacity-50 cursor-not-allowed' : 'hover:border-white/30'}"
-                    style="appearance:textfield;"
+                    class="ep-rating-input w-14 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs font-mono text-center focus:outline-none focus:border-brand/60 transition-colors ${isReadOnly ? 'opacity-50 cursor-not-allowed' : 'hover:border-white/30'}"
+                    style="appearance:textfield;color:${getScoreColor(epRating).text};"
                 >
             `;
             if (!isReadOnly) {
-                const inp1 = epRatingContainer1.querySelector('input');
-                const save1 = () => {
-                    let v = parseFloat(inp1.value);
-                    if (isNaN(v)) { state.setEpisodeRating(anime.id, state.currentFriendId, 1, ''); }
-                    else {
-                        v = Math.min(10, Math.max(0, Math.round(v * 10) / 10));
-                        inp1.value = v;
-                        state.setEpisodeRating(anime.id, state.currentFriendId, 1, v);
-                    }
-                    renderAnimeGrid();
-                        // Update avg label live
-                        const allEpInputs = document.querySelectorAll('.ep-rating-input');
-                        const epValsLive = Array.from(allEpInputs).map(el => parseFloat(el.value)).filter(n => !isNaN(n) && n > 0);
-                        const avgLabelEl = document.getElementById('quick-fill-avg-label');
-                        const avgValEl = document.getElementById('quick-fill-avg-value');
-                        if (avgLabelEl && avgValEl) {
-                            if (epValsLive.length > 0) {
-                                const liveAvg = Math.round((epValsLive.reduce((a,b)=>a+b,0)/epValsLive.length) * 10) / 10;
-                                avgValEl.textContent = liveAvg;
-                                avgLabelEl.style.display = '';
-                                // Update the circular rating in the panel
-                                renderCircularRating('my-rating-overall-container', liveAvg);
-                            } else { avgLabelEl.style.display = 'none'; }
-                        }
-                };
-                inp1.addEventListener('change', save1);
-                inp1.addEventListener('keydown', (e) => { if (e.key === 'Enter') { inp1.blur(); } });
+                window.AnivoidUI.bindScoreInput(epRatingContainer1.querySelector('input'), value => commitEpisodeScore(anime.id, 1, value));
             }
             
             epListContainer.appendChild(row);
@@ -6801,43 +6377,17 @@ function renderAnimeDetailBody(anime) {
                 const currentValI = epRating ? String(epRating) : '';
                 epRatingContainerI.innerHTML = `
                     <input
-                        type="number" min="0" max="10" step="0.5"
+                        type="number" min="0" max="10" step="0.1"
+                        aria-label="Nota do episódio ${i} de 0 a 10"
                         value="${currentValI}"
                         placeholder="-"
                         ${isReadOnly ? 'disabled' : ''}
-                        class="ep-rating-input w-14 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs font-mono text-white text-center focus:outline-none focus:border-brand/60 transition-colors ${isReadOnly ? 'opacity-50 cursor-not-allowed' : 'hover:border-white/30'}"
-                        style="appearance:textfield;"
+                        class="ep-rating-input w-14 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs font-mono text-center focus:outline-none focus:border-brand/60 transition-colors ${isReadOnly ? 'opacity-50 cursor-not-allowed' : 'hover:border-white/30'}"
+                        style="appearance:textfield;color:${getScoreColor(epRating).text};"
                     >
                 `;
                 if (!isReadOnly) {
-                    const inpI = epRatingContainerI.querySelector('input');
-                    const epIndex = i;
-                    const saveI = () => {
-                        let v = parseFloat(inpI.value);
-                        if (isNaN(v)) { state.setEpisodeRating(anime.id, state.currentFriendId, epIndex, ''); }
-                        else {
-                            v = Math.min(10, Math.max(0, Math.round(v * 10) / 10));
-                            inpI.value = v;
-                            state.setEpisodeRating(anime.id, state.currentFriendId, epIndex, v);
-                        }
-                        renderAnimeGrid();
-                        // Update avg label live
-                        const allEpInputs = document.querySelectorAll('.ep-rating-input');
-                        const epValsLive = Array.from(allEpInputs).map(el => parseFloat(el.value)).filter(n => !isNaN(n) && n > 0);
-                        const avgLabelEl = document.getElementById('quick-fill-avg-label');
-                        const avgValEl = document.getElementById('quick-fill-avg-value');
-                        if (avgLabelEl && avgValEl) {
-                            if (epValsLive.length > 0) {
-                                const liveAvg = Math.round((epValsLive.reduce((a,b)=>a+b,0)/epValsLive.length) * 10) / 10;
-                                avgValEl.textContent = liveAvg;
-                                avgLabelEl.style.display = '';
-                                // Update the circular rating in the panel
-                                renderCircularRating('my-rating-overall-container', liveAvg);
-                            } else { avgLabelEl.style.display = 'none'; }
-                        }
-                    };
-                    inpI.addEventListener('change', saveI);
-                    inpI.addEventListener('keydown', (e) => { if (e.key === 'Enter') { inpI.blur(); } });
+                    window.AnivoidUI.bindScoreInput(epRatingContainerI.querySelector('input'), value => commitEpisodeScore(anime.id, i, value));
                 }
                 
                 epListContainer.appendChild(row);
@@ -7053,7 +6603,7 @@ function renderComments(anime) {
         let scoreBadgeHtml = '';
         if (userScore !== null && userScore !== undefined) {
             const scoreColorInfo = getScoreColor(userScore);
-            scoreBadgeHtml = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold ml-1.5" style="background: ${scoreColorInfo.text}18; border: 1px solid ${scoreColorInfo.text}40; color: ${scoreColorInfo.text}; text-shadow: 0 0 6px ${scoreColorInfo.glow}">★ ${userScore}</span>`;
+            scoreBadgeHtml = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold ml-1.5" style="background: color-mix(in srgb, ${scoreColorInfo.text} 9%, transparent); border: 1px solid color-mix(in srgb, ${scoreColorInfo.text} 25%, transparent); color: ${scoreColorInfo.text}; text-shadow: 0 0 6px ${scoreColorInfo.glow}">★ ${userScore}</span>`;
         }
 
         div.innerHTML = `
@@ -7251,46 +6801,29 @@ function renderComments(anime) {
 }
 
 function closeAnimeDetail() {
+    const detailPage = document.getElementById('anime-detail-page');
+    if (!detailPage || detailPage.classList.contains('hidden')) return;
+    window.AnivoidUI.cancel('detail');
+    detailPage.classList.add('hidden');
+    detailPage.classList.remove('page-transition-active');
+    detailPage.style.opacity = '';
+    detailPage.style.transform = '';
+    detailPage.style.transition = '';
+    state.activeDetailAnimeId = null;
     const banner = document.getElementById('featured-banner-wrapper');
     const grid = document.getElementById('anime-grid-section');
-    const detailPage = document.getElementById('anime-detail-page');
-
-    if (detailPage) {
-        detailPage.classList.remove('page-transition-active');
-
-        // Slide detail page out
-        detailPage.style.transition = 'opacity 0.3s cubic-bezier(0.4,0,0.2,1), transform 0.3s cubic-bezier(0.4,0,0.2,1)';
-        detailPage.style.opacity = '0';
-        detailPage.style.transform = 'translateY(24px)';
-
-        // Fade overlay in
-        const transitionOverlay = document.createElement('div');
-        transitionOverlay.style.cssText = `
-            position:fixed; inset:0; z-index:10001;
-            background:#050505;
-            opacity:0; pointer-events:none;
-            transition: opacity 0.3s cubic-bezier(0.4,0,0.2,1);
-        `;
-        document.body.appendChild(transitionOverlay);
-        requestAnimationFrame(() => { transitionOverlay.style.opacity = '1'; });
-
-        setTimeout(() => {
-            detailPage.classList.add('hidden');
-            detailPage.style.opacity = '';
-            detailPage.style.transform = '';
-            detailPage.style.transition = '';
-            if (banner) banner.style.display = '';
-            if (grid) grid.style.display = '';
-            state.activeDetailAnimeId = null;
-            renderAnimeGrid();
-            renderFeaturedBanner();
-
-            requestAnimationFrame(() => {
-                transitionOverlay.style.opacity = '0';
-                setTimeout(() => transitionOverlay.remove(), 350);
-            });
-        }, 300);
-    }
+    if (banner) banner.style.display = '';
+    if (grid) grid.style.display = '';
+    renderAnimeGrid();
+    renderFeaturedBanner();
+    const context = detailReturnContext;
+    detailReturnContext = null;
+    window.scrollTo({ top: context?.scrollTop || 0, behavior: 'instant' });
+    const origin = Array.from(document.querySelectorAll('[data-anime-id]')).find(item => item.dataset.animeId === context?.animeId);
+    if (origin) { origin.tabIndex = -1; origin.focus({ preventScroll: true }); }
+    window.AnivoidUI.animate(grid,
+        [{ opacity: 0.65 }, { opacity: 1 }],
+        { channel: 'detail', duration: 180, easing: 'cubic-bezier(.22,1,.36,1)' });
 }
 
 // Setup Comments logic
@@ -10007,6 +9540,7 @@ function getActivityMeta(activity) {
 }
 
 function renderActivitiesFeed() {
+    if (state.activeDetailAnimeId || state.filterMALStatus === 'Studios') return;
     const list = document.getElementById('activities-feed-list');
     if (!list) return;
 
@@ -10129,7 +9663,6 @@ function renderActivitiesFeed() {
 
         list.appendChild(item);
     });
-    initSoftTiltCards(list);
     markViewEntered(list);
 }
 
