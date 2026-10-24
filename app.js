@@ -38,6 +38,79 @@ function deterministicStringify(obj) {
     return '{' + keyVals.join(',') + '}';
 }
 
+function purgeAllUsersExceptFelipe(appState) {
+    if (!appState || typeof appState !== 'object') return false;
+    let changed = false;
+
+    if (Array.isArray(appState.registeredUsers)) {
+        const before = appState.registeredUsers.length;
+        appState.registeredUsers = appState.registeredUsers.filter(u => {
+            return u && normalizeUsername(u.username) === 'felipe';
+        });
+        if (appState.registeredUsers.length !== before) changed = true;
+    }
+
+    (appState.registeredUsers || []).forEach(u => {
+        if (Array.isArray(u.friends) && u.friends.length > 0) {
+            u.friends = [];
+            changed = true;
+        }
+        if (Array.isArray(u.friendRequests) && u.friendRequests.length > 0) {
+            u.friendRequests = [];
+            changed = true;
+        }
+        if (Array.isArray(u.notifications) && u.notifications.length > 0) {
+            u.notifications = [];
+            changed = true;
+        }
+        u.memberNumber = 1;
+        u.memberDesc = 'Fundador e Administrador do AniVoid.';
+    });
+
+    if (Array.isArray(appState.friends) && appState.friends.length > 0) {
+        appState.friends = [];
+        changed = true;
+    }
+
+    if (Array.isArray(appState.animes)) {
+        appState.animes.forEach(anime => {
+            if (anime && anime.ratings && typeof anime.ratings === 'object') {
+                Object.keys(anime.ratings).forEach(key => {
+                    const norm = normalizeUsername(key);
+                    if (norm !== 'felipe' && key !== '1') {
+                        delete anime.ratings[key];
+                        changed = true;
+                    }
+                });
+            }
+            if (anime && Array.isArray(anime.comments)) {
+                const before = anime.comments.length;
+                anime.comments = anime.comments
+                    .filter(c => normalizeUsername(c && (c.friendId || c.username)) === 'felipe')
+                    .map(c => ({
+                        ...c,
+                        replies: Array.isArray(c.replies)
+                            ? c.replies.filter(r => normalizeUsername(r && (r.friendId || r.username)) === 'felipe')
+                            : []
+                    }));
+                if (anime.comments.length !== before) changed = true;
+            }
+        });
+    }
+
+    if (Array.isArray(appState.activities)) {
+        const before = appState.activities.length;
+        appState.activities = appState.activities.filter(a => {
+            const u = normalizeUsername(a && (a.username || a.friendId || a.userId));
+            return u === 'felipe';
+        });
+        if (appState.activities.length !== before) changed = true;
+    }
+
+    return changed;
+}
+
+
 // Default initial data to make the app feel alive and premium instantly
 const DEFAULT_FRIENDS = [];
 
@@ -1239,6 +1312,7 @@ function mergeLocalOwnRatings(serverAnimes, localAnimes, userId) {
 }
 
 function applyServerStateSnapshot(serverState) {
+    purgeAllUsersExceptFelipe(serverState);
     if (!serverState || typeof serverState !== 'object') return;
     if (serverState.viewerUsername) {
         setAuthSession(serverState.viewerUsername);
@@ -1268,6 +1342,7 @@ class AppState {
     constructor() {
         this.loggedInUser = localStorage.getItem('anivoid_logged_in_username') || null;
         this.authToken = getAuthToken();
+        purgeAllUsersExceptFelipe(this);
         sanitizeStoredRegisteredUsers();
         this.friends = [];
         this.activities = [];
@@ -2297,18 +2372,25 @@ class AppState {
             }
             
             if (isWatched) {
-                r.watchedEpisodesMap[epInt] = true;
+                // Ao marcar um episódio (ex: 19), todos os anteriores (1 até 19) são marcados automaticamente
+                for (let k = 1; k <= epInt; k++) {
+                    r.watchedEpisodesMap[k] = true;
+                }
             } else {
-                delete r.watchedEpisodesMap[epInt];
-                if (r.episodeRatings && r.episodeRatings[epNum]) {
-                    delete r.episodeRatings[epNum];
-                    const epOverall = this.calculateUserOverallFromEpisodes(anime, friendId);
-                    if (epOverall > 0) {
-                        r.overall = epOverall;
-                    } else {
-                        const catAvg = parseFloat(((r.animation + r.story + r.sound) / 3).toFixed(1));
-                        r.overall = catAvg > 0 ? catAvg : 0;
+                // Ao desmarcar um episódio, desmarca o episódio e os superiores
+                const limit = maxEps > 0 ? maxEps : Math.max(0, ...Object.keys(r.watchedEpisodesMap).map(Number), epInt);
+                for (let k = epInt; k <= limit; k++) {
+                    delete r.watchedEpisodesMap[k];
+                    if (r.episodeRatings && r.episodeRatings[k]) {
+                        delete r.episodeRatings[k];
                     }
+                }
+                const epOverall = this.calculateUserOverallFromEpisodes(anime, friendId);
+                if (epOverall > 0) {
+                    r.overall = epOverall;
+                } else {
+                    const catAvg = parseFloat(((r.animation + r.story + r.sound) / 3).toFixed(1));
+                    r.overall = catAvg > 0 ? catAvg : 0;
                 }
             }
             
@@ -6339,6 +6421,85 @@ function renderCustomDropdown(container, options, currentValue, onChange, isComp
     }
 }
 
+
+function updateAnimeDetailView(animeId) {
+    const anime = state.animes.find(a => a.id === animeId);
+    if (!anime) return;
+    const currentFriend = state.friends.find(f => f.id === state.currentFriendId) || state.friends[0] || { id: 'felipe', name: 'Felipe!', color: '#FF4500' };
+    state.initFriendRatingIfMissing(anime, state.currentFriendId);
+    const myRating = anime.ratings[state.currentFriendId];
+    const maxEps = parseInt(anime.episodes) || 0;
+    const myEpsWatched = myRating.episodesWatched || 0;
+
+    // Progress numbers & bar
+    const epWatchedLabel = document.getElementById('detail-ep-watched-label');
+    const epTotalLabel = document.getElementById('detail-ep-total-label');
+    const progressFill = document.getElementById('detail-progress-bar');
+    if (epWatchedLabel) epWatchedLabel.textContent = myEpsWatched;
+    if (epTotalLabel) epTotalLabel.textContent = maxEps > 0 ? maxEps : '?';
+    if (progressFill) {
+        const percentage = maxEps > 0 ? (myEpsWatched / maxEps) * 100 : 0;
+        progressFill.style.width = `${percentage}%`;
+    }
+
+    // Status dropdown text update
+    const statusBtnText = document.getElementById('status-select-container')?.querySelector('button span');
+    if (statusBtnText && STATUS_MAP[myRating.status]) {
+        statusBtnText.textContent = STATUS_MAP[myRating.status].label;
+    }
+
+    // Update episode list checkboxes and rows
+    const epListContainer = document.getElementById('detail-episodes-rating-list');
+    if (epListContainer) {
+        if (maxEps === 1) {
+            const isWatched = myRating.watchedEpisodesMap && typeof myRating.watchedEpisodesMap === 'object'
+                ? !!myRating.watchedEpisodesMap[1]
+                : 1 <= myEpsWatched;
+            const chk = epListContainer.querySelector('#ep-checkbox-1');
+            const row = chk ? chk.closest('.episode-row') : null;
+            if (chk) chk.checked = isWatched;
+            if (row) {
+                if (isWatched) row.classList.add('watched-active');
+                else row.classList.remove('watched-active');
+            }
+        } else {
+            for (let i = 1; i <= maxEps; i++) {
+                const isWatched = myRating.watchedEpisodesMap && typeof myRating.watchedEpisodesMap === 'object'
+                    ? !!myRating.watchedEpisodesMap[i]
+                    : i <= myEpsWatched;
+                const chk = epListContainer.querySelector(`#ep-checkbox-${i}`);
+                const row = chk ? chk.closest('.episode-row') : null;
+                if (chk) chk.checked = isWatched;
+                if (row) {
+                    if (isWatched) row.classList.add('watched-active');
+                    else row.classList.remove('watched-active');
+                }
+            }
+        }
+    }
+
+    // Update circular rating
+    renderCircularRating('my-rating-overall-container', myRating.overall);
+
+    // Update live average if elements exist
+    const allEpInputs = document.querySelectorAll('.ep-rating-input');
+    const epValsLive = Array.from(allEpInputs).map(el => parseFloat(el.value)).filter(n => !isNaN(n) && n > 0);
+    const avgLabelEl = document.getElementById('quick-fill-avg-label');
+    const avgValEl = document.getElementById('quick-fill-avg-value');
+    if (avgLabelEl && avgValEl) {
+        if (epValsLive.length > 0) {
+            const liveAvg = Math.round((epValsLive.reduce((a, b) => a + b, 0) / epValsLive.length) * 10) / 10;
+            avgValEl.textContent = liveAvg;
+            avgLabelEl.style.display = '';
+        } else {
+            avgLabelEl.style.display = 'none';
+        }
+    }
+
+    renderAnimeGrid();
+    renderFeaturedBanner();
+}
+
 // Open Detail Page
 function openAnimeDetail(animeId) {
     const anime = state.animes.find(a => a.id === animeId);
@@ -6349,6 +6510,12 @@ function openAnimeDetail(animeId) {
     const banner = document.getElementById('featured-banner-wrapper');
     const grid = document.getElementById('anime-grid-section');
     const detailPage = document.getElementById('anime-detail-page');
+
+    const isAlreadyOpen = detailPage && !detailPage.classList.contains('hidden') && detailPage.style.display !== 'none';
+    if (isAlreadyOpen) {
+        renderAnimeDetailBody(anime);
+        return;
+    }
 
     // Cinematic page transition — fade out current view, slide in detail
     const transitionOverlay = document.createElement('div');
@@ -6395,8 +6562,15 @@ function openAnimeDetail(animeId) {
 
     // Defer heavy DOM manipulation to unblock the cinematic transition frame
     setTimeout(() => {
-        // Set anime base details
-        document.getElementById('detail-banner').src = anime.coverUrl;
+        renderAnimeDetailBody(anime);
+    }, 350);
+}
+
+function renderAnimeDetailBody(anime) {
+    const animeId = anime.id;
+    const detailPage = document.getElementById('anime-detail-page');
+    // Set anime base details
+    document.getElementById('detail-banner').src = anime.coverUrl;
         const detailPoster = document.getElementById('detail-poster');
     if (detailPoster) {
         detailPoster.src = anime.coverUrl;
@@ -6514,7 +6688,7 @@ function openAnimeDetail(animeId) {
     }));
     renderCustomDropdown('status-select-container', statusOptions, myRating.status || 'Plan to Watch', (newStatus) => {
         state.setStatus(anime.id, state.currentFriendId, newStatus);
-        openAnimeDetail(anime.id);
+        updateAnimeDetailView(anime.id);
         renderAnimeGrid();
         renderFeaturedBanner();
     }, false, isReadOnly, true);
@@ -6606,7 +6780,7 @@ function openAnimeDetail(animeId) {
                     if (val > 10) val = 10;
                     val = Math.round(val * 10) / 10; // round to 1 decimal place
                     state.setGeneralRating(anime.id, state.currentFriendId, val);
-                    openAnimeDetail(anime.id);
+                    updateAnimeDetailView(anime.id);
                     renderAnimeGrid();
                 };
                 qfBtn.addEventListener('click', applyQuickFill);
@@ -6663,7 +6837,7 @@ function openAnimeDetail(animeId) {
             if (!isReadOnly && chk) {
                 chk.addEventListener('change', (e) => {
                     state.toggleEpisodeWatched(anime.id, state.currentFriendId, 1, e.target.checked);
-                    openAnimeDetail(anime.id);
+                    updateAnimeDetailView(anime.id);
                 });
             }
             
@@ -6741,7 +6915,7 @@ function openAnimeDetail(animeId) {
                 if (!isReadOnly && chk) {
                     chk.addEventListener('change', (e) => {
                         state.toggleEpisodeWatched(anime.id, state.currentFriendId, i, e.target.checked);
-                        openAnimeDetail(anime.id);
+                        updateAnimeDetailView(anime.id);
                     });
                 }
                 
@@ -6898,7 +7072,6 @@ function openAnimeDetail(animeId) {
             breakdownContainer.appendChild(card);
         });
     }
-    }, 10); // Run immediately after transition overlay paints
 }
 
 // Render comments section dynamically matching the crimson glassmorphic styling
@@ -10620,7 +10793,7 @@ function renderGroupStats() {
                         }, 50);
                     }
 
-                    renderAnimeDetail(rec.anime);
+                    openAnimeDetail(rec.anime.id);
                 });
 
                 recList.appendChild(card);

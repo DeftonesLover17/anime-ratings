@@ -792,6 +792,82 @@ async function ensurePostgresState() {
     return pgReadyPromise;
 }
 
+function purgeAllUsersExceptFelipe(state) {
+    if (!state || typeof state !== 'object') return false;
+    let changed = false;
+
+    // 1. Keep only Felipe in registeredUsers
+    if (Array.isArray(state.registeredUsers)) {
+        const originalCount = state.registeredUsers.length;
+        state.registeredUsers = state.registeredUsers.filter(u => {
+            return u && normalizeUsername(u.username) === 'felipe';
+        });
+        if (state.registeredUsers.length !== originalCount) changed = true;
+    }
+
+    // 2. Clear social graph and extraneous data for Felipe
+    (state.registeredUsers || []).forEach(u => {
+        if (Array.isArray(u.friends) && u.friends.length > 0) {
+            u.friends = [];
+            changed = true;
+        }
+        if (Array.isArray(u.friendRequests) && u.friendRequests.length > 0) {
+            u.friendRequests = [];
+            changed = true;
+        }
+        if (Array.isArray(u.notifications) && u.notifications.length > 0) {
+            u.notifications = [];
+            changed = true;
+        }
+        u.memberNumber = 1;
+        u.memberDesc = 'Fundador e Administrador do AniVoid.';
+    });
+
+    if (Array.isArray(state.friends) && state.friends.length > 0) {
+        state.friends = [];
+        changed = true;
+    }
+
+    // 3. Remove non-Felipe ratings and comments from all animes
+    if (Array.isArray(state.animes)) {
+        state.animes.forEach(anime => {
+            if (anime && anime.ratings && typeof anime.ratings === 'object') {
+                Object.keys(anime.ratings).forEach(key => {
+                    const norm = normalizeUsername(key);
+                    if (norm !== 'felipe' && key !== '1') {
+                        delete anime.ratings[key];
+                        changed = true;
+                    }
+                });
+            }
+            if (anime && Array.isArray(anime.comments)) {
+                const before = anime.comments.length;
+                anime.comments = anime.comments
+                    .filter(c => normalizeUsername(c && (c.friendId || c.username)) === 'felipe')
+                    .map(c => ({
+                        ...c,
+                        replies: Array.isArray(c.replies)
+                            ? c.replies.filter(r => normalizeUsername(r && (r.friendId || r.username)) === 'felipe')
+                            : []
+                    }));
+                if (anime.comments.length !== before) changed = true;
+            }
+        });
+    }
+
+    // 4. Remove non-Felipe activities
+    if (Array.isArray(state.activities)) {
+        const before = state.activities.length;
+        state.activities = state.activities.filter(a => {
+            const u = normalizeUsername(a && (a.username || a.friendId || a.userId));
+            return u === 'felipe';
+        });
+        if (state.activities.length !== before) changed = true;
+    }
+
+    return changed;
+}
+
 function readState(callback) {
     if (!DATABASE_URL) {
         fs.readFile(STATE_FILE, 'utf8', callback);
@@ -811,6 +887,7 @@ function readState(callback) {
 }
 
 function writeState(state, callback) {
+    purgeAllUsersExceptFelipe(state);
     normalizeSocialGraph(state);
     const safeState = sanitizeStateForStorage(state);
     if (!DATABASE_URL) {
