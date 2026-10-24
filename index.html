@@ -7,11 +7,10 @@
     <!-- Favicon / Logo -->
     <link rel="icon" type="image/png" href="favicon.png">
     <!-- EmailJS SDK for real email delivery (optional) -->
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <link rel="stylesheet" href="tailwind.css">
     <!-- Iconify Icons CDN -->
-    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <script defer src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,9 +18,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syncopate:wght@700&family=Syne:wght@800&family=Lexend+Tera:wght@900&display=swap" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="styles.css?v=18">
+    <link rel="stylesheet" href="styles.css?v=19">
     
-    <script src="tailwind-config.js"></script>
+    <meta name="theme-color" content="#050505">
 </head>
 <body class="bg-bgDark text-white overflow-hidden">
     <!-- Global Noise Overlay -->
@@ -43,7 +42,8 @@
 
         <!-- Central Entry Content (Motion Design with wide text) -->
         <div class="relative z-20 text-center flex flex-col items-center my-auto">
-            <h1 id="splash-logo" class="font-bold tracking-tight text-black flex items-center justify-center">
+            <button id="skip-intro" type="button" class="skip-intro">Pular introdução</button>
+        <h1 id="splash-logo" class="font-bold tracking-tight text-black flex items-center justify-center">
                 <span class="splash-text-part" id="part-left">ANIV</span>
                 <span class="splash-void-symbol" id="part-void">Ø</span>
                 <span class="splash-text-part" id="part-right">ID</span>
@@ -62,7 +62,7 @@
 
 
     <!-- REGISTRATION GATE OVERLAY -->
-    <div id="registration-gate" class="fixed inset-0 bg-bgDark/98 backdrop-blur-sm z-[9998] hidden items-start justify-center p-4 md:p-10 overflow-y-auto">
+    <div id="registration-gate" role="dialog" aria-modal="true" aria-labelledby="reg-header-title" aria-describedby="reg-header-desc" class="fixed inset-0 bg-bgDark/[0.98] backdrop-blur-sm z-[9998] hidden items-start justify-center p-4 md:p-10 overflow-y-auto">
         <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl p-6 md:p-10 space-y-6 my-auto relative animate-[fadeIn_0.3s_ease-out]">
             <!-- Ambient glow decorative circles -->
             <div class="absolute -top-24 -left-24 w-48 h-48 rounded-full bg-brand/10 blur-[80px] pointer-events-none"></div>
@@ -108,18 +108,18 @@
                 <div class="reg-step space-y-6" data-step="1">
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
                         <div class="md:col-span-12 space-y-2">
-                            <label class="text-gray-400 uppercase tracking-wider block font-semibold">Nome de Usuário / Apelido</label>
-                            <input type="text" id="reg-name" required placeholder="Ex: Otaku Supremo" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 transition-colors">
+                            <label for="reg-name" class="text-gray-400 uppercase tracking-wider block font-semibold">Nome de Usuário / Apelido</label>
+                            <input type="text" id="reg-name" name="username" autocomplete="username" spellcheck="false" required placeholder="Ex: Otaku Supremo" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 transition-colors">
                         </div>
                         
                         <div class="md:col-span-6 space-y-2">
-                            <label class="text-gray-400 uppercase tracking-wider block font-semibold">E-mail</label>
-                            <input type="email" id="reg-email" required placeholder="exemplo@email.com" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 transition-colors">
+                            <label for="reg-email" class="text-gray-400 uppercase tracking-wider block font-semibold">E-mail</label>
+                            <input type="email" id="reg-email" name="email" autocomplete="email" required placeholder="exemplo@email.com" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 transition-colors">
                         </div>
                         
                         <div class="md:col-span-6 space-y-2">
-                            <label class="text-gray-400 uppercase tracking-wider block font-semibold">Senha</label>
-                            <input type="password" id="reg-password" required placeholder="••••••••" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 transition-colors">
+                            <label for="reg-password" class="text-gray-400 uppercase tracking-wider block font-semibold">Senha</label>
+                            <input type="password" id="reg-password" name="password" autocomplete="new-password" minlength="10" required placeholder="••••••••" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 transition-colors">
                         </div>
                         
                         <div class="md:col-span-6 space-y-2">
@@ -130,7 +130,7 @@
                         </div>
     
                         <div class="md:col-span-6 space-y-2">
-                            <label class="text-gray-400 uppercase tracking-wider block font-semibold text-center md:text-left">Avatar (Foto de Perfil)</label>
+                            <label for="reg-avatar" class="text-gray-400 uppercase tracking-wider block font-semibold text-center md:text-left">Avatar (Foto de Perfil)</label>
                             <input type="hidden" id="reg-avatar" value="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjI1KSI+PHBhdGggZD0iTTEyIDEyYTUgNSAwIDEgMCAwLTEwIDUgNSAwIDAgMCAwIDEwek0xMiAxNGMtMy43MyAwLTExIDEuODYtMTEgNS41VjIwSDIzdi0xYy0xLjEtMy42NC03LjI3LTUuNS0xMS01LjV6Ii8+PC9zdmc+">
                             <input type="file" id="reg-avatar-file" accept="image/*" class="hidden">
                             <div class="flex gap-1.5">
@@ -220,12 +220,12 @@
             <form id="login-form" class="space-y-6 text-xs font-mono hidden animate-[fadeIn_0.3s_ease-out]">
                 <div class="space-y-4">
                     <div class="space-y-2">
-                        <label class="text-gray-400 uppercase tracking-wider block font-semibold">E-mail ou Usu&aacute;rio</label>
-                        <input type="text" id="login-email" required placeholder="exemplo@email.com ou usuario" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 transition-colors">
+                        <label for="login-email" class="text-gray-400 uppercase tracking-wider block font-semibold">E-mail ou Usu&aacute;rio</label>
+                        <input type="text" id="login-email" name="username" autocomplete="username" spellcheck="false" autocapitalize="none" required placeholder="exemplo@email.com ou usuario" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 transition-colors">
                     </div>
                     <div class="space-y-2">
-                        <label class="text-gray-400 uppercase tracking-wider block font-semibold">Senha</label>
-                        <input type="password" id="login-password" required placeholder="••••••••" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 transition-colors">
+                        <label for="login-password" class="text-gray-400 uppercase tracking-wider block font-semibold">Senha</label>
+                        <input type="password" id="login-password" name="password" autocomplete="current-password" required placeholder="••••••••" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 transition-colors">
                     </div>
                     <div class="rounded-xl border border-brand/25 bg-brand/5 px-4 py-3 text-[10px] leading-relaxed text-gray-300">
                         <p class="text-brand font-bold uppercase tracking-[0.18em] mb-1">Atualizacao de seguranca</p>
@@ -402,7 +402,7 @@
                         <div class="flex flex-col sm:flex-row gap-4 flex-grow max-w-3xl">
                             <div class="relative flex-grow">
                                 <iconify-icon icon="lucide:search" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></iconify-icon>
-                                <input type="text" id="search-anime" placeholder="Pesquisar por título, estúdio..." class="w-full bg-white/5 border border-white/10 rounded-full py-2.5 pl-11 pr-4 text-xs font-light tracking-wide focus:outline-none focus:border-brand/50 transition-colors">
+                                <input type="text" id="search-anime" aria-label="Pesquisar animes por titulo ou estudio" placeholder="Pesquisar por título, estúdio..." class="w-full bg-white/5 border border-white/10 rounded-full py-2.5 pl-11 pr-4 text-xs font-light tracking-wide focus:outline-none focus:border-brand/50 transition-colors">
                             </div>
                             <div class="relative min-w-[200px]" id="sort-select-container">
                                 <!-- Custom Sort Dropdown populated dynamically in JS -->
@@ -711,51 +711,51 @@
             <form id="add-anime-form" class="space-y-4 text-xs font-mono">
                 <input type="hidden" id="form-anime-id">
                 <div class="space-y-1 relative">
-                    <label class="text-gray-500 uppercase tracking-wider block">Título em Inglês / Oficial</label>
+                    <label for="form-anime-title" class="text-gray-500 uppercase tracking-wider block">Título em Inglês / Oficial</label>
                     <input type="text" id="form-anime-title" required placeholder="Ex: Demon Slayer: Infinity Castle" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50" autocomplete="off">
                     <!-- Suggestions Dropdown -->
                     <div id="form-anime-suggestions" class="hidden absolute left-0 right-0 top-[102%] z-50 max-h-60 overflow-y-auto glass-panel rounded-xl border border-white/10 bg-[#0d0d0d]/95 backdrop-blur-md shadow-2xl divide-y divide-white/5"></div>
                 </div>
                 
                 <div class="space-y-1">
-                    <label class="text-gray-500 uppercase tracking-wider block">Título em Japonês (Opcional)</label>
+                    <label for="form-anime-jp-title" class="text-gray-500 uppercase tracking-wider block">Título em Japonês (Opcional)</label>
                     <input type="text" id="form-anime-jp-title" placeholder="Ex: Kimetsu no Yaiba: Mugejo" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-1">
-                        <label class="text-gray-500 uppercase tracking-wider block">Estúdio</label>
+                        <label for="form-anime-studio" class="text-gray-500 uppercase tracking-wider block">Estúdio</label>
                         <input type="text" id="form-anime-studio" placeholder="Ex: Ufotable" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
                     </div>
                     <div class="space-y-1">
-                        <label class="text-gray-500 uppercase tracking-wider block">Episódios</label>
+                        <label for="form-anime-episodes" class="text-gray-500 uppercase tracking-wider block">Episódios</label>
                         <input type="text" id="form-anime-episodes" placeholder="Ex: 12 episódios" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
                     </div>
                 </div>
 
                 <div class="space-y-1">
-                    <label class="text-gray-500 uppercase tracking-wider block">Logo do Estudio (Opcional)</label>
+                    <label for="form-studio-logo" class="text-gray-500 uppercase tracking-wider block">Logo do Estudio (Opcional)</label>
                     <input type="text" id="form-studio-logo" inputmode="url" autocomplete="off" placeholder="URL ou logo cadastrada do estudio..." class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-1">
-                        <label class="text-gray-500 uppercase tracking-wider block">Temporada / Ano</label>
+                        <label for="form-anime-season" class="text-gray-500 uppercase tracking-wider block">Temporada / Ano</label>
                         <input type="text" id="form-anime-season" placeholder="Ex: Primavera 2026" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
                     </div>
                     <div class="space-y-1">
-                        <label class="text-gray-500 uppercase tracking-wider block">Gêneros (Separados por vírgula)</label>
+                        <label for="form-anime-genres" class="text-gray-500 uppercase tracking-wider block">Gêneros (Separados por vírgula)</label>
                         <input type="text" id="form-anime-genres" placeholder="Ação, Fantasia, Drama" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
                     </div>
                 </div>
 
                 <div class="space-y-1">
-                    <label class="text-gray-500 uppercase tracking-wider block">URL Imagem da Capa (Unsplash/Web)</label>
+                    <label for="form-anime-cover" class="text-gray-500 uppercase tracking-wider block">URL Imagem da Capa (Unsplash/Web)</label>
                     <input type="text" id="form-anime-cover" inputmode="url" placeholder="Link da imagem ou caminho local..." class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
                 </div>
 
                 <div class="space-y-1">
-                    <label class="text-gray-500 uppercase tracking-wider block">Sinopse</label>
+                    <label for="form-anime-synopsis" class="text-gray-500 uppercase tracking-wider block">Sinopse</label>
                     <textarea id="form-anime-synopsis" rows="3" placeholder="Insira o resumo da obra..." class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50 resize-none font-sans text-xs"></textarea>
                 </div>
 
@@ -933,12 +933,12 @@
             <!-- Content Form -->
             <form id="edit-profile-form" class="space-y-4 text-xs font-mono">
                 <div class="space-y-1.5">
-                    <label class="text-gray-400 uppercase tracking-wider block font-semibold">Nome de Usuário</label>
+                    <label for="edit-profile-name" class="text-gray-400 uppercase tracking-wider block font-semibold">Nome de Usuário</label>
                     <input type="text" id="edit-profile-name" required class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50">
                 </div>
 
                 <div class="space-y-1.5">
-                    <label class="text-gray-400 uppercase tracking-wider block font-semibold">E-mail</label>
+                    <label for="edit-profile-email" class="text-gray-400 uppercase tracking-wider block font-semibold">E-mail</label>
                     <input type="email" id="edit-profile-email" required class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50">
                 </div>
 
@@ -967,7 +967,7 @@
                     </div>
 
                     <div class="space-y-1.5">
-                        <label class="text-gray-400 uppercase tracking-wider block font-semibold">Avatar (Foto)</label>
+                        <label for="edit-profile-avatar" class="text-gray-400 uppercase tracking-wider block font-semibold">Avatar (Foto)</label>
                         <input type="hidden" id="edit-profile-avatar">
                         <input type="file" id="edit-profile-avatar-file" accept="image/*" class="hidden">
                         <div class="flex gap-1.5">
@@ -1340,6 +1340,7 @@
     </div>
 
     <!-- Scripts Integration -->
-    <script src="app.js?v=78"></script>
+    <script src="shared/sync-state.js"></script>
+    <script src="app.js?v=79"></script>
 </body>
 </html>

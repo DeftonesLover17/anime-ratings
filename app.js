@@ -38,78 +38,6 @@ function deterministicStringify(obj) {
     return '{' + keyVals.join(',') + '}';
 }
 
-function purgeAllUsersExceptFelipe(appState) {
-    if (!appState || typeof appState !== 'object') return false;
-    let changed = false;
-
-    if (Array.isArray(appState.registeredUsers)) {
-        const before = appState.registeredUsers.length;
-        appState.registeredUsers = appState.registeredUsers.filter(u => {
-            return u && normalizeUsername(u.username) === 'felipe';
-        });
-        if (appState.registeredUsers.length !== before) changed = true;
-    }
-
-    (appState.registeredUsers || []).forEach(u => {
-        if (Array.isArray(u.friends) && u.friends.length > 0) {
-            u.friends = [];
-            changed = true;
-        }
-        if (Array.isArray(u.friendRequests) && u.friendRequests.length > 0) {
-            u.friendRequests = [];
-            changed = true;
-        }
-        if (Array.isArray(u.notifications) && u.notifications.length > 0) {
-            u.notifications = [];
-            changed = true;
-        }
-        u.memberNumber = 1;
-        u.memberDesc = 'Fundador e Administrador do AniVoid.';
-    });
-
-    if (Array.isArray(appState.friends) && appState.friends.length > 0) {
-        appState.friends = [];
-        changed = true;
-    }
-
-    if (Array.isArray(appState.animes)) {
-        appState.animes.forEach(anime => {
-            if (anime && anime.ratings && typeof anime.ratings === 'object') {
-                Object.keys(anime.ratings).forEach(key => {
-                    const norm = normalizeUsername(key);
-                    if (norm !== 'felipe' && key !== '1') {
-                        delete anime.ratings[key];
-                        changed = true;
-                    }
-                });
-            }
-            if (anime && Array.isArray(anime.comments)) {
-                const before = anime.comments.length;
-                anime.comments = anime.comments
-                    .filter(c => normalizeUsername(c && (c.friendId || c.username)) === 'felipe')
-                    .map(c => ({
-                        ...c,
-                        replies: Array.isArray(c.replies)
-                            ? c.replies.filter(r => normalizeUsername(r && (r.friendId || r.username)) === 'felipe')
-                            : []
-                    }));
-                if (anime.comments.length !== before) changed = true;
-            }
-        });
-    }
-
-    if (Array.isArray(appState.activities)) {
-        const before = appState.activities.length;
-        appState.activities = appState.activities.filter(a => {
-            const u = normalizeUsername(a && (a.username || a.friendId || a.userId));
-            return u === 'felipe';
-        });
-        if (appState.activities.length !== before) changed = true;
-    }
-
-    return changed;
-}
-
 
 // Default initial data to make the app feel alive and premium instantly
 const DEFAULT_FRIENDS = [];
@@ -1311,8 +1239,8 @@ function mergeLocalOwnRatings(serverAnimes, localAnimes, userId) {
 }
 
 function applyServerStateSnapshot(serverState) {
-    purgeAllUsersExceptFelipe(serverState);
     if (!serverState || typeof serverState !== 'object') return;
+    rememberSyncBase(serverState);
     if (serverState.viewerUsername) {
         setAuthSession(serverState.viewerUsername);
     }
@@ -1326,7 +1254,7 @@ function applyServerStateSnapshot(serverState) {
     }
     if (Array.isArray(serverState.animes)) {
         const activeUserId = normalizeProfileId(localStorage.getItem('anivoid_logged_in_username'));
-        const animesToStore = mergeLocalOwnRatings(serverState.animes, previousAnimes, activeUserId);
+        const animesToStore = serverState.animes;
         localStorage.setItem('anivoid_list_v2', JSON.stringify(animesToStore));
     }
     if (serverState.studioLogos && typeof serverState.studioLogos === 'object') {
@@ -1337,11 +1265,26 @@ function applyServerStateSnapshot(serverState) {
     }
 }
 
+function readClientState(appState) {
+    let users = [];
+    try { users = JSON.parse(localStorage.getItem('anivoid_registered_users')) || []; } catch {}
+    return { registeredUsers: users, animes: appState.animes, activities: appState.activities || [], featuredAnimeId: appState.featuredAnimeId };
+}
+
+function rememberSyncBase(serverState) {
+    const username = serverState.viewerUsername || localStorage.getItem('anivoid_logged_in_username');
+    if (!username) return null;
+    const snapshot = AnivoidSync.clientSnapshot(serverState, username);
+    localStorage.setItem('anivoid_sync_base:' + normalizeProfileId(username), JSON.stringify(snapshot));
+    if (window.__anivoidState) window.__anivoidState.syncBase = snapshot;
+    return snapshot;
+}
+
 class AppState {
     constructor() {
         this.loggedInUser = localStorage.getItem('anivoid_logged_in_username') || null;
         this.authToken = getAuthToken();
-        purgeAllUsersExceptFelipe(this);
+        try { this.syncBase = JSON.parse(localStorage.getItem('anivoid_sync_base:' + normalizeProfileId(this.loggedInUser))); } catch { this.syncBase = null; }
         sanitizeStoredRegisteredUsers();
         this.friends = [];
         this.activities = [];
@@ -1588,15 +1531,6 @@ class AppState {
                 featuredAnimeId: this.featuredAnimeId
             };
 
-            // Also embed featuredAnimeId in the logged-in user's profile before syncing
-            if (this.loggedInUser && this.featuredAnimeId !== undefined) {
-                const meIdx = registeredUsers.findIndex(u => u && u.username && u.username.toLowerCase() === this.loggedInUser.toLowerCase());
-                if (meIdx >= 0) {
-                    registeredUsers[meIdx] = { ...registeredUsers[meIdx], featuredAnimeId: this.featuredAnimeId };
-                    localState.registeredUsers = registeredUsers;
-                }
-            }
-
             // Capture state before request
             const prevAnimesStr = deterministicStringify(this.animes);
             const prevFeaturedId = this.featuredAnimeId;
@@ -1607,14 +1541,17 @@ class AppState {
             } catch (e) {}
 
             const hasLoginSession = !!this.loggedInUser;
-            const response = hasLoginSession
+            const sentSnapshot = AnivoidSync.clientSnapshot(localState, this.loggedInUser);
+            const shouldWrite = hasLoginSession && this.syncBase && !AnivoidSync.equal(sentSnapshot, this.syncBase);
+            const response = shouldWrite
                 ? await fetch(API_BASE_URL + '/api/sync-state', {
                     method: 'POST',
                     headers: authHeaders({
                         'Content-Type': 'application/json'
                     }),
                     body: JSON.stringify({
-                        localState: localState
+                        localState: sentSnapshot,
+                        baseState: this.syncBase
                     })
                 })
                 : await fetch(API_BASE_URL + '/api/get-state', {
@@ -1627,8 +1564,19 @@ class AppState {
                 this.friends = [];
                 throw new Error('Sessão expirada. Faça login novamente.');
             }
-            if (!response.ok) throw new Error('API sync request failed');
-            const serverState = await response.json();
+            if (!response.ok) {
+                const failure = await response.json().catch(() => ({}));
+                if (response.status === 409) showToast('Sincronizacao pendente', failure.error || 'Tente salvar novamente em instantes.', '↻', '#FF4500');
+                throw new Error(failure.error || 'API sync request failed');
+            }
+            let serverState = await response.json();
+            rememberSyncBase(serverState);
+            // Keep edits made while the request was in flight; the next sync sends
+            // their delta against this response rather than losing them on render.
+            if (hasLoginSession) {
+                const currentSnapshot = AnivoidSync.clientSnapshot(readClientState(this), this.loggedInUser);
+                if (!AnivoidSync.equal(sentSnapshot, currentSnapshot)) serverState = AnivoidSync.mergeClientState(currentSnapshot, sentSnapshot, serverState, this.loggedInUser, isCurrentUserAdmin());
+            }
             if (serverState.viewerUsername) {
                 setAuthSession(serverState.viewerUsername);
                 this.loggedInUser = serverState.viewerUsername;
@@ -1636,68 +1584,7 @@ class AppState {
 
             // Update local memory and localStorage with the merged server state
             if (serverState.animes && Array.isArray(serverState.animes)) {
-                const serverAnimesWithLocalRatings = mergeLocalOwnRatings(
-                    serverState.animes,
-                    this.animes,
-                    this.loggedInUser
-                );
-                const serverAnimesMap = {};
-                serverAnimesWithLocalRatings.forEach(sa => {
-                    serverAnimesMap[sa.id] = sa;
-                });
-
-                // Merge server ratings and comments into local rich animes
-                // IMPORTANT: preserve local replies when merging comments from server
-                this.animes = this.animes.map(localAnime => {
-                    const sa = serverAnimesMap[localAnime.id];
-                    if (sa) {
-                        // Merge comments: use server as base, but restore local replies
-                        const localCommentsMap = {};
-                        (localAnime.comments || []).forEach(lc => {
-                            if (lc.id) localCommentsMap[lc.id] = lc;
-                        });
-                        const mergedComments = (sa.comments || []).map(sc => {
-                            const localComment = localCommentsMap[sc.id];
-                            return {
-                                ...sc,
-                                likes: (sc.likes && sc.likes.length > 0)
-                                    ? sc.likes
-                                    : (localComment?.likes || []),
-                                // Preserve local replies (server doesn't know about them yet)
-                                replies: (localComment && localComment.replies && localComment.replies.length > 0)
-                                    ? localComment.replies
-                                    : (sc.replies || [])
-                            };
-                        });
-                        return {
-                            ...localAnime,
-                            studioLogoUrl: localAnime.studioLogoUrl || sa.studioLogoUrl || '',
-                            ratings: sa.ratings || {},
-                            comments: mergedComments
-                        };
-                    }
-                    return localAnime;
-                });
-
-                // The server owns the catalog. Remove locally cached titles that an admin deleted.
-                this.animes = this.animes.filter(anime => anime && serverAnimesMap[anime.id]);
-
-                // Add new animes from server not in local (deduplicate by id)
-                const localIds = new Set(this.animes.map(a => a.id));
-                serverAnimesWithLocalRatings.forEach(sa => {
-                    if (sa && sa.id && !localIds.has(sa.id)) {
-                        this.animes.push(sa);
-                        localIds.add(sa.id);
-                    }
-                });
-
-                // Final deduplication safeguard
-                const seen = new Set();
-                this.animes = this.animes.filter(a => {
-                    if (seen.has(a.id)) return false;
-                    seen.add(a.id);
-                    return true;
-                });
+                this.animes = serverState.animes;
 
                 this.repairDerivedRatings();
                 localStorage.setItem('anivoid_list_v2', JSON.stringify(this.animes));
@@ -1787,31 +1674,7 @@ class AppState {
                     const nextMeForNotifications = serverState.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === this.loggedInUser.toLowerCase());
                     if (nextMeForNotifications) mergeServerNotifications(nextMeForNotifications.notifications || []);
                 }
-                // Preserve local friend connections: the server may have a stale version
-                // of the logged-in user's friends list. Merge to keep local additions.
-                let localRegisteredUsers = [];
-                try {
-                    localRegisteredUsers = (JSON.parse(localStorage.getItem('anivoid_registered_users')) || []).map(stripSensitiveUserFields);
-                } catch(e) {}
-
-                const mergedUsers = serverState.registeredUsers.map(serverUser => {
-                    const localUser = localRegisteredUsers.find(u => u && u.username &&
-                        u.username.toLowerCase() === (serverUser.username || '').toLowerCase());
-                    if (localUser && this.loggedInUser &&
-                        serverUser.username && serverUser.username.toLowerCase() === this.loggedInUser.toLowerCase()) {
-                        // For the logged-in user: server friends list is authoritative.
-                        // Local profile fields (avatar, color, title) are preserved if server doesn't have them yet.
-                        return {
-                            ...serverUser,
-                            friends: serverUser.friends || [], // server is source of truth for social graph
-                            activeTitle: localUser.activeTitle || serverUser.activeTitle,
-                            avatar: localUser.avatar || serverUser.avatar,
-                            color: localUser.color || serverUser.color
-                        };
-                    }
-                    return serverUser;
-                });
-
+                const mergedUsers = serverState.registeredUsers;
                 storeRegisteredUsers(mergedUsers);
             }
             // After updating registeredUsers in localStorage, also read current user's featuredAnimeId
@@ -2815,12 +2678,14 @@ const tiltBoundCards = new WeakSet();
 const NOTIFICATIONS_KEY = 'anivoid_notifications_v1';
 
 function escapeHtml(value) {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+    const entities = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };
+    let text = String(value ?? '');
+    for (let pass = 0; pass < 4; pass++) {
+        const decoded = text.replace(/&(?:amp|lt|gt|quot|#39);/g, entity => entities[entity]);
+        if (decoded === text) break;
+        text = decoded;
+    }
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function getRegisteredUsersSafe() {
@@ -3992,8 +3857,23 @@ function bindElementOnce(element, key, event, handler) {
     return true;
 }
 
+let authGateReturnFocus = null;
+function setAuthBackgroundInert(active) {
+    for (const child of document.body.children) {
+        if (child.id === 'registration-gate' || child.id === 'splash-screen' || child.tagName === 'SCRIPT') continue;
+        if (active) {
+            if (!child.inert) { child.inert = true; child.dataset.authGateInert = 'true'; }
+        } else if (child.dataset.authGateInert) {
+            child.inert = false;
+            delete child.dataset.authGateInert;
+        }
+    }
+}
+
 function hideRegistrationGate() {
     document.body.classList.remove('auth-gate-active');
+    setAuthBackgroundInert(false);
+    if (authGateReturnFocus?.isConnected) authGateReturnFocus.focus({ preventScroll: true });
     const regGate = document.getElementById('registration-gate');
     if (regGate) {
         regGate.classList.add('hidden');
@@ -4018,6 +3898,20 @@ function showRegistrationGate() {
         regGate.classList.remove('hidden');
         regGate.classList.add('flex');
         initRegistrationOptions();
+        if (!regGate.contains(document.activeElement)) authGateReturnFocus = document.activeElement;
+        setAuthBackgroundInert(true);
+        if (!regGate.dataset.focusBound) {
+            regGate.dataset.focusBound = 'true';
+            regGate.addEventListener('keydown', event => {
+                if (event.key !== 'Tab') return;
+                const controls = [...regGate.querySelectorAll('button, input, select, textarea, a[href], [tabindex="0"]')].filter(element => !element.disabled && element.getClientRects().length && element.tabIndex >= 0);
+                const first = controls[0], last = controls[controls.length - 1];
+                if (!first) return;
+                if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+                else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+            });
+        }
+        requestAnimationFrame(() => regGate.querySelector('button:not([disabled])')?.focus({ preventScroll: true }));
     }
 }
 
@@ -4186,43 +4080,28 @@ function checkAndShowSecurityModal() {
 function setupSplashScreen() {
     const splashScreen = document.getElementById('splash-screen');
     if (!splashScreen) return;
-
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let seen = false;
+    try { seen = sessionStorage.getItem('anivoid_intro_seen') === 'true'; sessionStorage.setItem('anivoid_intro_seen', 'true'); } catch {}
     let transitioned = false;
-
-    const transitionOut = () => {
+    const finish = () => {
+        splashScreen.classList.add('hidden');
+        splashScreen.style.display = 'none';
+        if (state.friends.length === 0 && !state.loggedInUser) showRegistrationGate();
+        else { hideRegistrationGate(); checkAndShowSecurityModal(); }
+        if (window.initObserver) window.initObserver();
+    };
+    const transitionOut = (skip = false) => {
         if (transitioned) return;
         transitioned = true;
-        
-        // Add warp classes for the new empty set morph exit transition
-        const logo = document.getElementById('splash-logo');
-        if (logo) {
-            logo.classList.add('splash-logo-warp-active');
-        }
+        if (reduced || seen || skip) { finish(); return; }
+        document.getElementById('splash-logo')?.classList.add('splash-logo-warp-active');
         splashScreen.classList.add('splash-warp-active');
-        
-        setTimeout(() => {
-            splashScreen.classList.add('hidden');
-            splashScreen.style.display = 'none';
-            
-            // Check registration
-            if (state.friends.length === 0 && !state.loggedInUser) {
-                showRegistrationGate();
-            } else {
-                hideRegistrationGate();
-                checkAndShowSecurityModal();
-            }
-            if (window.initObserver) window.initObserver();
-        }, 1500);
+        setTimeout(finish, 350);
     };
-
-    // After 2.5 seconds, auto-transition to main dashboard
-    const timer = setTimeout(transitionOut, 2500);
-
-    // Fallback click to skip transition immediately
-    splashScreen.addEventListener('click', () => {
-        clearTimeout(timer);
-        transitionOut();
-    });
+    const timer = setTimeout(() => transitionOut(), reduced || seen ? 0 : 700);
+    splashScreen.addEventListener('click', () => { clearTimeout(timer); transitionOut(true); });
+    document.getElementById('skip-intro')?.addEventListener('click', () => { clearTimeout(timer); transitionOut(true); });
 }
 
 // Initialise the interface elements and logic
@@ -8103,8 +7982,7 @@ function initRegistrationOptions() {
 
         const regGate = document.getElementById('registration-gate');
         if (regGate) {
-            regGate.classList.add('hidden');
-            regGate.classList.remove('flex');
+            hideRegistrationGate();
         }
         document.body.classList.remove('overflow-hidden');
 
@@ -8344,8 +8222,7 @@ function initRegistrationOptions() {
             
             const regGate = document.getElementById('registration-gate');
             if (regGate) {
-                regGate.classList.add('hidden');
-                regGate.classList.remove('flex');
+                hideRegistrationGate();
             }
             document.body.classList.remove('overflow-hidden');
 
@@ -8785,6 +8662,7 @@ function applyUserThemeColor(color) {
             const g = parseInt(cleanHex.substring(2, 4), 16);
             const b = parseInt(cleanHex.substring(4, 6), 16);
             if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+                document.documentElement.style.setProperty('--brand-rgb', r + ' ' + g + ' ' + b);
                 // YIQ formula to calculate perceived brightness
                 const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
                 if (yiq >= 135) {

@@ -1682,3 +1682,22 @@ button:not(:disabled),
 
 
 
+
+/* Authentication: readable, touch-friendly, and isolated from the dashboard. */
+:root { color-scheme: dark; }
+#registration-gate { background: rgba(5, 5, 5, 0.98); overscroll-behavior: contain; padding-block: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-bottom)); }
+#registration-gate > .glass-panel { overflow: clip; }
+#registration-gate button { min-height: 44px; touch-action: manipulation; }
+#registration-gate input:not([type="color"]), #registration-gate textarea, #registration-gate select { min-height: 48px; font-size: 16px; }
+#registration-gate label { font-size: 12px; line-height: 1.5; }
+#registration-gate p { font-size: 13px; line-height: 1.65; }
+#registration-gate #reg-header-tag { font-size: 11px; }
+#registration-gate #tab-login, #registration-gate #tab-register { font-size: 11px; }
+#registration-gate #toggle-to-login, #registration-gate #toggle-to-register { padding-inline: 8px; font-size: 13px; }
+#registration-gate :is(button, input, textarea, select, a):focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+#registration-gate :is(button, input, textarea, select) { transition-property: background-color, border-color, color, opacity, transform; }
+#registration-gate button:active { transform: scale(0.98); }
+.skip-intro { position: absolute; top: 1rem; right: 1rem; min-height: 44px; padding: 0.5rem 1rem; border: 1px solid currentColor; border-radius: 999px; font-size: 12px; }
+.skip-intro:focus-visible { outline: 2px solid white; outline-offset: 4px; }
+.splash-warp-active, .splash-logo-warp-active { transition-duration: 350ms !important; animation-duration: 350ms !important; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } #registration-gate *, #splash-screen * { animation: none !important; transition: none !important; } }

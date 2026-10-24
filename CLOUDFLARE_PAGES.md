@@ -1,5 +1,16 @@
 # Cloudflare Pages
 
+## Validacao local
+
+- Instale as dependencias com `npm ci`.
+- Rode `npm test` e `npm run build:pages` antes de publicar.
+- O build gera Tailwind localmente e publica CSS e JavaScript compactados, com nomes baseados no conteudo.
+- Use Node 24 para executar tambem o teste com SQLite real. Em Node 18 esse teste especifico e pulado.
+
+O estado usa uma revisao numerica dentro do JSON existente do D1. Cada gravacao verifica essa revisao de forma atomica; conflitos sao relidos e repetidos ate tres vezes. O navegador envia alteracoes em relacao ao ultimo snapshot, preservando mudancas feitas em outros dispositivos. Abas abertas em versoes anteriores precisam recarregar antes de salvar.
+
+Nao existe limpeza automatica de usuarios ao ler ou salvar o estado.
+
 Use esta configuracao para tirar imagens, CSS e JavaScript do Render e reduzir o uso da banda gratis dele.
 
 ## Configuracao recomendada

@@ -7,3 +7,5 @@ logos/*_source.jpg
 .env.*
 .DS_Store
 data/state.json
+
+tailwind.css

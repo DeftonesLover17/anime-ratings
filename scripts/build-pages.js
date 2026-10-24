@@ -1,72 +1,43 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const postcss = require('postcss');
+const tailwind = require('tailwindcss');
+const esbuild = require('esbuild');
 
-const rootDir = path.resolve(__dirname, '..');
-const distDir = path.join(rootDir, 'dist');
-
-const publicFiles = [
-    'index.html',
-    'app.js',
-    'tailwind-config.js',
-    'styles.css',
-    'favicon.png',
-    'logo.png'
-];
-
-const publicDirs = [
-    'covers',
-    'logos'
-];
-
-const headers = `/*
-  X-Content-Type-Options: nosniff
-  Referrer-Policy: strict-origin-when-cross-origin
-  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
-  X-Frame-Options: DENY
-  Permissions-Policy: accelerometer=(), ambient-light-sensor=(), autoplay=(), camera=(), clipboard-read=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()
-  Cross-Origin-Opener-Policy: same-origin
-  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.tailwindcss.com https://code.iconify.design; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://api.jikan.moe https://kitsu.io https://api.emailjs.com https://api.iconify.design https://api-staging.iconify.design https://api.simplesvg.com https://api.unisvg.com; upgrade-insecure-requests
-  Access-Control-Allow-Origin: https://anime-ratings.pages.dev
-
-/index.html
-  Cache-Control: no-cache
-
-/app.js
-  Cache-Control: no-cache, max-age=0, must-revalidate
-
-/styles.css
-  Cache-Control: public, max-age=31536000, immutable
-
-/covers/*
-  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
-
-/logos/*
-  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
-
-/favicon.png
-  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
-
-/logo.png
-  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
-`;
-
-fs.rmSync(distDir, { recursive: true, force: true });
-fs.mkdirSync(distDir, { recursive: true });
-
-for (const file of publicFiles) {
-    const source = path.join(rootDir, file);
-    if (fs.existsSync(source)) {
-        fs.copyFileSync(source, path.join(distDir, file));
+async function build() {
+    const root = path.resolve(__dirname, '..');
+    const dist = path.join(root, 'dist');
+    if (path.dirname(dist) !== root || path.basename(dist) !== 'dist') throw new Error('Invalid build output');
+    fs.rmSync(dist, { recursive: true, force: true });
+    fs.mkdirSync(dist, { recursive: true });
+    for (const folder of ['covers', 'logos']) fs.cpSync(path.join(root, folder), path.join(dist, folder), { recursive: true });
+    for (const file of ['favicon.png', 'logo.png']) fs.copyFileSync(path.join(root, file), path.join(dist, file));
+    const config = require(path.join(root, 'tailwind.config.js'));
+    config.content = config.content.map(file => path.resolve(root, file));
+    const generated = await postcss([tailwind(config)]).process('@tailwind base; @tailwind components; @tailwind utilities;', { from: undefined });
+    // Also support the alternative Node server, which serves the source tree.
+    fs.writeFileSync(path.join(root, 'tailwind.css'), generated.css);
+    let html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+    const assets = [
+        ['tailwind.css', generated.css, 'css'],
+        ['styles.css', fs.readFileSync(path.join(root, 'styles.css'), 'utf8'), 'css'],
+        ['shared/sync-state.js', fs.readFileSync(path.join(root, 'shared/sync-state.js'), 'utf8'), 'js'],
+        ['app.js', fs.readFileSync(path.join(root, 'app.js'), 'utf8'), 'js']
+    ];
+    for (const [name, source, loader] of assets) {
+        const output = esbuild.transformSync(source, { loader, minifyWhitespace: true, minifySyntax: true, minifyIdentifiers: false, charset: 'utf8', target: 'es2020' }).code;
+        const hash = crypto.createHash('sha256').update(output).digest('hex').slice(0, 12);
+        const extension = path.extname(name);
+        const hashed = name.slice(0, -extension.length) + '.' + hash + extension;
+        fs.mkdirSync(path.dirname(path.join(dist, hashed)), { recursive: true });
+        fs.writeFileSync(path.join(dist, hashed), output);
+        const sourceUrl = name === 'app.js' ? 'app.js?v=79' : name === 'styles.css' ? 'styles.css?v=19' : name;
+        html = html.replace(sourceUrl, hashed);
     }
+    fs.writeFileSync(path.join(dist, 'index.html'), html);
+    fs.copyFileSync(path.join(root, '_headers'), path.join(dist, '_headers'));
+    console.log('Cloudflare Pages output ready at dist (compiled CSS and versioned assets)');
 }
 
-for (const dir of publicDirs) {
-    const source = path.join(rootDir, dir);
-    if (fs.existsSync(source)) {
-        fs.cpSync(source, path.join(distDir, dir), { recursive: true });
-    }
-}
-
-fs.writeFileSync(path.join(distDir, '_headers'), headers, 'utf8');
-
-console.log(`Cloudflare Pages output ready at ${path.relative(rootDir, distDir)}`);
+build().catch(error => { console.error(error); process.exitCode = 1; });

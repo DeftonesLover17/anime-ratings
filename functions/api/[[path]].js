@@ -1,3 +1,8 @@
+import syncTools from '../../shared/sync-state.js';
+const { mergeClientState } = syncTools;
+const storageReady = new WeakMap();
+const REQUEST_LIMITS = Symbol('requestRateLimits');
+
 const PASSWORD_ITERATIONS = 100000;
 const PASSWORD_KEY_LENGTH_BITS = 256;
 const MIN_PASSWORD_LENGTH = 10;
@@ -780,6 +785,15 @@ function getDb(env) {
 
 async function ensureStorage(env) {
     const db = getDb(env);
+    if (!storageReady.has(db)) {
+        const ready = initializeStorage(env).catch(error => { storageReady.delete(db); throw error; });
+        storageReady.set(db, ready);
+    }
+    return storageReady.get(db);
+}
+
+async function initializeStorage(env) {
+    const db = getDb(env);
     await db.prepare('CREATE TABLE IF NOT EXISTS app_state (id TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)').run();
     await db.prepare('CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, username TEXT NOT NULL, expires_at INTEGER NOT NULL)').run();
     await db.prepare('CREATE TABLE IF NOT EXISTS rate_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, reset_at INTEGER NOT NULL)').run();
@@ -825,114 +839,31 @@ async function maybeCreateAutomaticBackup(env, reason = 'auto') {
     }
 }
 
-function purgeAllUsersExceptFelipe(state) {
-    if (!state || typeof state !== 'object') return false;
-    let changed = false;
-
-    // 1. Keep only Felipe in registeredUsers
-    if (Array.isArray(state.registeredUsers)) {
-        const originalCount = state.registeredUsers.length;
-        state.registeredUsers = state.registeredUsers.filter(u => {
-            return u && normalizeUsername(u.username) === 'felipe';
-        });
-        if (state.registeredUsers.length !== originalCount) changed = true;
-    }
-
-    // 2. Clear social graph and extraneous data for Felipe
-    (state.registeredUsers || []).forEach(u => {
-        if (Array.isArray(u.friends) && u.friends.length > 0) {
-            u.friends = [];
-            changed = true;
-        }
-        if (Array.isArray(u.friendRequests) && u.friendRequests.length > 0) {
-            u.friendRequests = [];
-            changed = true;
-        }
-        if (Array.isArray(u.notifications) && u.notifications.length > 0) {
-            u.notifications = [];
-            changed = true;
-        }
-        u.memberNumber = 1;
-        u.memberDesc = 'Fundador e Administrador do AniVoid.';
-    });
-
-    if (Array.isArray(state.friends) && state.friends.length > 0) {
-        state.friends = [];
-        changed = true;
-    }
-
-    // 3. Remove non-Felipe ratings and comments from all animes
-    if (Array.isArray(state.animes)) {
-        state.animes.forEach(anime => {
-            if (anime && anime.ratings && typeof anime.ratings === 'object') {
-                Object.keys(anime.ratings).forEach(key => {
-                    const norm = normalizeUsername(key);
-                    if (norm !== 'felipe' && key !== '1') {
-                        delete anime.ratings[key];
-                        changed = true;
-                    }
-                });
-            }
-            if (anime && Array.isArray(anime.comments)) {
-                const before = anime.comments.length;
-                anime.comments = anime.comments
-                    .filter(c => normalizeUsername(c && (c.friendId || c.username)) === 'felipe')
-                    .map(c => ({
-                        ...c,
-                        replies: Array.isArray(c.replies)
-                            ? c.replies.filter(r => normalizeUsername(r && (r.friendId || r.username)) === 'felipe')
-                            : []
-                    }));
-                if (anime.comments.length !== before) changed = true;
-            }
-        });
-    }
-
-    // 4. Remove non-Felipe activities
-    if (Array.isArray(state.activities)) {
-        const before = state.activities.length;
-        state.activities = state.activities.filter(a => {
-            const u = normalizeUsername(a && (a.username || a.friendId || a.userId));
-            return u === 'felipe';
-        });
-        if (state.activities.length !== before) changed = true;
-    }
-
-    return changed;
-}
-
 async function readState(env) {
     await ensureStorage(env);
     const row = await getDb(env).prepare('SELECT state FROM app_state WHERE id = ?1').bind('main').first();
-    if (!row || !row.state) return clone(DEFAULT_STATE);
-    try {
-        const state = JSON.parse(row.state);
-        const purged = purgeAllUsersExceptFelipe(state);
-        if (purged) {
-            await writeState(env, state);
-            try {
-                await getDb(env).prepare(
-                    "DELETE FROM sessions WHERE LOWER(REPLACE(REPLACE(username, '!', ''), ' ', '')) != 'felipe'"
-                ).run();
-            } catch (sessErr) {
-                console.warn('Session purge warning:', sessErr);
-            }
-        }
-        return state;
-    } catch (err) {
-        return clone(DEFAULT_STATE);
-    }
+    if (!row || !row.state) throw new Error('missing_state');
+    const state = JSON.parse(row.state);
+    state.revision = Number(state.revision) || 0;
+    return state;
 }
 
 async function writeState(env, state) {
     await ensureStorage(env);
-    purgeAllUsersExceptFelipe(state);
+    const revision = Number(state.revision) || 0;
     normalizeSocialGraph(state);
     await maybeCreateAutomaticBackup(env, 'auto');
     const safeState = sanitizeStateForStorage(state);
-    await getDb(env).prepare(
-        "INSERT INTO app_state (id, state, updated_at) VALUES ('main', ?1, CURRENT_TIMESTAMP) ON CONFLICT(id) DO UPDATE SET state = excluded.state, updated_at = CURRENT_TIMESTAMP"
-    ).bind(JSON.stringify(safeState)).run();
+    safeState.revision = revision + 1;
+    const result = await getDb(env).prepare(
+        "UPDATE app_state SET state = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = 'main' AND COALESCE(json_extract(state, '$.revision'), 0) = ?2"
+    ).bind(JSON.stringify(safeState), revision).run();
+    if (result.meta.changes !== 1) {
+        const error = new Error('state_conflict');
+        error.code = 'STATE_CONFLICT';
+        throw error;
+    }
+    state.revision = safeState.revision;
     return safeState;
 }
 
@@ -982,6 +913,14 @@ function clientRateLimitKey(request, bucket, discriminator = '') {
 }
 
 async function enforceRateLimit(request, env, bucket, maxAttempts, windowMs, discriminator = '') {
+    const key = clientRateLimitKey(request, bucket, discriminator);
+    if (env[REQUEST_LIMITS]?.has(key)) return null;
+    const response = await enforceRateLimitOnce(request, env, bucket, maxAttempts, windowMs, discriminator);
+    if (!response) env[REQUEST_LIMITS]?.add(key);
+    return response;
+}
+
+async function enforceRateLimitOnce(request, env, bucket, maxAttempts, windowMs, discriminator = '') {
     await ensureStorage(env);
     const now = Date.now();
     const resetAt = now + windowMs;
@@ -1161,116 +1100,32 @@ function compactActivities(activities, limit = 80) {
         .slice(0, limit);
 }
 
-function mergeStates(localState, serverState, loggedInUser, canEditCatalog = false) {
-    const authorUser = findRegisteredUser(serverState, loggedInUser) || {
-        username: loggedInUser || 'Desconhecido',
-        color: '#FF4500',
-        avatar: '👤'
+function mergeStates(localState, serverState, loggedInUser, canEditCatalog = false, baseState) {
+    const nextState = mergeClientState(localState, baseState, serverState, loggedInUser, canEditCatalog);
+    const author = findRegisteredUser(nextState, loggedInUser);
+    const id = normalizeUsername(loggedInUser);
+    const push = (type, anime, details) => {
+        const activity = createActivity(author, type, anime, details);
+        nextState.activities.push(activity);
+        notifyFriendsOfActivity(nextState, author, activity);
     };
-    const mergedActivities = Array.isArray(serverState.activities) ? [...serverState.activities] : [];
-    mergeClientActivities(mergedActivities, localState.activities, authorUser, loggedInUser);
-    const pushActivity = (type, anime, details) => {
-        if (!loggedInUser || !anime || !anime.id) return;
-        const activity = createActivity(authorUser, type, anime, details);
-        mergedActivities.push(activity);
-        notifyFriendsOfActivity(serverState, authorUser, activity);
-    };
-
-    const nextState = {
-        friends: Array.isArray(serverState.friends) ? [...serverState.friends] : [],
-        animes: Array.isArray(serverState.animes) ? serverState.animes.filter(anime => !isBogusAnime(anime)).map(anime => ({ ...anime })) : [],
-        studioLogos: { ...(serverState.studioLogos && typeof serverState.studioLogos === 'object' ? serverState.studioLogos : {}) },
-        registeredUsers: Array.isArray(serverState.registeredUsers) ? serverState.registeredUsers.map(user => ({ ...user })) : [],
-        featuredAnimeId: serverState.featuredAnimeId || null,
-        activities: mergedActivities
-    };
-
-    const loggedInId = normalizeUsername(loggedInUser);
-    const localUsers = Array.isArray(localState.registeredUsers) ? localState.registeredUsers : [];
-    const localMe = localUsers.find(user => user && user.username && sameUsername(user.username, loggedInUser));
-    const serverMeIndex = nextState.registeredUsers.findIndex(user => user && user.username && sameUsername(user.username, loggedInUser));
-    if (localMe && serverMeIndex >= 0) {
-        const current = nextState.registeredUsers[serverMeIndex];
-        nextState.registeredUsers[serverMeIndex] = {
-            ...current,
-            email: localMe.email || current.email,
-            color: localMe.color || current.color,
-            avatar: localMe.avatar || current.avatar,
-            emailVerified: localMe.emailVerified !== undefined ? localMe.emailVerified : current.emailVerified,
-            favoriteGenres: localMe.favoriteGenres || current.favoriteGenres,
-            favoriteStudios: localMe.favoriteStudios || current.favoriteStudios,
-            favoriteAnimes: localMe.favoriteAnimes || current.favoriteAnimes,
-            activeTitle: localMe.activeTitle || current.activeTitle,
-            featuredAnimeId: localMe.featuredAnimeId !== undefined ? localMe.featuredAnimeId : current.featuredAnimeId
-        };
+    for (const anime of nextState.animes) {
+        const previous = serverState.animes.find(item => item.id === anime.id);
+        const before = previous?.ratings?.[id] || {};
+        const after = anime.ratings?.[id] || {};
+        if (after.status && before.status !== after.status) {
+            const phrases = { Watching: 'comecou a assistir', Completed: 'concluiu a obra', 'On Hold': 'colocou em espera', Dropped: 'abandonou a obra', 'Plan to Watch': 'adicionou a lista' };
+            push('status', anime, phrases[after.status] || 'atualizou o status');
+        }
+        if (after.overall > 0 && String(before.overall) !== String(after.overall)) push('rating', anime, 'avaliou com nota ' + after.overall);
+        if (Number(after.episodesWatched) > Number(before.episodesWatched || 0) && Number(after.episodesWatched) !== Number(anime.episodes)) push('progress', anime, 'assistiu ao episodio ' + after.episodesWatched);
+        for (const comment of anime.comments || []) {
+            const prior = (previous?.comments || []).find(item => item.id === comment.id);
+            if (normalizeUsername(comment.friendId) === id && (!prior || prior.comment !== comment.comment)) push(prior ? 'comment_edit' : 'comment_add', anime, prior ? 'editou uma critica' : 'escreveu uma critica');
+            if ((comment.replies || []).some(reply => normalizeUsername(reply.friendId) === id && !(prior?.replies || []).some(item => item.id === reply.id))) push('reply_add', anime, 'respondeu uma critica');
+        }
+        if ((previous?.comments || []).some(comment => normalizeUsername(comment.friendId) === id && !(anime.comments || []).some(item => item.id === comment.id))) push('comment_delete', anime, 'removeu uma critica');
     }
-
-    if (Array.isArray(localState.animes)) {
-        localState.animes.filter(anime => !isBogusAnime(anime)).forEach(localAnime => {
-            let serverAnime = nextState.animes.find(anime => anime.id === localAnime.id);
-            if (!serverAnime) {
-                return;
-            }
-
-            if (!serverAnime.ratings) serverAnime.ratings = {};
-            const localRating = localAnime.ratings && localAnime.ratings[loggedInId];
-            if (localRating) {
-                const hasRealOverall = localRating.overall && parseFloat(localRating.overall) > 0;
-                const hasEpisodeRatings = localRating.episodeRatings && Object.keys(localRating.episodeRatings).length > 0;
-                const hasRealStatus = localRating.status && localRating.status !== 'Plan to Watch';
-                if (hasRealOverall || hasEpisodeRatings || hasRealStatus || serverAnime.ratings[loggedInId]) {
-                    const serverRating = serverAnime.ratings[loggedInId] || {};
-                    if (localRating.status && localRating.status !== serverRating.status && (localRating.status !== 'Plan to Watch' || serverRating.status)) {
-                        const statusPhrases = {
-                            Watching: 'comecou a assistir',
-                            Completed: 'concluiu a obra',
-                            'On Hold': 'colocou em espera',
-                            Dropped: 'abandonou a obra',
-                            'Plan to Watch': 'adicionou a lista'
-                        };
-                        pushActivity('status', localAnime, statusPhrases[localRating.status] || `marcou como ${localRating.status}`);
-                    }
-                    if (localRating.overall !== undefined && String(localRating.overall) !== String(serverRating.overall || '')) {
-                        const score = parseFloat(localRating.overall);
-                        if (Number.isFinite(score) && score > 0) {
-                            pushActivity('rating', localAnime, `avaliou com nota ${localRating.overall}`);
-                        }
-                    }
-                    const prevWatched = Number(serverRating.episodesWatched || 0);
-                    const nextWatched = Number(localRating.episodesWatched || 0);
-                    const totalEpisodes = Number(localAnime.episodes || serverAnime.episodes || 0);
-                    if (nextWatched > prevWatched && nextWatched !== totalEpisodes) {
-                        pushActivity('progress', localAnime, `assistiu ao episodio ${nextWatched}`);
-                    }
-                    serverAnime.ratings[loggedInId] = { ...serverAnime.ratings[loggedInId], ...localRating };
-                }
-            }
-
-            mergeCommentsForUser(serverAnime, localAnime, loggedInId, (type, details) => {
-                pushActivity(type, localAnime, details);
-            });
-        });
-
-        nextState.animes.forEach(serverAnime => {
-            if (!serverAnime || !serverAnime.id) return;
-            const recoveredRating = findLocalRatingForAnime(localState.animes, serverAnime, loggedInId);
-            if (!hasMeaningfulRating(recoveredRating)) return;
-
-            if (!serverAnime.ratings) serverAnime.ratings = {};
-            const serverRating = serverAnime.ratings[loggedInId];
-            if (hasMeaningfulRating(serverRating) && ratingStrength(serverRating) >= ratingStrength(recoveredRating)) return;
-
-            if (recoveredRating.overall !== undefined && String(recoveredRating.overall) !== String(serverRating?.overall || '')) {
-                const score = parseFloat(recoveredRating.overall);
-                if (Number.isFinite(score) && score > 0) {
-                    pushActivity('rating', serverAnime, `avaliou com nota ${recoveredRating.overall}`);
-                }
-            }
-            serverAnime.ratings[loggedInId] = { ...(serverRating || {}), ...recoveredRating };
-        });
-    }
-
-    if (canEditCatalog && localState.featuredAnimeId !== undefined) nextState.featuredAnimeId = localState.featuredAnimeId;
     nextState.activities = compactActivities(nextState.activities, 80);
     return normalizeSocialGraph(nextState);
 }
@@ -1404,11 +1259,12 @@ async function handlePatchUser(request, env) {
 async function handleSyncState(request, env) {
     const body = await parseJsonBody(request);
     if (!body) return json({ error: 'Invalid JSON body' }, 400);
+    if (!body.baseState || !Array.isArray(body.baseState.animes)) return json({ error: 'Atualize a pagina antes de sincronizar.', code: 'CLIENT_UPDATE_REQUIRED' }, 409);
     const localState = body.localState || body;
     const serverState = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, serverState);
     if (auth.response) return auth.response;
-    const nextState = mergeStates(localState, serverState, auth.user.username, isAdminUser(auth.user, env));
+    const nextState = mergeStates(localState, serverState, auth.user.username, isAdminUser(auth.user, env), body.baseState);
     await writeState(env, nextState);
     return json(sanitizeState(nextState, auth.user.username));
 }
@@ -2092,7 +1948,12 @@ async function route(request, env) {
 
 export async function onRequest(context) {
     try {
-        return await route(context.request, context.env);
+        const env = { ...context.env, [REQUEST_LIMITS]: new Set() };
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try { return await route(context.request.clone(), env); }
+            catch (error) { if (error.code !== 'STATE_CONFLICT') throw error; }
+        }
+        return json({ error: 'Os dados mudaram durante a gravacao. Tente salvar novamente.', code: 'STATE_CONFLICT' }, 409, { 'Retry-After': '1' });
     } catch (err) {
         if (String(err && err.message) === 'missing_d1_binding') {
             return json({
