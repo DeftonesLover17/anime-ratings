@@ -100,7 +100,7 @@ body.av-app { background: var(--av-bg) !important; }
 .av-hero-rating > p { font-size: 11px; display: flex; flex-direction: column; gap: 5px; color: var(--av-muted); margin-left: 8px; }
 .av-hero-art { position: relative; align-self: center; padding: 0 12px 35px; min-width: 0; }
 .av-art-frame { position: relative; width: min(100%,385px); margin: auto; }
-.av-art-frame a { display: block; position: relative; overflow: hidden; transform: rotate(2deg); background: var(--av-surface); }
+.av-art-frame a { display: block; position: relative; overflow: hidden; background: var(--av-surface); }
 .av-art-frame img { display: block; width: 100%; height: auto; aspect-ratio: 2/3; object-fit: cover; transition: transform .7s var(--av-ease); }
 .av-art-corner { position: absolute; top: -27px; left: -22px; color: var(--av-accent); font-size: 36px; line-height: 1; }
 .av-art-index { position: absolute; right: -24px; bottom: 8px; writing-mode: vertical-rl; font-size: 9px; letter-spacing: .16em; color: var(--av-muted); }
