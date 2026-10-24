@@ -133,7 +133,6 @@ body.av-app { background: var(--av-bg) !important; }
 .av-card-poster { display: block; position: relative; overflow: hidden; background: var(--av-surface); aspect-ratio: 2/3; }
 .av-card-poster::before { content: 'ANIVØID'; position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--av-display); color: var(--av-muted); font-size: 20px; }
 .av-card-poster img { display: block; width: 100%; height: 100%; object-fit: cover; position: relative; transition: transform .65s var(--av-ease); }
-.av-card-position { position: absolute; left: 13px; top: 13px; min-width: 28px; padding: 3px 5px; font-size: 9px; background: #121510; color: #f1f0e8; }
 .av-card-invitation { display: flex; justify-content: space-between; align-items: center; position: absolute; left: 0; right: 0; bottom: 0; padding: 17px; background: #f1f0e8; color: #1d271c; font-size: 12px; transform: translateY(102%); transition: transform .4s var(--av-ease); }
 .av-card-invitation svg { width: 22px; height: 22px; }
 .av-card-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 17px; font-size: 9px; color: var(--av-muted); text-transform: uppercase; letter-spacing: .06em; }

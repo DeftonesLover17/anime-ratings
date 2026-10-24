@@ -62,7 +62,7 @@ function renderProfile(container, model, actions) {
         actions.allStudios(),
     );
     const grid = root.querySelector('.av-studio-catalog');
-    model.animes.forEach((anime, index) =>
+    model.animes.forEach((anime) =>
         grid.append(
             createCatalogCard(
                 {
@@ -72,7 +72,6 @@ function renderProfile(container, model, actions) {
                     statusLabel: model.status(anime),
                 },
                 actions,
-                index,
             ),
         ),
     );
