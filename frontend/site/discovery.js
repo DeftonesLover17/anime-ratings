@@ -22,7 +22,7 @@ function renderFeatured(container, model, actions) {
         <div class="av-hero-topline"><span>Anime. Visto de outro jeito.</span><span>Seu acervo em movimento <i aria-hidden="true"></i></span></div>
         <div class="av-hero-copy">
             <p class="av-eyebrow"><span class="av-index">01</span> Em destaque <span class="av-mini-rule"></span> ${e(anime.season || '')}</p>
-            <h1 class="av-hero-title" data-av-reveal>${e(anime.title)}</h1>
+            <h1 class="av-hero-title${anime.title.length > 34 ? ' av-hero-title-long' : ''}" data-av-reveal>${e(anime.title)}</h1>
             <div class="av-hero-subline"><span>${e(anime.studio || 'Estúdio não informado')}</span><span>${total === 1 ? 'Filme' : total ? total + ' episódios' : 'Em lançamento'}</span></div>
             <p class="av-hero-synopsis">${e(anime.synopsis || '')}</p>
             <div class="av-hero-actions"><a class="av-button av-button-solid" href="#obra/${encodeURIComponent(anime.id)}" data-open>Entrar na obra ${arrow()}</a><a class="av-text-link" href="#anime-grid-section" data-catalog>Explorar acervo <span>↓</span></a></div>
