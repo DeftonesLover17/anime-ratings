@@ -35,7 +35,10 @@ function createNavigation(browser, scenes) {
             else if (route === 'estudio' && value) actions.studio(value, false);
             else if (route === 'estudios') actions.studio(null, false);
             else if (route === 'featured-banner-wrapper') actions.featured();
-            else if (route === 'anime-grid-section') actions.catalog();
+            else if (route === 'anime-grid-section') {
+                if (force) actions.featured();
+                else actions.catalog();
+            }
             else if (!route) actions.featured();
         } finally {
             applyingHistory = false;
@@ -73,7 +76,7 @@ function createNavigation(browser, scenes) {
                 ? returnHash
                 : returnHash === '#featured-banner-wrapper'
                   ? returnHash
-                  : '#anime-grid-section',
+                  : '#featured-banner-wrapper',
         );
         scenes.run(update, {
             source: visible ? source : null,

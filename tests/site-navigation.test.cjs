@@ -33,6 +33,26 @@ test('deep links wait for the preserved intro, and the empty route opens discove
     assert.deepEqual(calls, ['featured', 'a25']);
 });
 
+test('initial reload with #anime-grid-section routes to featured discovery', () => {
+    const calls = [];
+    const location = { hash: '#anime-grid-section', href: 'https://example.org/#anime-grid-section' };
+    const browser = {
+        location,
+        document: {
+            getElementById: () => null,
+        },
+        getComputedStyle: () => ({ display: 'none' }),
+        addEventListener() {},
+    };
+    const navigation = createNavigation(browser, {});
+    navigation.configure({
+        featured: () => calls.push('featured'),
+        catalog: () => calls.push('catalog'),
+    });
+    navigation.applyRoute(true);
+    assert.deepEqual(calls, ['featured']);
+});
+
 test('native Back restores a previous URL after application navigation', () => {
     const location = new URL('https://example.org/');
     const calls = [];

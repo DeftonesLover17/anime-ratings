@@ -2698,7 +2698,7 @@ const projectUI = window.AnivoidUI?.site.connect({
     standardStudio: getStandardStudioName,
     open: (id, animate = true) => openAnimeDetail(id, animate),
     studio: (name, animate = true) => window.switchTabToStudio(name, animate),
-    catalog: () => window.switchTabToAll(),
+    catalog: () => window.switchTabToAll('#anime-grid-section', true),
     allStudios: () => window.backToStudiosLanding(),
     like: toggleCommentLike,
     history: renderAnimeHistory,
@@ -3855,7 +3855,10 @@ function showRegistrationGate() {
 // --- DOM ELEMENTS AND EVENT LISTENERS ---
 function startApp() {
     window.AnivoidUI.site.mount();
-    window.AnivoidUI.site.navigation.configure({ open: openAnimeDetail, studio: (name, animate) => window.switchTabToStudio(name, animate), catalog: () => window.switchTabToAll(), featured: () => window.switchTabToFeatured() });
+    if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'manual';
+    }
+    window.AnivoidUI.site.navigation.configure({ open: openAnimeDetail, studio: (name, animate) => window.switchTabToStudio(name, animate), catalog: () => window.switchTabToAll('#anime-grid-section', true), featured: () => window.switchTabToFeatured() });
     // 1. Reveal Elements on Scroll
     const revealObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
@@ -4030,6 +4033,9 @@ function setupSplashScreen() {
     const finish = () => {
         splashScreen.classList.add('hidden');
         splashScreen.style.display = 'none';
+        if (!window.location.hash || window.location.hash === '#featured-banner-wrapper' || window.location.hash === '#anime-grid-section') {
+            window.scrollTo({ top: 0, behavior: 'instant' });
+        }
         if (state.friends.length === 0 && !state.loggedInUser) showRegistrationGate();
         else { hideRegistrationGate(); checkAndShowSecurityModal(); }
         if (window.initObserver) window.initObserver();
@@ -4878,22 +4884,23 @@ function renderStudiosDirectory() {
 }
 
 window.switchTabToFeatured = () => {
-    window.switchTabToAll('#featured-banner-wrapper');
+    window.switchTabToAll('#featured-banner-wrapper', false);
+    window.scrollTo({ top: 0, behavior: 'instant' });
     document.getElementById('featured-banner-wrapper')?.scrollIntoView({ behavior: 'instant' });
 };
 
 window.backToStudiosLanding = () => window.switchTabToStudio(null);
 
-window.switchTabToAll = (targetHash = '#anime-grid-section') => {
+window.switchTabToAll = (targetHash = null, shouldScroll = false) => {
     state.filterMALStatus = 'All';
     ['mal-tab-All','mal-tab-Watching','mal-tab-Completed','mal-tab-OnHold','mal-tab-Dropped','mal-tab-PlanToWatch'].forEach(id => {
         const tab = document.getElementById(id);
         if (tab) { tab.classList.toggle('text-brand', id === 'mal-tab-All'); tab.classList.toggle('border-brand', id === 'mal-tab-All'); tab.classList.toggle('border-transparent', id !== 'mal-tab-All'); }
     });
     if (state.activeDetailAnimeId) closeAnimeDetail(false, targetHash);
-    else { window.AnivoidUI.site.navigation.mark(targetHash); renderAnimeGrid(); }
+    else { if (targetHash && targetHash !== '#anime-grid-section') window.AnivoidUI.site.navigation.mark(targetHash); renderAnimeGrid(); }
     renderFeaturedBanner();
-    document.getElementById('anime-grid-section')?.scrollIntoView({ behavior: 'instant' });
+    if (shouldScroll) { document.getElementById('anime-grid-section')?.scrollIntoView({ behavior: 'instant' }); }
 };
 
 window.switchTabToStudio = (studioName, animate = true) => {

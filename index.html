@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="assets/ui.446516d6ca54.js"></script>
+    <script src="assets/ui.836e0029786c.js"></script>
     <title>ANIVØID | Season Ratings</title>
     <!-- Favicon / Logo -->
     <link rel="icon" type="image/png" href="favicon.png">
@@ -22,6 +22,17 @@
     <link rel="stylesheet" href="assets/styles.c5f0d41808ae.css">
     
     <meta name="theme-color" content="#050505">
+    <script>
+        if ('scrollRestoration' in history) {
+            history.scrollRestoration = 'manual';
+        }
+        if (!location.hash || location.hash === '#anime-grid-section' || location.hash === '#featured-banner-wrapper') {
+            window.scrollTo(0, 0);
+            if (location.hash === '#anime-grid-section') {
+                history.replaceState(null, '', location.pathname + location.search);
+            }
+        }
+    </script>
 </head>
 <body class="bg-bgDark text-white overflow-hidden">
     <a class="av-skip" href="#anime-grid-section">Ir para o acervo</a>
@@ -1087,6 +1098,6 @@
 
     <!-- Scripts Integration -->
     <script src="assets/sync-state.9868559c480c.js"></script>
-    <script src="assets/app.47c87faf4698.js"></script>
+    <script src="assets/app.6585cf3ad224.js"></script>
 </body>
 </html>

@@ -49,7 +49,7 @@ function createSite(browser, animate) {
                     browser.switchTabToStudio(null, event.detail > 0);
                 else if (link.dataset.avNav === 'featured')
                     browser.switchTabToFeatured();
-                else browser.switchTabToAll();
+                else browser.switchTabToAll('#anime-grid-section', true);
             }),
         );
         const splash = browser.document.getElementById('splash-screen');
@@ -68,6 +68,11 @@ function createSite(browser, animate) {
             reveal(browser.document.getElementById('featured-banner-wrapper'));
             reveal(browser.document.getElementById('anime-grid-section'));
             navigation.applyRoute(true);
+            if (!browser.location.hash || browser.location.hash === '#featured-banner-wrapper' || browser.location.hash === '#anime-grid-section') {
+                if (typeof browser.scrollTo === 'function') {
+                    browser.scrollTo({ top: 0, behavior: 'instant' });
+                }
+            }
         };
         const observer = new browser.MutationObserver(enter);
         if (splash)
