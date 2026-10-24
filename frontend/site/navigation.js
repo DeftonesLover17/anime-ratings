@@ -100,7 +100,7 @@ function createNavigation(browser, scenes) {
             destination: () =>
                 browser.document.querySelector('.av-studio-profile-logo img'),
             animate,
-            kind: 'forward',
+            kind: name ? 'forward' : 'back',
             sharedName: 'av-scene-logo',
         });
     }

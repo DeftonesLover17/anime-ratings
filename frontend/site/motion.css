@@ -1,20 +1,101 @@
 /* One reveal language. Media carries the scene transition; controls stay interactive. */
-[data-av-reveal][data-entered=false] { opacity: 0; transform: translateY(25px); }
+[data-av-reveal][data-entered=false] { opacity: 0; transform: translateY(28px); }
 [data-av-reveal] { transition: opacity .65s var(--av-ease),transform .75s var(--av-ease); transition-delay: var(--av-delay,0ms); }
 .av-hero-title[data-av-reveal][data-entered=false] { transform: translateY(45px); }
 ::view-transition { pointer-events: none; }
-::view-transition-group(av-scene-media) { animation-duration: .55s; animation-timing-function: cubic-bezier(.76,0,.24,1); }
-::view-transition-group(av-scene-logo) { animation-duration: .45s; animation-timing-function: cubic-bezier(.76,0,.24,1); }
+::view-transition-group(av-scene-media) { animation-duration: .55s; animation-timing-function: cubic-bezier(.16,1,.3,1); }
+::view-transition-group(av-scene-logo) { animation-duration: .55s; animation-timing-function: cubic-bezier(.16,1,.3,1); }
 ::view-transition-old(av-scene-logo),::view-transition-new(av-scene-logo) { height: 100%; object-fit: contain; mix-blend-mode: normal; }
-:root[data-av-scene=back]::view-transition-group(av-scene-media) { animation-duration: .42s; }
+:root[data-av-scene=back]::view-transition-group(av-scene-media) { animation-duration: .45s; }
 ::view-transition-old(av-scene-media),::view-transition-new(av-scene-media) { height: 100%; object-fit: cover; mix-blend-mode: normal; }
-::view-transition-old(root) { animation: av-scene-out .18s ease both; }
-::view-transition-new(root) { animation: av-scene-in .38s var(--av-ease) both; }
-@keyframes av-scene-out { to { opacity: 0; } }
-@keyframes av-scene-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Cinematic Scene Transitions */
+::view-transition-old(root) { animation: av-scene-out .22s cubic-bezier(.4,0,1,1) both; }
+::view-transition-new(root) { animation: av-scene-rise-in .55s cubic-bezier(.16,1,.3,1) both; }
+:root[data-av-scene=back]::view-transition-new(root) { animation: av-scene-fall-in .45s cubic-bezier(.16,1,.3,1) both; }
+
+@keyframes av-scene-out {
+    to { opacity: 0; transform: translateY(-12px); }
+}
+@keyframes av-scene-rise-in {
+    0% { opacity: 0; transform: translateY(32px); filter: blur(4px); }
+    100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+@keyframes av-scene-fall-in {
+    0% { opacity: 0; transform: translateY(-20px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Anime Detail Page Entrance & Line-By-Line Text Reveals */
+.av-detail-entering {
+    animation: avSectionRise 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.av-detail-entering .av-detail-title-block > .av-eyebrow {
+    animation: avDetailLineIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
+}
+.av-detail-entering #detail-title {
+    animation: avDetailLineIn 0.72s cubic-bezier(0.16, 1, 0.3, 1) 0.14s both;
+}
+.av-detail-entering #detail-japanese-title {
+    animation: avDetailLineIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.22s both;
+}
+.av-detail-entering .av-detail-totals {
+    animation: avDetailLineIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.30s both;
+}
+.av-detail-entering .av-detail-synopsis {
+    animation: avDetailLineIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.38s both;
+}
+.av-detail-entering #detail-studio {
+    animation: avDetailLineIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.46s both;
+}
+.av-detail-entering #av-notes {
+    animation: avDetailLineIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.54s both;
+}
+
+@keyframes avSectionRise {
+    0% {
+        opacity: 0;
+        transform: translateY(36px);
+        filter: blur(4px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
+    }
+}
+
+@keyframes avDetailLineIn {
+    0% {
+        opacity: 0;
+        transform: translateY(24px);
+        filter: blur(3px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
+    }
+}
+
+/* Studios Section & Cards Reveal */
+.av-studios,
+.av-studio-profile {
+    animation: avSectionRise 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.av-studio-card[data-av-reveal] {
+    transition: opacity 0.75s var(--av-ease), transform 0.75s var(--av-ease), border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.35s ease;
+    transition-delay: var(--av-delay, calc((var(--item-idx, 0) % 6) * 45ms));
+}
+.av-studio-card[data-av-reveal][data-entered=false] {
+    opacity: 0;
+    transform: translateY(32px);
+}
+
 @media(prefers-reduced-motion:reduce) {
     [data-av-reveal][data-entered=false] { opacity: 1; transform: none; }
     [data-av-reveal],.av-art-frame img,.av-card-poster img,.av-card-invitation,.av-studio-mark img { transition: none !important; }
     ::view-transition-group(*),::view-transition-old(*),::view-transition-new(*) { animation: none !important; }
+    .av-detail-entering, .av-detail-entering *, .av-studios, .av-studio-profile { animation: none !important; transform: none !important; filter: none !important; }
 }
 @media(hover:none),(pointer:coarse) { .av-card-invitation { transform: none; } }

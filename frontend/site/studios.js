@@ -18,17 +18,13 @@ function renderDirectory(container, studios, actions) {
     const grid = root.querySelector('.av-studio-grid');
     studios.forEach((studio, index) => {
         const card = element(
-            `<a class="av-studio-card" href="#estudio/${encodeURIComponent(studio.name)}" data-av-reveal><div class="av-studio-mark av-poster-surface">${
+            `<a class="av-studio-card" href="#estudio/${encodeURIComponent(studio.name)}" data-av-reveal style="--item-idx:${index};"><div class="av-studio-mark">${
                 studio.logo
                     ? `<img src="${e(imageUrl(studio.logo))}" data-av-studio="${e(studio.name)}" width="300" height="180" loading="lazy" alt="Logo de ${e(studio.name)}">`
-                    : `<span>${e(
-                          studio.name
-                              .split(' ')
-                              .map((word) => word[0])
-                              .slice(0, 2)
-                              .join(''),
+                    : `<span class="av-studio-fallback-monogram">${e(
+                          String(studio.name || '').split(' ').filter(Boolean).map((word) => word[0]).slice(0, 2).join('') || '—',
                       )}</span>`
-            }<span class="av-studio-open">Explorar ${arrow()}</span></div><div class="av-studio-card-title"><span>${String(index + 1).padStart(2, '0')}</span><h3>${e(studio.name)}</h3>${arrow()}</div><div class="av-studio-card-meta"><span>${studio.animes.length} ${studio.animes.length === 1 ? 'obra' : 'obras'} no acervo</span>${scoreMarkup(studio.average)}</div></a>`,
+            }</div><div class="av-studio-card-body"><h3 class="av-studio-name">${e(studio.name)}</h3><div class="av-studio-card-meta"><span>${studio.animes.length} ${studio.animes.length === 1 ? 'obra' : 'obras'} no acervo</span>${scoreMarkup(studio.average)}</div></div></a>`,
         );
         card.addEventListener('click', (event) => {
             if (event.metaKey || event.ctrlKey || event.shiftKey) return;
@@ -50,11 +46,7 @@ function renderProfile(container, model, actions) {
             model.logo
                 ? `<img src="${e(imageUrl(model.logo))}" data-av-studio="${e(model.name)}" width="500" height="300" alt="Logo de ${e(model.name)}">`
                 : `<span>${e(
-                      model.name
-                          .split(' ')
-                          .map((word) => word[0])
-                          .slice(0, 2)
-                          .join(''),
+                      String(model.name || '').split(' ').filter(Boolean).map((word) => word[0]).slice(0, 2).join('') || '—',
                   )}</span>`
         }</div><div><p class="av-eyebrow">Estúdio de animação / Arquivo ANIVØID</p><h2>${e(model.name)}</h2><div class="av-studio-facts"><div><b>${String(model.animes.length).padStart(2, '0')}</b><span>Obras no acervo</span></div><div>${scoreMarkup(model.average)}<span>Média do grupo</span></div></div></div></header><div class="av-studio-story"><p class="av-eyebrow">A assinatura<br>por trás da obra.</p><div><p>${e(model.description)}</p><div class="av-genre-line">${genres.map((genre) => '<span>' + e(genre) + '</span>').join('')}</div></div></div><div class="av-section-title"><h3>Um estúdio.<br>Outros universos.</h3><span>Produções / ${String(model.animes.length).padStart(2, '0')}</span></div><div class="av-studio-catalog"></div></div>`,
     );

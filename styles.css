@@ -303,9 +303,11 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .select-options-list {
-    background: #0f0f0f !important; /* solid background to prevent transparency overlap bug */
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9), 0 0 15px color-mix(in srgb, var(--accent) 10%, transparent) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: rgba(13, 14, 18, 0.94);
+    backdrop-filter: blur(28px) saturate(190%);
+    -webkit-backdrop-filter: blur(28px) saturate(190%);
+    box-shadow: 0 24px 50px -12px rgba(0, 0, 0, 0.88), 0 0 0 1px rgba(255, 255, 255, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.09);
 }
 
 @keyframes fadeIn {
@@ -1165,8 +1167,9 @@ button:not(:disabled):active {
 /* Portal Transition Exit: outer letters slide away, void scales to swallow the screen smoothly */
 .splash-warp-active {
     opacity: 0 !important;
-    background-color: #050505 !important; /* Smooth fade to black */
-    transition: opacity 0.9s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.9s ease !important;
+    pointer-events: none !important;
+    background-color: #050505 !important;
+    transition: opacity 1s cubic-bezier(0.22, 1, 0.36, 1), background-color 1s ease !important;
 }
 
 .splash-logo-warp-active #part-left {
@@ -1697,7 +1700,4 @@ button:not(:disabled),
 #registration-gate :is(button, input, textarea, select, a):focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 #registration-gate :is(button, input, textarea, select) { transition-property: background-color, border-color, color, opacity, transform; }
 #registration-gate button:active { transform: scale(0.98); }
-.skip-intro { position: absolute; top: 1rem; right: 1rem; min-height: 44px; padding: 0.5rem 1rem; border: 1px solid currentColor; border-radius: 999px; font-size: 12px; }
-.skip-intro:focus-visible { outline: 2px solid white; outline-offset: 4px; }
-.splash-warp-active, .splash-logo-warp-active { transition-duration: 350ms !important; animation-duration: 350ms !important; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } #registration-gate *, #splash-screen * { animation: none !important; transition: none !important; } }

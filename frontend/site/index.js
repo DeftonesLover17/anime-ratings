@@ -66,6 +66,7 @@ function createSite(browser, animate) {
             entered = true;
             observer.disconnect();
             reveal(browser.document.getElementById('featured-banner-wrapper'));
+            reveal(browser.document.getElementById('anime-grid-section'));
             navigation.applyRoute(true);
         };
         const observer = new browser.MutationObserver(enter);
