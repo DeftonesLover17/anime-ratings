@@ -7,7 +7,7 @@
     --av-line: #384131;
     --av-accent: #ff7957;
     --av-on-accent: #161910;
-    --av-display: 'Anivoid Display', sans-serif;
+    --av-display: 'Anivoid Display', 'Syne', sans-serif;
     --av-body: 'Anivoid Text', sans-serif;
     --av-ease: cubic-bezier(.22,1,.36,1);
     --av-page-gutter: clamp(22px,4.5vw,76px);
@@ -87,8 +87,8 @@ body.av-app { background: var(--av-bg) !important; }
 .av-hero-copy > .av-eyebrow { display: flex; align-items: center; gap: 14px; }
 .av-index { color: var(--av-accent); }
 .av-mini-rule { width: 25px; height: 1px; background: var(--av-line); }
-.av-hero-title { font-family: var(--av-display); font-size: clamp(58px,7vw,112px); font-weight: 600; line-height: 1.1; letter-spacing: -.045em; max-width: 18ch; text-wrap: balance; margin: 24px 0 20px !important; padding-bottom: 0.12em; overflow-wrap: anywhere; overflow: visible; }
-.av-hero-title-long { font-size: clamp(28px,3.15vw,58px); line-height: 1.15; padding-bottom: 0.12em; max-width: none; }
+.av-hero-title { font-family: var(--av-display); font-size: clamp(58px,7vw,112px); font-weight: 600; line-height: 1.15; letter-spacing: -.045em; max-width: 18ch; text-wrap: balance; margin: 24px 0 20px !important; padding-bottom: 0.16em; overflow-wrap: anywhere; overflow: visible; font-feature-settings: "ss04" 1; }
+.av-hero-title-long { font-size: clamp(28px,3.15vw,58px); line-height: 1.2; padding-bottom: 0.16em; max-width: none; font-feature-settings: "ss04" 1; }
 .av-hero-subline { display: flex; flex-wrap: wrap; gap: 12px 25px; font-size: 12px; color: var(--av-muted); }
 .av-hero-synopsis { color: var(--av-muted); font-size: 14px; line-height: 1.75; max-width: 54ch; margin-top: 25px !important; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .av-hero-actions { display: flex; flex-wrap: wrap; gap: 22px; align-items: center; margin-top: 28px; }
@@ -181,7 +181,7 @@ body.av-app { background: var(--av-bg) !important; }
 .av-detail-cover img { width: 100%; height: auto; aspect-ratio: 2/3; object-fit: cover; }
 .av-detail-title-block { min-width: 0; }
 .av-detail-title-block > .av-eyebrow { display: flex; gap: 17px; flex-wrap: wrap; }
-.av-app #detail-title { font: 600 clamp(44px,6.3vw,96px)/1.12 var(--av-display); letter-spacing: -.045em; text-wrap: balance; margin: 22px 0 18px; padding-bottom: 0.12em; overflow-wrap: anywhere; overflow: visible; color: var(--av-ink) !important; }
+.av-app #detail-title { font: 600 clamp(44px,6.3vw,96px)/1.15 var(--av-display); letter-spacing: -.045em; text-wrap: balance; margin: 22px 0 18px; padding-bottom: 0.16em; overflow-wrap: anywhere; overflow: visible; color: var(--av-ink) !important; font-feature-settings: "ss04" 1; }
 .av-app #detail-japanese-title { color: var(--av-muted); font: 12px/1.6 var(--av-body); }
 .av-detail-totals { display: flex; align-items: start; gap: 36px; margin-top: 30px; }
 .av-detail-totals > div { display: flex; flex-direction: column; gap: 8px; }
@@ -384,8 +384,8 @@ body.av-app { background: var(--av-bg) !important; }
     .av-hero-topline > span:last-child { display: none; }
     .av-hero-copy { display: contents; }
     .av-hero-copy > .av-eyebrow { grid-row: 2; font-size: 9px; }
-    .av-hero-title { grid-row: 3; font-size: clamp(52px,13.8vw,91px); line-height: 1.1; padding-bottom: 0.12em; max-width: 100%; margin: 20px 0 18px !important; }
-    .av-hero-title-long { font-size: clamp(20px,6vw,39px); }
+    .av-hero-title { grid-row: 3; font-size: clamp(52px,13.8vw,91px); line-height: 1.15; padding-bottom: 0.16em; max-width: 100%; margin: 20px 0 18px !important; font-feature-settings: "ss04" 1; }
+    .av-hero-title-long { font-size: clamp(20px,6vw,39px); line-height: 1.2; padding-bottom: 0.16em; font-feature-settings: "ss04" 1; }
     .av-hero-subline { grid-row: 4; font-size: 11px; }
     .av-hero-actions { grid-row: 5; margin-top: 25px; gap: 18px; }
     .av-hero-actions .av-button { padding: 13px 16px; gap: 20px; }
@@ -420,7 +420,7 @@ body.av-app { background: var(--av-bg) !important; }
     .av-detail-nav .av-text-link { font-size: 10px; gap: 8px; }
     .av-app #anime-detail-page { padding-top: 88px; }
     .av-detail-header { grid-template-columns: 105px minmax(0,1fr); gap: 20px; align-items: start; }
-    .av-app #detail-title { font-size: clamp(31px,7.5vw,51px); line-height: 1.12; padding-bottom: 0.12em; letter-spacing: -.06em; margin: 14px 0; }
+    .av-app #detail-title { font-size: clamp(31px,7.5vw,51px); line-height: 1.15; padding-bottom: 0.16em; letter-spacing: -.06em; margin: 14px 0; font-feature-settings: "ss04" 1; }
     .av-detail-title-block > .av-eyebrow { gap: 8px; font-size: 9px; }
     .av-app #detail-japanese-title { font-size: 10px; }
     .av-detail-totals { gap: 24px; margin-top: 23px; }
