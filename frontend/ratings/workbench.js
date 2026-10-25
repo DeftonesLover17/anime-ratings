@@ -33,8 +33,8 @@ function createWorkbench(host, initialModel, shared) {
     }
     let activeMode = 'episode'; // 'episode' | 'global'
     const root =
-        element(`<div class="av-workbench ${total === 1 ? 'av-workbench-film' : ''}" data-lenis-prevent="true">
-        <aside class="av-episode-index" aria-label="Selecionar episódio" data-lenis-prevent="true">
+        element(`<div class="av-workbench ${total === 1 ? 'av-workbench-film' : ''}">
+        <aside class="av-episode-index" aria-label="Selecionar episódio">
             <div class="av-rail-heading">
                 <h3>Episódios</h3>
                 <span>${String(total).padStart(2, '0')}</span>
@@ -50,7 +50,7 @@ function createWorkbench(host, initialModel, shared) {
                 <span class="av-rail-global-score" id="av-rail-global-score-val">—</span>
             </button>
 
-            <div class="av-episode-buttons" role="group" aria-label="Índice de episódios" data-lenis-prevent="true"></div>
+            <div class="av-episode-buttons" role="group" aria-label="Índice de episódios"></div>
             <label class="av-mobile-picker">Selecionar episódio<select aria-label="Selecionar episódio para avaliar"></select></label>
             <div class="av-episode-pagination"><button type="button" data-page="-1" aria-label="Episódios anteriores">${arrow('left')}</button><span></span><button type="button" data-page="1" aria-label="Próximos episódios">${arrow('right')}</button></div>
             <p class="av-quiet">Uma nota por episódio.<br>Uma leitura que é só sua.</p>
@@ -511,13 +511,13 @@ function createWorkbench(host, initialModel, shared) {
     });
     rail.addEventListener('wheel', (e) => {
         if (rail.scrollHeight > rail.clientHeight) {
-            e.stopPropagation();
             const delta = e.deltaY;
             const atTop = rail.scrollTop <= 0 && delta < 0;
             const atBottom = Math.ceil(rail.scrollTop + rail.clientHeight) >= rail.scrollHeight && delta > 0;
             if (!atTop && !atBottom) {
                 rail.scrollTop += delta;
                 e.preventDefault();
+                e.stopPropagation();
             }
         }
     }, { passive: false });

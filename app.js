@@ -4180,28 +4180,21 @@ function initMotionSuite() {
 
     const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // 1. Tag all modals, shells and drawers with data-lenis-prevent so inner scrolling is contained
+    // 1. Tag only overlay modals and internal dropdowns with data-lenis-prevent
     const preventSelectors = [
         '#edit-profile-modal',
         '#player-profile-modal',
         '#group-stats-modal',
         '#notifications-modal',
         '#friends-dropdown',
-        '#detail-modal',
-        '#detail-content',
         '#registration-gate',
         '#security-notice-modal',
-        '.av-profile-studio-shell',
+        '#activity-history-modal',
+        '#admin-modal',
+        '#backup-modal',
+        '#add-anime-modal',
         '.av-player-modal-shell',
-        '.av-stats-shell',
-        '.av-studio-layout',
-        '.av-player-scroll-body',
         '.av-stats-scroll-content',
-        '.av-episode-buttons',
-        '.av-episode-index',
-        '.av-workbench',
-        '#av-rating-workbench',
-        '#av-notes',
         '.av-account-scroll',
         '.av-sug-list'
     ];
@@ -4225,15 +4218,14 @@ function initMotionSuite() {
                 infinite: false,
                 prevent: (node) => {
                     if (!node || typeof node.closest !== 'function') return false;
+                    const activeModal = node.closest(
+                        '#edit-profile-modal:not(.hidden), #player-profile-modal:not(.hidden), #group-stats-modal:not(.hidden), #notifications-modal:not(.hidden), #activity-history-modal:not(.hidden), #admin-modal:not(.hidden), #backup-modal:not(.hidden), #security-notice-modal:not(.hidden), #add-anime-modal:not(.hidden)'
+                    );
+                    if (activeModal) return true;
                     return Boolean(
-                        node.hasAttribute('data-lenis-prevent') ||
-                        node.closest('[data-lenis-prevent]') ||
-                        node.closest('.av-episode-buttons') ||
-                        node.closest('.av-episode-index') ||
-                        node.closest('.av-workbench') ||
-                        node.closest('#av-rating-workbench') ||
+                        node.closest('.av-account-scroll') ||
                         node.closest('.av-sug-list') ||
-                        node.closest('.av-account-scroll')
+                        node.closest('.av-stats-scroll-content')
                     );
                 }
             });
@@ -5840,6 +5832,7 @@ function showAnimeDetail(animeId, returnHash) {
         if (window.lenis) {
             try {
                 window.lenis.scrollTo(0, { immediate: true, force: true });
+                window.lenis.resize();
             } catch (_) {}
         }
         window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -5851,10 +5844,14 @@ function showAnimeDetail(animeId, returnHash) {
     };
 
     resetDetailScroll();
-    requestAnimationFrame(resetDetailScroll);
-    setTimeout(resetDetailScroll, 50);
-    setTimeout(resetDetailScroll, 180);
-    setTimeout(resetDetailScroll, 350);
+    requestAnimationFrame(() => {
+        if (window.lenis) {
+            try { window.lenis.resize(); } catch (_) {}
+        }
+        if (typeof ScrollTrigger !== 'undefined') {
+            try { ScrollTrigger.refresh(); } catch (_) {}
+        }
+    });
 
     const title = document.getElementById('detail-title');
     if (title) {
@@ -6131,6 +6128,7 @@ function hideAnimeDetail() {
     if (window.lenis) {
         try {
             window.lenis.scrollTo(returnY, { immediate: true, force: true });
+            window.lenis.resize();
         } catch (_) {}
     }
     window.scrollTo({ top: returnY, behavior: 'instant' });

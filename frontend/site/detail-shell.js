@@ -78,13 +78,17 @@ function mountDetailShell(host, finishScene) {
         link.addEventListener('click', async (event) => {
             event.preventDefault();
             await finishScene?.();
-            document.querySelector(link.getAttribute('href'))?.scrollIntoView({
-                behavior: window.matchMedia('(prefers-reduced-motion: reduce)')
-                    .matches
-                    ? 'instant'
-                    : 'smooth',
-                block: 'start',
-            });
+            const target = document.querySelector(link.getAttribute('href'));
+            if (target) {
+                if (window.lenis && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    window.lenis.scrollTo(target, { offset: -72, duration: 1.15 });
+                } else {
+                    target.scrollIntoView({
+                        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+                        block: 'start',
+                    });
+                }
+            }
         }),
     );
 }
