@@ -206,6 +206,7 @@ body.av-app { background: var(--av-bg) !important; }
 .av-section-title h2,.av-section-title h3 { font: 600 clamp(30px,4.2vw,58px)/1.14 var(--av-display); letter-spacing: -.055em; text-wrap: balance; padding-bottom: 0.08em; }
 .av-section-title > p { max-width: 33ch; font-size: 13px; line-height: 1.7; color: var(--av-muted); }
 .av-section-title > span { font-size: 11px; color: var(--av-muted); }
+.av-notes-emphasis { color: var(--av-accent); }
 .av-viewer-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; border-top: 1px solid var(--av-line); padding-top: 25px; margin-bottom: 25px; }
 .av-viewer-row > div:first-child { font-size: 11px; color: var(--av-muted); }
 .av-app #active-friend-name-label { color: var(--av-ink) !important; font-size: 13px; font-weight: 500; margin-top: 5px; }
