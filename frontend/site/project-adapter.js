@@ -90,8 +90,8 @@ function createProjectAdapter(project, site) {
     function renderRecommendations(container, recommendations) {
         site.renderRecommendations(container, recommendations, actions);
     }
-    function createCard(anime) {
-        return site.createCatalogCard(cardModel(anime), actions);
+    function createCard(anime, index) {
+        return site.createCatalogCard(cardModel(anime), actions, index);
     }
 
     function studioModels() {

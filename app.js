@@ -2698,7 +2698,7 @@ const projectUI = window.AnivoidUI?.site.connect({
     standardStudio: getStandardStudioName,
     open: (id, animate = true) => openAnimeDetail(id, animate),
     studio: (name, animate = true) => window.switchTabToStudio(name, animate),
-    catalog: () => window.switchTabToAll(),
+    catalog: () => window.switchTabToAll('#anime-grid-section', true),
     allStudios: () => window.backToStudiosLanding(),
     like: toggleCommentLike,
     history: renderAnimeHistory,
@@ -3855,7 +3855,10 @@ function showRegistrationGate() {
 // --- DOM ELEMENTS AND EVENT LISTENERS ---
 function startApp() {
     window.AnivoidUI.site.mount();
-    window.AnivoidUI.site.navigation.configure({ open: openAnimeDetail, studio: (name, animate) => window.switchTabToStudio(name, animate), catalog: () => window.switchTabToAll(), featured: () => window.switchTabToFeatured() });
+    if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'manual';
+    }
+    window.AnivoidUI.site.navigation.configure({ open: openAnimeDetail, studio: (name, animate) => window.switchTabToStudio(name, animate), catalog: () => window.switchTabToAll('#anime-grid-section', true), featured: () => window.switchTabToFeatured() });
     // 1. Reveal Elements on Scroll
     const revealObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
@@ -4025,28 +4028,29 @@ function checkAndShowSecurityModal() {
 function setupSplashScreen() {
     const splashScreen = document.getElementById('splash-screen');
     if (!splashScreen) return;
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let seen = false;
-    try { seen = sessionStorage.getItem('anivoid_intro_seen') === 'true'; sessionStorage.setItem('anivoid_intro_seen', 'true'); } catch {}
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let transitioned = false;
     const finish = () => {
         splashScreen.classList.add('hidden');
         splashScreen.style.display = 'none';
+        if (!window.location.hash || window.location.hash === '#featured-banner-wrapper' || window.location.hash === '#anime-grid-section') {
+            window.scrollTo({ top: 0, behavior: 'instant' });
+        }
         if (state.friends.length === 0 && !state.loggedInUser) showRegistrationGate();
         else { hideRegistrationGate(); checkAndShowSecurityModal(); }
         if (window.initObserver) window.initObserver();
     };
-    const transitionOut = (skip = false) => {
+    const transitionOut = (instant = false) => {
         if (transitioned) return;
         transitioned = true;
-        if (reduced || seen || skip) { finish(); return; }
+        if (reduced || instant) { finish(); return; }
         document.getElementById('splash-logo')?.classList.add('splash-logo-warp-active');
         splashScreen.classList.add('splash-warp-active');
-        setTimeout(finish, 350);
+        setTimeout(finish, 950);
     };
-    const timer = setTimeout(() => transitionOut(), reduced || seen ? 0 : 700);
-    splashScreen.addEventListener('click', () => { clearTimeout(timer); transitionOut(true); });
-    document.getElementById('skip-intro')?.addEventListener('click', () => { clearTimeout(timer); transitionOut(true); });
+    // Cinematic entrance: lets the logo letters assemble, then dissolves into the site
+    const timer = setTimeout(() => transitionOut(), reduced ? 0 : 2300);
+    splashScreen.addEventListener('click', () => { clearTimeout(timer); transitionOut(false); });
 }
 
 // Initialise the interface elements and logic
@@ -4274,22 +4278,35 @@ function renderFriendsDropdown() {
     if (!container) return;
 
     container.innerHTML = '';
-    state.friends.forEach(friend => {
-        const activeClass = friend.id === state.currentFriendId ? 'bg-white/10 text-white font-semibold' : 'text-gray-400 hover:text-white hover:bg-white/5';
+    state.friends.forEach((friend, idx) => {
+        const isSelected = friend.id === state.currentFriendId;
         const item = document.createElement('button');
-        item.className = `profile-switch-card tilt-card w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-sm transition-colors duration-200 ${activeClass}`;
+        item.style.setProperty('--item-idx', idx);
+        item.style.setProperty('--status-color', friend.color || '#FF4500');
+        item.className = `profile-switch-card tilt-card av-dropdown-item w-full text-left px-3.5 py-2.5 rounded-xl flex items-center gap-3 text-xs font-mono uppercase transition-all ${
+            isSelected ? 'av-option-selected text-white font-semibold' : 'text-gray-400 hover:text-white'
+        }`;
         item.style.setProperty('--profile-color', friend.color || '#FF4500');
         const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
             ? `<img src="${friend.avatar}" class="w-6 h-6 rounded-full object-cover shrink-0" alt="">`
-            : `<span class="text-lg">${friend.avatar || '👤'}</span>`;
+            : `<span class="text-base shrink-0">${friend.avatar || '👤'}</span>`;
         const adminBadge = getUserBadgesHtml(friend);
+        const selectedIndicator = isSelected
+            ? `<span class="av-selected-pill-beam"></span><iconify-icon icon="lucide:check" class="av-check-icon text-xs ml-auto flex-shrink-0"></iconify-icon>`
+            : '';
+
         item.innerHTML = `
             ${avatarHtml}
-            <span class="flex-grow">${friend.name}${adminBadge}</span>
-            <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${friend.color}; box-shadow: 0 0 8px ${friend.color}"></span>
+            <span class="av-option-label flex-grow"><span class="av-option-text">${friend.name}${adminBadge}</span></span>
+            <span class="av-status-dot-wrap mr-1">
+                <span class="av-status-dot-halo"></span>
+                <span class="av-status-dot"></span>
+            </span>
+            ${selectedIndicator}
         `;
 
         item.addEventListener('click', () => {
+            item.style.transform = 'scale(0.96)';
             state.currentFriendId = friend.id;
             state.save();
             applyUserThemeColor(friend.color);
@@ -4300,7 +4317,7 @@ function renderFriendsDropdown() {
             
             // Toggle dropdown close
             const dropdown = document.getElementById('friends-dropdown');
-            if (dropdown) dropdown.classList.add('hidden');
+            if (dropdown) closeDropdownAnimated(dropdown);
 
             // If detail modal is active, refresh it too
             if (state.activeDetailAnimeId) {
@@ -4867,22 +4884,23 @@ function renderStudiosDirectory() {
 }
 
 window.switchTabToFeatured = () => {
-    window.switchTabToAll('#featured-banner-wrapper');
+    window.switchTabToAll('#featured-banner-wrapper', false);
+    window.scrollTo({ top: 0, behavior: 'instant' });
     document.getElementById('featured-banner-wrapper')?.scrollIntoView({ behavior: 'instant' });
 };
 
 window.backToStudiosLanding = () => window.switchTabToStudio(null);
 
-window.switchTabToAll = (targetHash = '#anime-grid-section') => {
+window.switchTabToAll = (targetHash = null, shouldScroll = false) => {
     state.filterMALStatus = 'All';
     ['mal-tab-All','mal-tab-Watching','mal-tab-Completed','mal-tab-OnHold','mal-tab-Dropped','mal-tab-PlanToWatch'].forEach(id => {
         const tab = document.getElementById(id);
         if (tab) { tab.classList.toggle('text-brand', id === 'mal-tab-All'); tab.classList.toggle('border-brand', id === 'mal-tab-All'); tab.classList.toggle('border-transparent', id !== 'mal-tab-All'); }
     });
     if (state.activeDetailAnimeId) closeAnimeDetail(false, targetHash);
-    else { window.AnivoidUI.site.navigation.mark(targetHash); renderAnimeGrid(); }
+    else { if (targetHash && targetHash !== '#anime-grid-section') window.AnivoidUI.site.navigation.mark(targetHash); renderAnimeGrid(); }
     renderFeaturedBanner();
-    document.getElementById('anime-grid-section')?.scrollIntoView({ behavior: 'instant' });
+    if (shouldScroll) { document.getElementById('anime-grid-section')?.scrollIntoView({ behavior: 'instant' }); }
 };
 
 window.switchTabToStudio = (studioName, animate = true) => {
@@ -4977,7 +4995,43 @@ function renderCircularRating(containerId, score) {
     if (container) container.innerHTML = window.AnivoidUI.site.scoreMarkup(score);
 }
 
-// Custom select dropdown component renderer matching premium crimson design system
+// Smooth animated dropdown closing helper honoring reduced motion
+function closeDropdownAnimated(listEl, triggerEl, onClosed) {
+    if (!listEl || listEl.classList.contains('hidden')) {
+        if (onClosed) onClosed();
+        return;
+    }
+    if (listEl.__closingTimer) {
+        clearTimeout(listEl.__closingTimer);
+        listEl.__closingTimer = null;
+    }
+    const trigger = triggerEl || listEl.__dropdownTrigger;
+    const chev = trigger?.querySelector('.select-chevron');
+    if (chev) chev.classList.remove('rotate-180');
+
+    const container = listEl.__dropdownContainer;
+    const parentRow = container?.closest('.episode-row') || listEl.closest('.episode-row');
+    if (parentRow) parentRow.classList.remove('active-dropdown-row');
+    const parentPanel = container?.closest('.glass-panel') || listEl.closest('.glass-panel');
+    if (parentPanel) parentPanel.classList.remove('active-dropdown-panel');
+
+    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        listEl.classList.add('hidden');
+        listEl.classList.remove('flex', 'av-closing');
+        if (onClosed) onClosed();
+        return;
+    }
+
+    listEl.classList.add('av-closing');
+    listEl.__closingTimer = setTimeout(() => {
+        listEl.__closingTimer = null;
+        listEl.classList.add('hidden');
+        listEl.classList.remove('flex', 'av-closing');
+        if (onClosed) onClosed();
+    }, 160);
+}
+
+// Custom select dropdown component renderer matching Awwwards-tier micro-physics design system
 function renderCustomDropdown(container, options, currentValue, onChange, isCompact = false, disabled = false, usePortal = false) {
     const containerId = typeof container === 'string' ? container : (container?.id || '');
     if (typeof container === 'string') {
@@ -4994,9 +5048,19 @@ function renderCustomDropdown(container, options, currentValue, onChange, isComp
     container.innerHTML = '';
     const shouldPortal = usePortal && !isCompact;
     
-    // Find current label
+    // Find current label & status info
     const currentOpt = options.find(o => String(o.value) === String(currentValue));
     const currentLabel = currentOpt ? currentOpt.label : (isCompact ? '-' : 'Selecione');
+
+    let triggerStatusGem = '';
+    if (currentOpt && currentOpt.value && typeof STATUS_MAP !== 'undefined' && STATUS_MAP[currentOpt.value]) {
+        const s = STATUS_MAP[currentOpt.value];
+        triggerStatusGem = `<span class="av-status-dot-wrap" style="--status-color: ${s.color}; margin-right: 8px;"><span class="av-status-dot-halo"></span><span class="av-status-dot"></span></span>`;
+    }
+
+    const hadRendered = container.dataset.avRendered === 'true';
+    container.dataset.avRendered = 'true';
+    const textRevealClass = hadRendered ? ' av-text-swap' : '';
 
     // Create trigger button
     const trigger = document.createElement('button');
@@ -5006,35 +5070,35 @@ function renderCustomDropdown(container, options, currentValue, onChange, isComp
             trigger.disabled = true;
             trigger.style.cursor = 'not-allowed';
             if (!currentValue || currentValue === '') {
-                trigger.className = 'inline-flex items-center justify-center bg-white/5 border border-white/5 rounded-lg py-1 px-2.5 text-[11px] font-mono text-gray-500 transition-all opacity-50';
+                trigger.className = 'av-dropdown-trigger inline-flex items-center justify-center bg-white/5 border border-white/5 rounded-lg py-1 px-2.5 text-[11px] font-mono text-gray-500 transition-all opacity-50';
                 trigger.innerHTML = `<span>Sem Nota</span>`;
             } else {
                 const colors = getScoreColor(currentValue);
-                trigger.className = 'inline-flex items-center justify-center border rounded-lg py-1 px-2.5 text-[11px] font-mono font-bold transition-all opacity-70';
+                trigger.className = 'av-dropdown-trigger inline-flex items-center justify-center border rounded-lg py-1 px-2.5 text-[11px] font-mono font-bold transition-all opacity-70';
                 trigger.style.borderColor = `color-mix(in srgb, ${colors.text} 19%, transparent)`;
                 trigger.style.backgroundColor = `color-mix(in srgb, ${colors.text} 3%, transparent)`;
                 trigger.style.color = colors.text;
                 trigger.style.boxShadow = `0 0 6px ${colors.glow}`;
                 trigger.style.textShadow = `0 0 2px ${colors.glow}`;
-                trigger.innerHTML = `<span>Nota: ${currentValue}</span>`;
+                trigger.innerHTML = `<span class="av-trigger-text${textRevealClass}">Nota: ${currentValue}</span>`;
             }
         } else {
             if (!currentValue || currentValue === '') {
-                trigger.className = 'inline-flex items-center justify-center bg-[#050505] border border-white/10 hover:border-white/20 rounded-lg py-1 px-2.5 text-[11px] font-mono text-gray-400 hover:text-white transition-all cursor-pointer';
+                trigger.className = 'av-dropdown-trigger inline-flex items-center justify-center bg-[#050505] border border-white/10 hover:border-white/20 rounded-lg py-1 px-2.5 text-[11px] font-mono text-gray-400 hover:text-white transition-all cursor-pointer';
                 trigger.innerHTML = `
                     <span>+ Nota</span>
                     <iconify-icon icon="lucide:plus" class="text-[10px] text-gray-500 ml-1"></iconify-icon>
                 `;
             } else {
                 const colors = getScoreColor(currentValue);
-                trigger.className = 'inline-flex items-center justify-center border rounded-lg py-1 px-2.5 text-[11px] font-mono font-bold transition-all hover:scale-105 cursor-pointer';
+                trigger.className = 'av-dropdown-trigger inline-flex items-center justify-center border rounded-lg py-1 px-2.5 text-[11px] font-mono font-bold transition-all hover:scale-105 cursor-pointer';
                 trigger.style.borderColor = `color-mix(in srgb, ${colors.text} 31%, transparent)`;
                 trigger.style.backgroundColor = `color-mix(in srgb, ${colors.text} 7%, transparent)`;
                 trigger.style.color = colors.text;
                 trigger.style.boxShadow = `0 0 10px ${colors.glow}`;
                 trigger.style.textShadow = `0 0 4px ${colors.glow}`;
                 trigger.innerHTML = `
-                    <span>Nota: ${currentValue}</span>
+                    <span class="av-trigger-text${textRevealClass}">Nota: ${currentValue}</span>
                     <iconify-icon icon="lucide:edit-2" class="text-[9px] ml-1.5 opacity-60"></iconify-icon>
                 `;
             }
@@ -5043,13 +5107,13 @@ function renderCustomDropdown(container, options, currentValue, onChange, isComp
         if (disabled) {
             trigger.disabled = true;
             trigger.style.cursor = 'not-allowed';
-            trigger.className = 'flex items-center justify-between w-full bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs font-mono uppercase text-gray-500 opacity-60';
-            trigger.innerHTML = `<span class="truncate">${currentLabel}</span>`;
+            trigger.className = 'av-dropdown-trigger flex items-center justify-between w-full bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-xs font-mono uppercase text-gray-500 opacity-60';
+            trigger.innerHTML = `<span class="inline-flex items-center min-w-0">${triggerStatusGem}<span class="av-trigger-text truncate${textRevealClass}">${currentLabel}</span></span>`;
         } else {
-            trigger.className = 'flex items-center justify-between w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-mono uppercase text-gray-300 hover:bg-white/10 focus:outline-none focus:border-brand/50 transition-all cursor-pointer';
+            trigger.className = 'av-dropdown-trigger flex items-center justify-between w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-mono uppercase text-gray-300 hover:bg-white/10 focus:outline-none focus:border-brand/50 transition-all cursor-pointer';
             trigger.innerHTML = `
-                <span class="truncate">${currentLabel}</span>
-                <iconify-icon icon="lucide:chevron-down" class="select-chevron text-gray-400 transition-transform duration-300 text-xs flex-shrink-0"></iconify-icon>
+                <span class="inline-flex items-center min-w-0">${triggerStatusGem}<span class="av-trigger-text truncate${textRevealClass}">${currentLabel}</span></span>
+                <iconify-icon icon="lucide:chevron-down" class="select-chevron text-gray-400 transition-transform duration-300 text-xs flex-shrink-0 ml-2"></iconify-icon>
             `;
         }
     }
@@ -5057,14 +5121,14 @@ function renderCustomDropdown(container, options, currentValue, onChange, isComp
     // Create options list container
     const list = document.createElement('div');
     if (isCompact) {
-        list.className = 'absolute right-0 mt-1 w-24 select-options-list rounded-xl p-1 hidden flex-col shadow-2xl z-50 border border-white/10 max-h-48 overflow-y-auto animate-[fadeIn_0.15s_ease-out]';
+        list.className = 'absolute right-0 mt-1 w-24 select-options-list av-dropdown-drawer rounded-xl p-1 hidden flex-col shadow-2xl z-50 border border-white/10 max-h-48 overflow-y-auto';
     } else if (shouldPortal) {
-        list.className = 'fixed select-options-list rounded-2xl p-2 hidden flex-col shadow-2xl border border-white/10 animate-[fadeIn_0.2s_ease-out]';
+        list.className = 'fixed select-options-list av-dropdown-drawer rounded-2xl p-2 hidden flex-col shadow-2xl border border-white/10';
         list.style.zIndex = '10050';
         list.style.maxHeight = '18rem';
         list.style.overflowY = 'auto';
     } else {
-        list.className = 'absolute left-0 right-0 mt-2 select-options-list rounded-2xl p-2 hidden flex-col shadow-2xl z-50 border border-white/10 animate-[fadeIn_0.2s_ease-out]';
+        list.className = 'absolute left-0 right-0 mt-2 select-options-list av-dropdown-drawer rounded-2xl p-2 hidden flex-col shadow-2xl z-50 border border-white/10';
     }
     if (containerId) list.dataset.dropdownOwner = containerId;
     list.__dropdownTrigger = trigger;
@@ -5090,44 +5154,53 @@ function renderCustomDropdown(container, options, currentValue, onChange, isComp
     };
 
     if (!disabled) {
-        options.forEach(opt => {
+        options.forEach((opt, idx) => {
             const item = document.createElement('button');
             item.type = 'button';
+            item.style.setProperty('--item-idx', idx);
+            const isSelected = String(opt.value) === String(currentValue);
+
             if (isCompact) {
-                item.className = `w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-[11px] font-mono transition-colors ${
-                    String(opt.value) === String(currentValue)
-                        ? 'bg-brand/20 text-white font-semibold'
+                item.className = `av-dropdown-item w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-[11px] font-mono transition-colors ${
+                    isSelected
+                        ? 'av-option-selected text-white font-semibold'
                         : 'text-gray-400 hover:text-white hover:bg-white/5'
                 }`;
+                item.innerHTML = `<span class="av-option-label"><span class="av-option-text">${opt.label}</span></span>`;
             } else {
                 let bulletColor = '';
-                if (opt.value && STATUS_MAP[opt.value]) {
+                if (opt.value && typeof STATUS_MAP !== 'undefined' && STATUS_MAP[opt.value]) {
                     const statusDetails = STATUS_MAP[opt.value];
-                    bulletColor = `<span class="w-2 h-2 rounded-full mr-2.5" style="background-color: ${statusDetails.color}; box-shadow: 0 0 6px ${statusDetails.color}"></span>`;
+                    item.style.setProperty('--status-color', statusDetails.color);
+                    bulletColor = `<span class="av-status-dot-wrap"><span class="av-status-dot-halo"></span><span class="av-status-dot"></span></span>`;
                 }
-                item.className = `w-full text-left px-4 py-3 rounded-xl flex items-center text-xs font-mono uppercase transition-colors ${
-                    String(opt.value) === String(currentValue)
-                        ? 'bg-white/10 text-white font-semibold border-l-2 border-brand pl-3'
-                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+
+                const selectedIndicator = isSelected
+                    ? `<span class="av-selected-pill-beam"></span><iconify-icon icon="lucide:check" class="av-check-icon text-xs ml-auto flex-shrink-0"></iconify-icon>`
+                    : '';
+
+                item.className = `av-dropdown-item w-full text-left px-3.5 py-2.5 rounded-xl flex items-center text-xs font-mono uppercase transition-all ${
+                    isSelected
+                        ? 'av-option-selected text-white font-semibold'
+                        : 'text-gray-400 hover:text-white'
                 }`;
-                item.innerHTML = `${bulletColor}<span class="truncate">${opt.label}</span>`;
-            }
-            
-            if (isCompact) {
-                item.textContent = opt.label;
+                item.innerHTML = `${bulletColor}<span class="av-option-label"><span class="av-option-text">${opt.label}</span></span>${selectedIndicator}`;
             }
 
             item.addEventListener('click', (e) => {
                 e.stopPropagation();
-                list.classList.add('hidden');
-                list.classList.remove('flex');
-                const chev = trigger.querySelector('.select-chevron');
-                if (chev) chev.classList.remove('rotate-180');
-                const parentRow = container.closest('.episode-row');
-                if (parentRow) parentRow.classList.remove('active-dropdown-row');
-                const parentPanel = container.closest('.glass-panel');
-                if (parentPanel) parentPanel.classList.remove('active-dropdown-panel');
-                onChange(opt.value);
+                item.style.transform = 'scale(0.96)';
+
+                const triggerText = trigger.querySelector('.av-trigger-text');
+                if (triggerText) {
+                    triggerText.classList.remove('av-text-swap');
+                    void triggerText.offsetWidth;
+                    triggerText.classList.add('av-text-swap');
+                }
+
+                closeDropdownAnimated(list, trigger, () => {
+                    onChange(opt.value);
+                });
             });
             list.appendChild(item);
         });
@@ -5140,23 +5213,16 @@ function renderCustomDropdown(container, options, currentValue, onChange, isComp
             
             // Close all other custom dropdown lists first
             document.querySelectorAll('.select-options-list').forEach(el => {
-                if (el !== list) {
-                    el.classList.add('hidden');
-                    el.classList.remove('flex');
-                    const parent = el.__dropdownContainer || el.parentElement;
-                    const triggerEl = el.__dropdownTrigger || parent;
-                    if (triggerEl) {
-                        const chev = triggerEl.querySelector('.select-chevron');
-                        if (chev) chev.classList.remove('rotate-180');
-                    }
-                    const row = parent?.closest?.('.episode-row') || el.closest('.episode-row');
-                    if (row) row.classList.remove('active-dropdown-row');
-                    const panel = parent?.closest?.('.glass-panel') || el.closest('.glass-panel');
-                    if (panel) panel.classList.remove('active-dropdown-panel');
+                if (el !== list && !el.classList.contains('hidden')) {
+                    closeDropdownAnimated(el, el.__dropdownTrigger);
                 }
             });
 
-            const isHidden = list.classList.contains('hidden');
+            if (list.__closingTimer) {
+                clearTimeout(list.__closingTimer);
+                list.__closingTimer = null;
+            }
+            const isHidden = list.classList.contains('hidden') || list.classList.contains('av-closing');
             if (isHidden) {
                 if (isCompact) {
                     const scrollParent = trigger.closest('#detail-episodes-rating-list');
@@ -5180,19 +5246,27 @@ function renderCustomDropdown(container, options, currentValue, onChange, isComp
                     }
                 }
                 positionPortalList();
-                list.classList.remove('hidden');
+                list.classList.remove('hidden', 'av-closing');
                 list.classList.add('flex');
+                
+                // Re-trigger cascade animations on items
+                list.querySelectorAll('.av-dropdown-item').forEach(btn => {
+                    btn.style.animation = 'none';
+                    void btn.offsetWidth;
+                    btn.style.animation = '';
+                });
+                list.querySelectorAll('.av-option-text').forEach(txt => {
+                    txt.style.animation = 'none';
+                    void txt.offsetWidth;
+                    txt.style.animation = '';
+                });
+
                 const chev = trigger.querySelector('.select-chevron');
                 if (chev) chev.classList.add('rotate-180');
                 if (parentRow) parentRow.classList.add('active-dropdown-row');
                 if (parentPanel) parentPanel.classList.add('active-dropdown-panel');
             } else {
-                list.classList.add('hidden');
-                list.classList.remove('flex');
-                const chev = trigger.querySelector('.select-chevron');
-                if (chev) chev.classList.remove('rotate-180');
-                if (parentRow) parentRow.classList.remove('active-dropdown-row');
-                if (parentPanel) parentPanel.classList.remove('active-dropdown-panel');
+                closeDropdownAnimated(list, trigger);
             }
         });
     }
@@ -5205,7 +5279,6 @@ function renderCustomDropdown(container, options, currentValue, onChange, isComp
         container.appendChild(list);
     }
 }
-
 
 function renderDetailStatus(anime) {
     const container = document.getElementById('status-select-container');
@@ -5261,9 +5334,17 @@ function showAnimeDetail(animeId, returnHash) {
     if (banner) banner.style.display = 'none';
     if (grid) grid.style.display = 'none';
     detailPage.classList.remove('hidden');
-    detailPage.style.opacity = '1';
-    detailPage.style.transform = 'none';
-    detailPage.style.transition = 'none';
+    detailPage.classList.remove('av-detail-entering');
+    detailPage.style.opacity = '';
+    detailPage.style.transform = '';
+    detailPage.style.transition = '';
+    void detailPage.offsetWidth;
+    detailPage.classList.add('av-detail-entering');
+    if (detailPage.__enterTimer) clearTimeout(detailPage.__enterTimer);
+    detailPage.__enterTimer = setTimeout(() => {
+        detailPage.__enterTimer = null;
+        detailPage.classList.remove('av-detail-entering');
+    }, 1000);
     renderAnimeDetailBody(anime);
     if (!alreadyOpen || changingAnime) {
         window.scrollTo({ top: 0, behavior: 'instant' });
@@ -5522,7 +5603,7 @@ function hideAnimeDetail() {
     if (!detailPage || detailPage.classList.contains('hidden')) return;
     window.AnivoidUI.cancel('detail');
     detailPage.classList.add('hidden');
-    detailPage.classList.remove('page-transition-active');
+    detailPage.classList.remove('page-transition-active', 'av-detail-entering');
     detailPage.style.opacity = '';
     detailPage.style.transform = '';
     detailPage.style.transition = '';
@@ -5656,21 +5737,21 @@ function updateTime() {
     clockEl.textContent = `${hours}:${minutes} ${ampm}`;
 }
 
-// Global click event listener to dismiss all custom dropdown select overlays when clicking outside
+// Global click and escape event listeners to dismiss all custom dropdown overlays with smooth micro-physics
 document.addEventListener('click', () => {
     document.querySelectorAll('.select-options-list').forEach(el => {
-        el.classList.add('hidden');
-        el.classList.remove('flex');
+        if (!el.classList.contains('hidden')) {
+            closeDropdownAnimated(el, el.__dropdownTrigger);
+        }
     });
-    document.querySelectorAll('.select-chevron').forEach(el => {
-        el.classList.remove('rotate-180');
-    });
-    document.querySelectorAll('.episode-row').forEach(el => {
-        el.classList.remove('active-dropdown-row');
-    });
-    document.querySelectorAll('.glass-panel').forEach(el => {
-        el.classList.remove('active-dropdown-panel');
-    });
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.select-options-list:not(.hidden), #friends-dropdown:not(.hidden)').forEach(el => {
+            closeDropdownAnimated(el, el.__dropdownTrigger);
+        });
+    }
 });
 
 setInterval(updateTime, 60000);
@@ -8910,22 +8991,48 @@ if (document.readyState === 'loading') {
 }
 
 
-// Custom simple trigger for profile menu opening
+// Custom trigger for profile menu opening with Awwwards cascade animations
 document.addEventListener('DOMContentLoaded', () => {
     const profileBtn = document.getElementById('profile-indicator');
     const dropdown = document.getElementById('friends-dropdown');
+    const chev = profileBtn?.querySelector('.select-chevron');
 
     if (profileBtn && dropdown) {
+        dropdown.classList.add('av-dropdown-drawer');
+        dropdown.__dropdownTrigger = profileBtn;
         profileBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            dropdown.classList.toggle('hidden');
-            dropdown.classList.toggle('flex');
+            if (dropdown.__closingTimer) {
+                clearTimeout(dropdown.__closingTimer);
+                dropdown.__closingTimer = null;
+            }
+            const isHidden = dropdown.classList.contains('hidden') || dropdown.classList.contains('av-closing');
+            if (isHidden) {
+                dropdown.classList.remove('hidden', 'av-closing');
+                dropdown.classList.add('flex');
+                if (chev) chev.classList.add('rotate-180');
+                dropdown.querySelectorAll('.av-dropdown-item').forEach(btn => {
+                    btn.style.animation = 'none';
+                    void btn.offsetWidth;
+                    btn.style.animation = '';
+                });
+                dropdown.querySelectorAll('.av-option-text').forEach(txt => {
+                    txt.style.animation = 'none';
+                    void txt.offsetWidth;
+                    txt.style.animation = '';
+                });
+            } else {
+                if (chev) chev.classList.remove('rotate-180');
+                closeDropdownAnimated(dropdown, profileBtn);
+            }
         });
         
         // Close when clicking outside
         document.addEventListener('click', () => {
-            dropdown.classList.add('hidden');
-            dropdown.classList.remove('flex');
+            if (!dropdown.classList.contains('hidden')) {
+                if (chev) chev.classList.remove('rotate-180');
+                closeDropdownAnimated(dropdown, profileBtn);
+            }
         });
     }
 });

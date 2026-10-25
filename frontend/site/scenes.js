@@ -133,6 +133,7 @@ function createScenes(browser, animateFallback) {
                 .finally(() => {
                     releaseOwned();
                     if (transition === current) transition = null;
+                    delete document.documentElement.dataset.avScene;
                 });
         } catch (_) {
             releaseOwned();

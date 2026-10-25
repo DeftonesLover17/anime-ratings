@@ -30,7 +30,7 @@ function renderFeatured(container, model, actions) {
         </div>
         <div class="av-hero-art">
             <div class="av-art-frame" data-av-reveal><span class="av-art-corner" aria-hidden="true">↗</span><a href="#obra/${encodeURIComponent(anime.id)}" data-open aria-label="Abrir ${e(anime.title)}"><img data-av-cover="${e(anime.id)}" src="${e(imageUrl(anime.coverUrl))}" width="600" height="900" fetchpriority="high" alt="Capa de ${e(anime.title)}"></a><span class="av-art-index" aria-hidden="true">01 — ANIVØID</span></div>
-            ${nextAnime ? `<button class="av-next-work" data-next aria-label="Explorar também ${e(nextAnime.title)}"><img src="${e(imageUrl(nextAnime.coverUrl))}" alt="" width="100" height="150" loading="lazy"><span>Outro universo<br><b>${e(nextAnime.title)}</b></span>${arrow()}</button>` : ''}
+
         </div>
         <div class="av-hero-bottom"><span>Obras que ficam.<br>Notas que contam.</span><a href="#anime-grid-section" data-catalog><span>${String(collectionSize).padStart(2, '0')} obras no acervo</span><span aria-hidden="true">↓</span></a></div>
     </div>`);
@@ -47,14 +47,11 @@ function renderFeatured(container, model, actions) {
             actions.catalog();
         }),
     );
-    root.querySelector('[data-next]')?.addEventListener('click', (event) =>
-        actions.open(nextAnime.id, event.detail > 0),
-    );
     attachImageFallbacks(root);
     container.replaceChildren(root);
 }
 
-function createCatalogCard(model, actions) {
+function createCatalogCard(model, actions, index) {
     const { anime, rating, groupScore, statusLabel } = model;
     const root =
         element(`<article class="av-anime-card" data-anime-id="${e(anime.id)}" data-av-reveal>
