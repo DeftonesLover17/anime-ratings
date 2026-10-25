@@ -2542,20 +2542,39 @@ details[open] .av-security-chevron {
 .av-player-modal-shell {
     position: relative;
     width: 100%;
-    max-width: min(1060px, 95vw);
+    max-width: min(1040px, 95vw);
     margin: auto;
     border-radius: 28px;
     background: color-mix(in srgb, var(--av-surface) 96%, var(--av-bg));
     border: 1px solid var(--av-line);
     box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    overflow: hidden;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     color: var(--av-ink);
     font-family: var(--av-body);
     display: flex;
     flex-direction: column;
     max-height: 90vh;
     box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: var(--av-line) transparent;
     animation: avPlayerShellIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.av-player-modal-shell::-webkit-scrollbar {
+    width: 6px;
+}
+.av-player-modal-shell::-webkit-scrollbar-track {
+    background: transparent;
+}
+.av-player-modal-shell::-webkit-scrollbar-thumb {
+    background: var(--av-line);
+    border-radius: 9999px;
+}
+.av-player-modal-shell::-webkit-scrollbar-thumb:hover {
+    background: var(--av-muted);
 }
 
 #player-profile-modal.is-closing .av-player-modal-shell {
@@ -2640,8 +2659,22 @@ details[open] .av-security-chevron {
 }
 
 .av-player-close-btn {
-    position: relative;
-    z-index: 5;
+    position: sticky;
+    top: 14px;
+    right: 14px;
+    margin-left: auto;
+    z-index: 50;
+    background: rgba(12, 13, 16, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    transition: all 0.2s ease;
+}
+.av-player-close-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #ffffff;
 }
 
 .av-player-identity-strip {
@@ -2737,17 +2770,13 @@ details[open] .av-security-chevron {
 
 /* SCROLLABLE BODY */
 .av-player-scroll-body {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: clamp(18px, 2.5vw, 24px) clamp(20px, 3vw, 32px);
+    padding: clamp(18px, 2.5vw, 24px) clamp(20px, 3vw, 32px) clamp(28px, 4vw, 36px);
     display: flex;
     flex-direction: column;
     gap: 22px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--av-line) transparent;
     box-sizing: border-box;
     min-width: 0;
+    width: 100%;
 }
 
 /* SECTION 1: KEY METRIC HUD */

@@ -3882,6 +3882,9 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
     modal.classList.remove('hidden', 'is-closing');
     modal.classList.add('flex');
     document.body.classList.add('overflow-hidden');
+    if (window.lenisStop) window.lenisStop();
+    const shell = modal.querySelector('.av-player-modal-shell');
+    if (shell) shell.scrollTop = 0;
 }
 
 function setupUtilityModals() {
@@ -4195,8 +4198,7 @@ function initMotionSuite() {
                 });
             }
 
-            // C. Magnetic Micro-Physics on Primary Actions & Pills
-            setupMagneticPhysics();
+            // C. Magnetic Micro-Physics disabled per user request
 
         } catch (err) {
             console.warn('GSAP motion setup notice:', err);
@@ -4206,25 +4208,7 @@ function initMotionSuite() {
 window.initMotionSuite = initMotionSuite;
 
 function setupMagneticPhysics() {
-    if (typeof window === 'undefined' || typeof gsap === 'undefined') return;
-    if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return;
-
-    const selector = '.av-button-solid, .av-button-accent, .av-stats-close-btn, .av-player-close-btn, .av-chip, .av-studio-pill-item';
-    document.querySelectorAll(selector).forEach(el => {
-        if (el.dataset.magneticHooked) return;
-        el.dataset.magneticHooked = 'true';
-
-        el.addEventListener('mousemove', (e) => {
-            const rect = el.getBoundingClientRect();
-            const x = (e.clientX - rect.left - rect.width / 2) * 0.22;
-            const y = (e.clientY - rect.top - rect.height / 2) * 0.22;
-            gsap.to(el, { x, y, duration: 0.3, ease: 'power2.out', overwrite: 'auto' });
-        });
-
-        el.addEventListener('mouseleave', () => {
-            gsap.to(el, { x: 0, y: 0, duration: 0.55, ease: 'elastic.out(1, 0.35)', overwrite: 'auto' });
-        });
-    });
+    // Magnetic physics disabled per user preference
 }
 window.setupMagneticPhysics = setupMagneticPhysics;
 
@@ -4979,7 +4963,6 @@ function renderAnimeGrid() {
         renderActivitiesFeed();
         renderRecommendationsRail();
         if (typeof ScrollTrigger !== 'undefined') ScrollTrigger.refresh();
-        if (window.setupMagneticPhysics) window.setupMagneticPhysics();
     });
 }
 
