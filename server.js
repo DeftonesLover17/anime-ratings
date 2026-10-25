@@ -1,6 +1,7 @@
 require('dotenv').config();
 const http = require('http');
 const { mergeClientState } = require('./shared/sync-state');
+const studioMetadata = require('./shared/studio-metadata');
 let stateWriteQueue = Promise.resolve();
 const fs = require('fs');
 const path = require('path');
@@ -345,7 +346,7 @@ function sanitizeAnimeRecord(anime) {
         coverUrl: sanitizeImageUrl(anime.coverUrl) || '',
         studioLogoUrl: sanitizeImageUrl(anime.studioLogoUrl) || '',
         genres: sanitizeTextArray(anime.genres, 20, 80),
-        studio: escapeHtml(getStandardStudioName(anime.studio || ''), 120),
+        studio: escapeHtml(getStandardStudioName(studioMetadata.studioForAnime(anime)), 120),
         status: escapeHtml(anime.status || '', 80),
         season: escapeHtml(anime.season || '', 80),
         episodes: escapeHtml(anime.episodes || '', 40),

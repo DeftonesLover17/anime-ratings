@@ -37,6 +37,7 @@ npm start
 | `functions/api/[[path]].js` | API de produção para Cloudflare Pages/D1. |
 | `server.js` | API alternativa Node, com armazenamento em arquivo ou Postgres. |
 | `shared/sync-state.js` | Merge de alterações e proteção de dados usados nos dois servidores. |
+| `shared/studio-metadata.js` | Estúdios confirmados por título exato e leitura de créditos da importação, compartilhados entre UI e APIs. |
 | `scripts/build-pages.js` | Build de CSS/JS, hashes e cópia de mídia. |
 | `tests/` | Regressões de dados, concorrência, autenticação e módulos de UI. |
 | `covers/`, `logos/` | Mídia do catálogo. `sunrise-animation.png` identifica a Sunrise de animação. |
@@ -60,6 +61,8 @@ Para novos recursos, criar um módulo no domínio correspondente em `frontend/`.
 As telas usam toda a largura disponível com o shell compartilhado `.av-wrap` e o token `--av-page-gutter`. Cabeçalho, descoberta, acervo, detalhe, estúdios e rodapé compartilham as mesmas margens laterais. Não reintroduzir um limite fixo de largura nos shells. Limites de leitura de textos e larguras de modais continuam próprios de cada componente.
 
 A descoberta, o catálogo, o detalhe da obra, a avaliação e os estúdios são telas da aplicação real. O estudo visual externo não é um substituto do produto nem uma fonte de dados fictícios para produção.
+
+Créditos explícitos de estúdio são preservados. Quando a fonte não traz o crédito, `shared/studio-metadata.js` recupera apenas títulos exatos com confirmação oficial; a API aplica essa regra também ao catálogo existente, sem gravar dados durante a leitura. Créditos ainda desconhecidos aparecem como “Estúdio não informado”. A importação Kitsu aceita relações de estúdio e não usa um produtor ou distribuidor como substituto.
 
 O editor mantém rascunhos durante a navegação entre episódios e obras na sessão. A confirmação de salvamento acompanha a resposta da API; falhas deixam os dados locais e oferecem nova tentativa. Rascunhos não publicados ficam na memória da aba, com aviso ao sair, e não representam um backup persistente.
 

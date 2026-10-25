@@ -5660,7 +5660,11 @@ function setupFormSubmissions() {
             const title = document.getElementById('form-anime-title').value;
             const japaneseTitle = document.getElementById('form-anime-jp-title').value;
             const synopsis = document.getElementById('form-anime-synopsis').value;
-            const studio = getStandardStudioName(document.getElementById('form-anime-studio').value);
+            const studio = getStandardStudioName(window.AnivoidUI.studioMetadata.studioForAnime({
+                title,
+                japaneseTitle,
+                studio: document.getElementById('form-anime-studio').value
+            }));
             const season = document.getElementById('form-anime-season').value;
             const episodes = document.getElementById('form-anime-episodes').value;
             const coverUrl = document.getElementById('form-anime-cover').value;
@@ -7504,7 +7508,10 @@ function initAddFriendModalOptions() {
         };
 
         function getStudioFallbackByTitle(title) {
+            const confirmed = window.AnivoidUI.studioMetadata.verifiedStudio(title);
+            if (confirmed) return confirmed;
             const clean = String(title || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+            if (!clean) return '';
             const fallbacks = {
                 'supernouradeyanisuufutari': 'Asahi Production',
                 'smokingbehindthesupermarketwithyou': 'Asahi Production',
@@ -7600,28 +7607,7 @@ function initAddFriendModalOptions() {
                         }
                     });
                     
-                    let studioName = '';
-                    const prodRefs = anime.relationships?.animeProductions?.data || [];
-                    for (const ref of prodRefs) {
-                        const prod = findIncluded('animeProductions', ref.id);
-                        if (prod && prod.attributes?.role === 'studio') {
-                            const producerId = prod.relationships?.producer?.data?.id;
-                            const producer = findIncluded('producers', producerId);
-                            if (producer && producer.attributes?.name) {
-                                studioName = producer.attributes.name;
-                                break;
-                            }
-                        }
-                    }
-                    if (!studioName && prodRefs.length > 0) {
-                        const firstProdId = prodRefs[0].id;
-                        const prod = findIncluded('animeProductions', firstProdId);
-                        const producerId = prod?.relationships?.producer?.data?.id;
-                        const producer = findIncluded('producers', producerId);
-                        if (producer && producer.attributes?.name) {
-                            studioName = producer.attributes.name;
-                        }
-                    }
+                    let studioName = window.AnivoidUI.studioMetadata.kitsuStudio(anime, included);
                     
                     if (!studioName || studioName.toLowerCase() === 'desconhecido') {
                         const fb = getStudioFallbackByTitle(titleCanonical) || getStudioFallbackByTitle(titleEnglish) || getStudioFallbackByTitle(titleJapanese);
@@ -7758,13 +7744,17 @@ function initAddFriendModalOptions() {
                     document.getElementById('form-anime-jp-title').value = jpTitle;
                     
                     const studioInput = document.getElementById('form-anime-studio');
-                    const studioName = getStandardStudioName(anime.studios?.[0]?.name || '');
-                    if (studioInput) studioInput.value = studioName;
+                    const studioName = getStandardStudioName(window.AnivoidUI.studioMetadata.studioForAnime(anime));
+                    const studioMissing = window.AnivoidUI.studioMetadata.isUnknownStudio(studioName);
+                    if (studioInput) {
+                        studioInput.value = studioMissing ? '' : studioName;
+                        studioInput.placeholder = studioMissing ? 'Estúdio não informado; preencha se souber' : 'Ex: Ufotable';
+                    }
 
                     const studioLogoInput = document.getElementById('form-studio-logo');
                     if (studioLogoInput) {
                         studioLogoInput.value = getStudioLogo(studioName) || '';
-                        if (!studioLogoInput.value && studioName) {
+                        if (!studioLogoInput.value && !studioMissing) {
                             const originalPlaceholder = studioLogoInput.placeholder;
                             studioLogoInput.placeholder = 'Buscando logo no MyAnimeList...';
                             fetchStudioLogoFromMal(studioName).then((logo) => {

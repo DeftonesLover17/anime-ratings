@@ -1,4 +1,5 @@
 import syncTools from '../../shared/sync-state.js';
+import studioMetadata from '../../shared/studio-metadata.js';
 const { mergeClientState } = syncTools;
 const storageReady = new WeakMap();
 const REQUEST_LIMITS = Symbol('requestRateLimits');
@@ -423,7 +424,7 @@ function sanitizeAnimeRecord(anime) {
         coverUrl: sanitizeImageUrl(anime.coverUrl) || '',
         studioLogoUrl: sanitizeImageUrl(anime.studioLogoUrl) || '',
         genres: sanitizeTextArray(anime.genres, 20, 80),
-        studio: escapeHtml(getStandardStudioName(anime.studio || ''), 120),
+        studio: escapeHtml(getStandardStudioName(studioMetadata.studioForAnime(anime)), 120),
         status: escapeHtml(anime.status || '', 80),
         season: escapeHtml(anime.season || '', 80),
         episodes: escapeHtml(anime.episodes || '', 40),

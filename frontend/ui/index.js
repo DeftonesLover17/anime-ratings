@@ -3,6 +3,7 @@ const { createThemeController } = require('./theme');
 const { createMotionController } = require('./motion');
 const { createSite } = require('../site');
 const { imageUrl } = require('../shared/dom');
+const studioMetadata = require('../../shared/studio-metadata');
 
 const theme = createThemeController(window);
 const motion = createMotionController(window);
@@ -11,6 +12,7 @@ const motion = createMotionController(window);
 window.AnivoidUI = {
     ...ratings,
     imageUrl,
+    studioMetadata,
     site: createSite(window, motion.animate),
     readTheme: theme.readTheme,
     setTheme: theme.setTheme,

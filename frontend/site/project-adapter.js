@@ -1,4 +1,5 @@
 const { scoreMarkup } = require('../shared/dom');
+const { studioForAnime } = require('../../shared/studio-metadata');
 
 function createProjectAdapter(project, site) {
     const { state, statuses } = project;
@@ -151,9 +152,9 @@ function createProjectAdapter(project, site) {
         site.renderCredit(
             button,
             {
-                name: anime.studio || 'Desconhecido',
+                name: studioForAnime(anime),
                 logo: project.studioLogo(
-                    project.standardStudio(anime.studio || ''),
+                    project.standardStudio(studioForAnime(anime)),
                 ),
             },
             project.studio,

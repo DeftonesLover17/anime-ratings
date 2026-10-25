@@ -7,9 +7,10 @@ const root = path.resolve(__dirname, '..');
 const copy = value => JSON.parse(JSON.stringify(value));
 const apiSource = fs.readFileSync(path.join(root, 'functions/api/[[path]].js'), 'utf8')
     .replace(/^import syncTools[^\n]*\n/m, '')
+    .replace(/^import studioMetadata[^\n]*\n/m, '')
     .replace('export async function onRequest', 'async function onRequest');
 const syncTools = require('../shared/sync-state');
-const api = new Function('crypto', 'syncTools', apiSource + '\nreturn { readState, writeState, handleRegister, handleLogin, onRequest };')(require('node:crypto').webcrypto, syncTools);
+const api = new Function('crypto', 'syncTools', 'studioMetadata', apiSource + '\nreturn { readState, writeState, handleRegister, handleLogin, onRequest };')(require('node:crypto').webcrypto, syncTools, require('../shared/studio-metadata'));
 
 function fixture() {
     return {
@@ -155,6 +156,7 @@ test('legacy Node backend preserves community data when saving', async () => {
         if (name === 'http') return { createServer: () => ({ listen() {} }) };
         if (name === 'fs') return fakeFs;
         if (name === './shared/sync-state') return syncTools;
+        if (name === './shared/studio-metadata') return require('../shared/studio-metadata');
         return require(name);
     };
     const backend = new Function('require', 'process', '__dirname', source + '\nreturn { writeState };')(
@@ -215,4 +217,20 @@ test('invalid stored JSON fails instead of replacing the catalog with defaults',
     db.state = '{invalid';
     await assert.rejects(api.readState({ ANIVOID_DB: db }), SyntaxError);
     assert.equal(db.state, '{invalid');
+});
+
+test('API repairs a confirmed legacy studio on read without rewriting ratings, comments or storage', async () => {
+    const original = fixture();
+    original.animes[0].title = 'CYBERPUNK: EDGERUNNERS II';
+    original.animes[0].studio = 'Desconhecido';
+    const db = new MemoryD1(original);
+    const response = await api.onRequest({ env: { ANIVOID_DB: db }, request: new Request('https://example.invalid/api/get-state') });
+    assert.equal(response.status, 200);
+    const result = await response.json();
+    assert.equal(result.animes[0].studio, 'Trigger');
+    for (const [user, rating] of Object.entries(original.animes[0].ratings)) {
+        for (const [field, value] of Object.entries(rating)) assert.deepEqual(result.animes[0].ratings[user][field], value);
+    }
+    assert.equal(result.animes[0].comments[0].replies[0].friendId, 'bruno');
+    assert.deepEqual(JSON.parse(db.state), original);
 });

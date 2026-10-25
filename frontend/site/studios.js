@@ -7,6 +7,7 @@ const {
     attachImageFallbacks,
 } = require('../shared/dom');
 const { createCatalogCard } = require('./discovery');
+const { isUnknownStudio } = require('../../shared/studio-metadata');
 
 function renderDirectory(container, studios, actions) {
     const root = element(
@@ -73,11 +74,17 @@ function renderProfile(container, model, actions) {
 }
 
 function renderCredit(button, { name, logo }, open) {
-    if (!name || name === 'Desconhecido' || name === 'Estúdio não informado') {
-        button.style.display = 'none';
+    button.style.display = '';
+    if (isUnknownStudio(name)) {
+        button.className = 'av-studio-credit';
+        button.disabled = true;
+        button.onclick = null;
+        button.removeAttribute('title');
+        button.setAttribute('aria-label', 'Estúdio não informado');
+        button.innerHTML = '<span class="av-credit-name">Estúdio não informado</span>';
         return;
     }
-    button.style.display = '';
+    button.disabled = false;
     button.className = 'av-studio-credit';
     button.setAttribute('aria-label', `Explorar estúdio ${name}`);
     button.setAttribute('title', `Explorar estúdio ${name}`);
