@@ -3459,3 +3459,479 @@ details[open] .av-security-chevron {
         transform: none !important;
     }
 }
+
+/* ==========================================================================
+   CATALOG STUDIO MODAL (AWWWARDS EDITION)
+   ========================================================================== */
+
+.av-catalog-studio-shell {
+    position: relative;
+    width: 100%;
+    max-width: min(1080px, 95vw);
+    margin: auto;
+    border-radius: 28px;
+    background: color-mix(in srgb, var(--av-surface) 95%, var(--av-bg));
+    border: 1px solid var(--av-line);
+    box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+    color: var(--av-ink);
+    font-family: var(--av-body);
+    animation: avStatsEntrance 0.32s var(--av-ease);
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+    box-sizing: border-box;
+}
+
+#add-anime-modal.is-closing .av-catalog-studio-shell {
+    animation: avStatsExit 0.22s cubic-bezier(0.7, 0, 0.84, 0) forwards;
+}
+
+.av-catalog-studio-layout {
+    display: grid;
+    grid-template-columns: 330px minmax(0, 1fr);
+    gap: 28px;
+    padding: clamp(18px, 2.5vw, 26px) clamp(20px, 3vw, 32px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+    align-items: start;
+    scrollbar-width: thin;
+    scrollbar-color: var(--av-line) transparent;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.av-catalog-studio-layout::-webkit-scrollbar {
+    width: 6px;
+}
+.av-catalog-studio-layout::-webkit-scrollbar-track {
+    background: transparent;
+}
+.av-catalog-studio-layout::-webkit-scrollbar-thumb {
+    background: var(--av-line);
+    border-radius: 9999px;
+}
+
+/* Live Anime Catalog Card */
+.av-catalog-live-card {
+    background: color-mix(in srgb, var(--av-surface) 95%, #000);
+    border: 1px solid var(--av-line);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 24px 50px -12px rgba(0, 0, 0, 0.85);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.25s var(--av-ease);
+}
+
+.av-catalog-live-card:hover {
+    border-color: color-mix(in srgb, var(--av-accent) 45%, var(--av-line));
+}
+
+.av-catalog-live-poster {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    background: #111318;
+    overflow: hidden;
+}
+
+.av-catalog-live-poster img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 20%;
+    transition: transform 0.4s var(--av-ease);
+}
+
+.av-catalog-live-tint {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(5,6,8,0.1) 0%, rgba(5,6,8,0.85) 100%);
+    pointer-events: none;
+}
+
+.av-catalog-live-score {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(12, 13, 16, 0.8);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--av-mono);
+    color: var(--av-accent);
+}
+
+.av-catalog-live-score svg {
+    width: 11px;
+    height: 11px;
+}
+
+.av-catalog-live-meta-top {
+    position: absolute;
+    bottom: 12px;
+    left: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.av-catalog-live-tag {
+    font-size: 10px;
+    font-family: var(--av-mono);
+    color: #ffffff;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+
+.av-catalog-live-body {
+    padding: 16px 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-sizing: border-box;
+}
+
+.av-catalog-live-header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.av-catalog-live-studio-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.av-catalog-live-studio-logo {
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #000;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.av-catalog-live-studio-logo img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.av-catalog-live-studio {
+    font-size: 11px;
+    font-family: var(--av-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--av-muted);
+}
+
+.av-catalog-live-title {
+    font-family: var(--av-display);
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #ffffff !important;
+    line-height: 1.25;
+    margin: 2px 0 0;
+}
+
+.av-catalog-live-jp-title {
+    font-size: 11px;
+    color: var(--av-muted);
+    margin: 0;
+    font-family: var(--av-body);
+}
+
+.av-catalog-live-genres {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.av-genre-chip {
+    font-size: 10px;
+    font-family: var(--av-mono);
+    color: rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--av-line);
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+.av-catalog-live-synopsis {
+    font-size: 11px;
+    line-height: 1.55;
+    color: var(--av-muted);
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Tip card */
+.av-catalog-tip-card {
+    background: color-mix(in srgb, var(--av-surface) 60%, transparent);
+    border: 1px solid var(--av-line);
+    border-radius: 14px;
+    padding: 14px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.av-catalog-tip-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--av-accent) 15%, transparent);
+    color: var(--av-accent);
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+}
+
+.av-catalog-tip-icon svg {
+    width: 15px;
+    height: 15px;
+}
+
+.av-catalog-tip-text b {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 2px;
+}
+
+.av-catalog-tip-text p {
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--av-muted);
+    margin: 0;
+}
+
+/* Form Sections */
+.av-form-section {
+    background: color-mix(in srgb, var(--av-surface) 65%, transparent);
+    border: 1px solid var(--av-line);
+    border-radius: 18px;
+    padding: clamp(16px, 2vw, 20px);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-sizing: border-box;
+}
+
+.av-form-section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--av-line);
+}
+
+.av-form-section-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--av-line);
+    display: grid;
+    place-items: center;
+    color: var(--av-accent);
+    flex-shrink: 0;
+}
+
+.av-form-section-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.av-form-section-title {
+    font-family: var(--av-display);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #ffffff;
+    margin: 0 0 2px;
+}
+
+.av-form-section-desc {
+    font-size: 11px;
+    color: var(--av-muted);
+    margin: 0;
+}
+
+.av-form-row-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.av-field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    position: relative;
+}
+
+.av-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-family: var(--av-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--av-muted);
+}
+
+.av-label-badge {
+    font-size: 9px;
+    color: var(--av-accent);
+    background: color-mix(in srgb, var(--av-accent) 15%, transparent);
+    padding: 1px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+}
+
+.av-label-hint {
+    font-size: 9px;
+    color: var(--av-muted);
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.av-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.av-input-wrap .av-input {
+    width: 100%;
+    padding-right: 38px;
+}
+
+.av-input-icon {
+    position: absolute;
+    right: 14px;
+    pointer-events: none;
+    color: var(--av-muted);
+    display: grid;
+    place-items: center;
+}
+
+.av-input-icon svg {
+    width: 15px;
+    height: 15px;
+}
+
+.av-textarea {
+    width: 100%;
+    background: color-mix(in srgb, var(--av-surface) 80%, transparent);
+    border: 1px solid var(--av-line);
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: #ffffff;
+    font-family: var(--av-body);
+    font-size: 13px;
+    line-height: 1.6;
+    resize: vertical;
+    min-height: 90px;
+    box-sizing: border-box;
+    transition: border-color 0.2s var(--av-ease), background 0.2s var(--av-ease);
+}
+
+.av-textarea:focus {
+    outline: none;
+    border-color: var(--av-accent);
+    background: var(--av-surface);
+}
+
+/* MAL Suggestions Popover */
+.av-suggestions-popover {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 100;
+    max-height: 280px;
+    overflow-y: auto;
+    background: rgba(12, 14, 18, 0.96);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9);
+    scrollbar-width: thin;
+    scrollbar-color: var(--av-line) transparent;
+}
+
+/* Action Bar */
+.av-studio-actions-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 14px;
+    padding-top: 8px;
+}
+
+.av-catalog-submit-btn {
+    min-height: 46px;
+    padding: 0 26px;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.av-submit-arrow {
+    width: 15px;
+    height: 15px;
+    transition: transform 0.2s ease;
+}
+
+.av-catalog-submit-btn:hover .av-submit-arrow {
+    transform: translateX(3px);
+}
+
+@media (max-width: 880px) {
+    .av-catalog-studio-layout {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    .av-studio-preview-col {
+        position: static;
+    }
+    .av-catalog-live-poster {
+        aspect-ratio: 16 / 9;
+    }
+    .av-form-row-2 {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+}

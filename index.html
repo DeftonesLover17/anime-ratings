@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" href="favicon.png">
     <!-- EmailJS SDK for real email delivery (optional) -->
     <script defer src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <link rel="stylesheet" href="assets/tailwind.92a612e12802.css">
+    <link rel="stylesheet" href="assets/tailwind.5ab65e30ac2b.css">
     <!-- Iconify Icons CDN -->
     <script defer src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
     <!-- GSAP 3 & ScrollTrigger (Awwwards Creative Motion) -->
@@ -24,7 +24,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syncopate:wght@700&family=Syne:wght@800&family=Lexend+Tera:wght@900&display=swap" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="assets/styles.0f94ff2bdf1e.css">
+    <link rel="stylesheet" href="assets/styles.b3c59b20b3e3.css">
     
     <meta name="theme-color" content="#050505">
     <script>
@@ -436,71 +436,244 @@
     <!-- 5. DETAIL / mounted by frontend/site/detail-shell.js -->
     <main id="anime-detail-page" class="hidden av-detail" aria-labelledby="detail-title"></main>
 
-    <!-- 6. MODAL: ADD ANIME FORM -->
-    <div id="add-anime-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-[50] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
-        <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl p-6 md:p-8 space-y-6">
-            <div class="flex justify-between items-center">
-                <h3 id="anime-form-modal-title" class="text-xl font-serif">Adicionar <span class="italic text-brand">Novo Anime</span></h3>
-                <button id="close-add-anime" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors">
-                    <iconify-icon icon="lucide:x" class="text-white text-sm"></iconify-icon>
+    <!-- 6. MODAL: ADICIONAR / EDITAR ANIME (CATALOG STUDIO AWWWARDS) -->
+    <div id="add-anime-modal" data-lenis-prevent="true" class="fixed inset-0 bg-black/85 backdrop-blur-2xl z-[9998] hidden items-center justify-center p-3 sm:p-5 md:p-8 overflow-y-auto">
+        <div class="av-catalog-studio-shell" data-lenis-prevent="true">
+            
+            <!-- Header -->
+            <div class="av-studio-header">
+                <div class="av-studio-header-info">
+                    <div class="av-stats-eyebrow">
+                        <span class="av-stats-dot"></span>
+                        <span>Curadoria &amp; Catálogo / Studio</span>
+                    </div>
+                    <h2 id="anime-form-modal-title" class="av-stats-title">Adicionar Obra<span>.</span></h2>
+                    <p class="av-stats-subtitle">Cadastre ou refine uma produção no acervo oficial com busca integrada e metadados globais.</p>
+                </div>
+                <button type="button" id="close-add-anime" class="av-stats-close-btn" aria-label="Fechar edição de anime">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6 6 18M6 6l12 12"/>
+                    </svg>
                 </button>
             </div>
-            
-            <form id="add-anime-form" class="space-y-4 text-xs font-mono">
-                <input type="hidden" id="form-anime-id">
-                <div class="space-y-1 relative">
-                    <label for="form-anime-title" class="text-gray-500 uppercase tracking-wider block">Título em Inglês / Oficial</label>
-                    <input type="text" id="form-anime-title" required placeholder="Ex: Demon Slayer: Infinity Castle" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50" autocomplete="off">
-                    <!-- Suggestions Dropdown -->
-                    <div id="form-anime-suggestions" class="hidden absolute left-0 right-0 top-[102%] z-50 max-h-60 overflow-y-auto glass-panel rounded-xl border border-white/10 bg-[#0d0d0d]/95 backdrop-blur-md shadow-2xl divide-y divide-white/5"></div>
-                </div>
+
+            <!-- Horizontal Studio Grid: Live Preview (Left) + Form Studio (Right) -->
+            <div class="av-catalog-studio-layout">
                 
-                <div class="space-y-1">
-                    <label for="form-anime-jp-title" class="text-gray-500 uppercase tracking-wider block">Título em Japonês (Opcional)</label>
-                    <input type="text" id="form-anime-jp-title" placeholder="Ex: Kimetsu no Yaiba: Mugejo" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
-                </div>
+                <!-- Left Column: Interactive Live Card Preview -->
+                <div class="av-studio-preview-col">
+                    <div class="av-preview-sticky">
+                        <div class="av-preview-top-bar">
+                            <span class="av-eyebrow">Card no Acervo</span>
+                            <span class="av-preview-live-indicator">
+                                <span class="av-live-pulse"></span>
+                                Live Preview
+                            </span>
+                        </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="space-y-1">
-                        <label for="form-anime-studio" class="text-gray-500 uppercase tracking-wider block">Estúdio</label>
-                        <input type="text" id="form-anime-studio" placeholder="Ex: Ufotable" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
+                        <!-- Live Card Component -->
+                        <div class="av-catalog-live-card">
+                            <div class="av-catalog-live-poster">
+                                <img id="anime-preview-cover" src="covers/cyberpunk-edgerunners-2.jpg" alt="Preview da Capa">
+                                <div class="av-catalog-live-tint"></div>
+                                <div class="av-catalog-live-score">
+                                    <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                    <span>--</span>
+                                </div>
+                                <div class="av-catalog-live-meta-top">
+                                    <span id="anime-preview-season-badge" class="av-catalog-live-tag">Primavera 2026</span>
+                                    <span id="anime-preview-ep-badge" class="av-catalog-live-tag">12 eps</span>
+                                </div>
+                            </div>
+
+                            <div class="av-catalog-live-body">
+                                <div class="av-catalog-live-header">
+                                    <div class="av-catalog-live-studio-row">
+                                        <div id="anime-preview-studio-logo-box" class="av-catalog-live-studio-logo hidden">
+                                            <img id="anime-preview-studio-logo" src="" alt="Studio">
+                                        </div>
+                                        <span id="anime-preview-studio" class="av-catalog-live-studio">Estúdio</span>
+                                    </div>
+                                    <h4 id="anime-preview-title" class="av-catalog-live-title">Título Oficial da Obra</h4>
+                                    <p id="anime-preview-jp-title" class="av-catalog-live-jp-title">タイトル</p>
+                                </div>
+
+                                <div id="anime-preview-genres" class="av-catalog-live-genres">
+                                    <span class="av-genre-chip">Ação</span>
+                                    <span class="av-genre-chip">Sci-Fi</span>
+                                </div>
+
+                                <p id="anime-preview-synopsis" class="av-catalog-live-synopsis">Sinopse da obra aparecerá aqui em tempo real conforme você digita ou seleciona uma sugestão do MyAnimeList...</p>
+                            </div>
+                        </div>
+
+                        <!-- Curatorial Tips -->
+                        <div class="av-catalog-tip-card">
+                            <div class="av-catalog-tip-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
+                            </div>
+                            <div class="av-catalog-tip-text">
+                                <b>Busca Automatizada</b>
+                                <p>Digite ao menos 3 letras no título em inglês para preencher capa, estúdio, temporada, episódios e sinopse direto do MyAnimeList &amp; Kitsu.</p>
+                            </div>
+                        </div>
                     </div>
-                    <div class="space-y-1">
-                        <label for="form-anime-episodes" class="text-gray-500 uppercase tracking-wider block">Episódios</label>
-                        <input type="text" id="form-anime-episodes" placeholder="Ex: 12 episódios" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
-                    </div>
                 </div>
 
-                <div class="space-y-1">
-                    <label for="form-studio-logo" class="text-gray-500 uppercase tracking-wider block">Logo do Estudio (Opcional)</label>
-                    <input type="text" id="form-studio-logo" inputmode="url" autocomplete="off" placeholder="URL ou logo cadastrada do estudio..." class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
-                </div>
+                <!-- Right Column: Form Controls Studio -->
+                <div class="av-studio-form-col">
+                    <form id="add-anime-form" class="av-studio-form">
+                        <input type="hidden" id="form-anime-id">
 
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="space-y-1">
-                        <label for="form-anime-season" class="text-gray-500 uppercase tracking-wider block">Temporada / Ano</label>
-                        <input type="text" id="form-anime-season" placeholder="Ex: Primavera 2026" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
-                    </div>
-                    <div class="space-y-1">
-                        <label for="form-anime-genres" class="text-gray-500 uppercase tracking-wider block">Gêneros (Separados por vírgula)</label>
-                        <input type="text" id="form-anime-genres" placeholder="Ação, Fantasia, Drama" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
-                    </div>
-                </div>
+                        <!-- Fieldset 1: Identidade da Obra -->
+                        <div class="av-form-section">
+                            <div class="av-form-section-header">
+                                <div class="av-form-section-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10M6 10h10"/></svg>
+                                </div>
+                                <div>
+                                    <h3 class="av-form-section-title">Identidade da Obra</h3>
+                                    <p class="av-form-section-desc">Nome oficial para indexação e identificação canônica no acervo.</p>
+                                </div>
+                            </div>
 
-                <div class="space-y-1">
-                    <label for="form-anime-cover" class="text-gray-500 uppercase tracking-wider block">URL Imagem da Capa (Unsplash/Web)</label>
-                    <input type="text" id="form-anime-cover" inputmode="url" placeholder="Link da imagem ou caminho local..." class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50">
-                </div>
+                            <div class="av-field-group relative">
+                                <label for="form-anime-title" class="av-label">
+                                    <span>Título em Inglês / Oficial</span>
+                                    <span class="av-label-badge">Obrigatório &middot; Busca MAL</span>
+                                </label>
+                                <div class="av-input-wrap">
+                                    <input type="text" id="form-anime-title" required placeholder="Ex: Demon Slayer: Infinity Castle" class="av-input" autocomplete="off">
+                                    <div class="av-input-icon">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                                    </div>
+                                </div>
+                                <!-- Suggestions Dropdown Popover -->
+                                <div id="form-anime-suggestions" class="hidden av-suggestions-popover"></div>
+                            </div>
 
-                <div class="space-y-1">
-                    <label for="form-anime-synopsis" class="text-gray-500 uppercase tracking-wider block">Sinopse</label>
-                    <textarea id="form-anime-synopsis" rows="3" placeholder="Insira o resumo da obra..." class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-brand/50 resize-none font-sans text-xs"></textarea>
-                </div>
+                            <div class="av-field-group">
+                                <label for="form-anime-jp-title" class="av-label">
+                                    <span>Título em Japonês / Rōmaji</span>
+                                    <span class="av-label-hint">Opcional</span>
+                                </label>
+                                <div class="av-input-wrap">
+                                    <input type="text" id="form-anime-jp-title" placeholder="Ex: Kimetsu no Yaiba: Mugejo" class="av-input">
+                                </div>
+                            </div>
+                        </div>
 
-                <button id="anime-form-submit" type="submit" class="w-full py-3 rounded-full bg-white text-black hover:bg-gray-150 transition-colors uppercase tracking-widest font-semibold mt-4 disabled:opacity-50 disabled:cursor-wait">
-                    Adicionar Anime
-                </button>
-            </form>
+                        <!-- Fieldset 2: Especificações Técnicas & Taxonomia -->
+                        <div class="av-form-section">
+                            <div class="av-form-section-header">
+                                <div class="av-form-section-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                                </div>
+                                <div>
+                                    <h3 class="av-form-section-title">Ficha Técnica &amp; Taxonomia</h3>
+                                    <p class="av-form-section-desc">Estúdio responsável, formato de exibição e categorias temáticas.</p>
+                                </div>
+                            </div>
+
+                            <div class="av-form-row-2">
+                                <div class="av-field-group">
+                                    <label for="form-anime-studio" class="av-label">
+                                        <span>Estúdio</span>
+                                        <span class="av-label-hint">Ex: Ufotable, MAPPA</span>
+                                    </label>
+                                    <div class="av-input-wrap">
+                                        <input type="text" id="form-anime-studio" placeholder="Ex: Ufotable" class="av-input">
+                                    </div>
+                                </div>
+
+                                <div class="av-field-group">
+                                    <label for="form-anime-episodes" class="av-label">
+                                        <span>Episódios / Formato</span>
+                                        <span class="av-label-hint">Ex: 12 ou 1 (Filme)</span>
+                                    </label>
+                                    <div class="av-input-wrap">
+                                        <input type="text" id="form-anime-episodes" placeholder="Ex: 12 episódios" class="av-input">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="av-form-row-2">
+                                <div class="av-field-group">
+                                    <label for="form-anime-season" class="av-label">
+                                        <span>Temporada / Ano</span>
+                                        <span class="av-label-hint">Ex: Outono 2024</span>
+                                    </label>
+                                    <div class="av-input-wrap">
+                                        <input type="text" id="form-anime-season" placeholder="Ex: Primavera 2026" class="av-input">
+                                    </div>
+                                </div>
+
+                                <div class="av-field-group">
+                                    <label for="form-anime-genres" class="av-label">
+                                        <span>Gêneros</span>
+                                        <span class="av-label-hint">Separados por vírgula</span>
+                                    </label>
+                                    <div class="av-input-wrap">
+                                        <input type="text" id="form-anime-genres" placeholder="Ação, Fantasia, Drama" class="av-input">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Fieldset 3: Mídia & Sinopse -->
+                        <div class="av-form-section">
+                            <div class="av-form-section-header">
+                                <div class="av-form-section-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                                </div>
+                                <div>
+                                    <h3 class="av-form-section-title">Mídia Visual &amp; Sinopse</h3>
+                                    <p class="av-form-section-desc">Pôster em alta resolução e narrativa descritiva da obra.</p>
+                                </div>
+                            </div>
+
+                            <div class="av-field-group">
+                                <label for="form-anime-cover" class="av-label">
+                                    <span>URL Imagem da Capa</span>
+                                    <span class="av-label-hint">Link direto ou local</span>
+                                </label>
+                                <div class="av-input-wrap">
+                                    <input type="text" id="form-anime-cover" inputmode="url" placeholder="https://... ou covers/..." class="av-input">
+                                </div>
+                            </div>
+
+                            <div class="av-field-group">
+                                <label for="form-studio-logo" class="av-label">
+                                    <span>Logo do Estúdio</span>
+                                    <span class="av-label-hint">Opcional &middot; URL ou logos/...</span>
+                                </label>
+                                <div class="av-input-wrap">
+                                    <input type="text" id="form-studio-logo" inputmode="url" autocomplete="off" placeholder="logos/ufotable.png..." class="av-input">
+                                </div>
+                            </div>
+
+                            <div class="av-field-group">
+                                <label for="form-anime-synopsis" class="av-label">
+                                    <span>Sinopse Editorial</span>
+                                    <span class="av-label-hint">Resumo enredo</span>
+                                </label>
+                                <textarea id="form-anime-synopsis" rows="4" placeholder="Insira a sinopse ou contexto editorial da obra..." class="av-textarea"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Submit & Action Bar -->
+                        <div class="av-studio-actions-bar">
+                            <button type="button" id="cancel-add-anime" class="av-button-ghost">
+                                Cancelar
+                            </button>
+                            <button id="anime-form-submit" type="submit" class="av-button-solid av-catalog-submit-btn">
+                                <span>Adicionar ao Catálogo</span>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="av-submit-arrow"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1274,6 +1447,6 @@
 
     <!-- Scripts Integration -->
     <script src="assets/sync-state.9868559c480c.js"></script>
-    <script src="assets/app.16f2c78fd4cd.js"></script>
+    <script src="assets/app.443162e83e7c.js"></script>
 </body>
 </html>

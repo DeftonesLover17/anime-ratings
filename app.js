@@ -3012,6 +3012,74 @@ function setAdminCatalogControlsVisibility() {
     }
 }
 
+function updateCatalogLivePreview() {
+    const title = document.getElementById('form-anime-title')?.value.trim();
+    const jpTitle = document.getElementById('form-anime-jp-title')?.value.trim();
+    const studio = document.getElementById('form-anime-studio')?.value.trim();
+    const studioLogo = document.getElementById('form-studio-logo')?.value.trim();
+    const season = document.getElementById('form-anime-season')?.value.trim();
+    const episodes = document.getElementById('form-anime-episodes')?.value.trim();
+    const cover = document.getElementById('form-anime-cover')?.value.trim();
+    const genresRaw = document.getElementById('form-anime-genres')?.value.trim();
+    const synopsis = document.getElementById('form-anime-synopsis')?.value.trim();
+
+    // 1. Title
+    const titleEl = document.getElementById('anime-preview-title');
+    if (titleEl) titleEl.textContent = title || 'Título Oficial da Obra';
+
+    // 2. Japanese Title
+    const jpEl = document.getElementById('anime-preview-jp-title');
+    if (jpEl) {
+        jpEl.textContent = jpTitle || (title ? '' : 'タイトル');
+        jpEl.style.display = jpTitle ? 'block' : (title ? 'none' : 'block');
+    }
+
+    // 3. Cover
+    const coverEl = document.getElementById('anime-preview-cover');
+    if (coverEl) {
+        const fallbackCover = 'covers/cyberpunk-edgerunners-2.jpg';
+        const coverSrc = cover ? (window.AnivoidUI ? window.AnivoidUI.imageUrl(cover) : cover) : fallbackCover;
+        coverEl.src = coverSrc;
+    }
+
+    // 4. Studio & Logo
+    const studioEl = document.getElementById('anime-preview-studio');
+    if (studioEl) studioEl.textContent = studio || 'Estúdio';
+
+    const logoBox = document.getElementById('anime-preview-studio-logo-box');
+    const logoImg = document.getElementById('anime-preview-studio-logo');
+    if (logoBox && logoImg) {
+        const logoUrl = studioLogo || (studio ? (state.studioLogos?.[studio] || (typeof STUDIO_LOGOS !== 'undefined' ? STUDIO_LOGOS[studio] : '')) : '');
+        if (logoUrl) {
+            logoImg.src = logoUrl;
+            logoBox.classList.remove('hidden');
+        } else {
+            logoBox.classList.add('hidden');
+        }
+    }
+
+    // 5. Season & Episodes badges
+    const seasonBadge = document.getElementById('anime-preview-season-badge');
+    if (seasonBadge) seasonBadge.textContent = season || 'Temporada / Ano';
+
+    const epBadge = document.getElementById('anime-preview-ep-badge');
+    if (epBadge) epBadge.textContent = episodes ? (parseInt(episodes) === 1 ? 'Filme' : episodes.includes('ep') ? episodes : `${episodes} eps`) : '12 eps';
+
+    // 6. Genres
+    const genresContainer = document.getElementById('anime-preview-genres');
+    if (genresContainer) {
+        const genreList = genresRaw ? genresRaw.split(',').map(g => g.trim()).filter(Boolean) : ['Ação', 'Sci-Fi'];
+        genresContainer.innerHTML = genreList.slice(0, 4).map(g => `<span class="av-genre-chip">${escapeHtml(g)}</span>`).join('');
+    }
+
+    // 7. Synopsis
+    const synopsisEl = document.getElementById('anime-preview-synopsis');
+    if (synopsisEl) {
+        synopsisEl.textContent = synopsis || 'Sinopse da obra aparecerá aqui em tempo real conforme você digita ou seleciona uma sugestão do MyAnimeList...';
+    }
+}
+window.updateCatalogLivePreview = updateCatalogLivePreview;
+
 function closeAnimeCatalogModal() {
     const modal = document.getElementById('add-anime-modal');
     const form = document.getElementById('add-anime-form');
@@ -3024,6 +3092,7 @@ function closeAnimeCatalogModal() {
         form.dataset.mode = 'create';
     }
     document.body.classList.remove('overflow-hidden');
+    updateCatalogLivePreview();
 }
 
 function openAnimeCatalogModal(anime = null) {
@@ -3039,10 +3108,20 @@ function openAnimeCatalogModal(anime = null) {
     form.reset();
     form.dataset.mode = anime ? 'edit' : 'create';
     document.getElementById('form-anime-id').value = anime?.id || '';
-    document.getElementById('anime-form-modal-title').innerHTML = anime
-        ? 'Editar <span class="italic text-brand">Anime</span>'
-        : 'Adicionar <span class="italic text-brand">Novo Anime</span>';
-    document.getElementById('anime-form-submit').textContent = anime ? 'Salvar Alterações' : 'Adicionar Anime';
+    
+    const modalTitle = document.getElementById('anime-form-modal-title');
+    if (modalTitle) {
+        modalTitle.innerHTML = anime
+            ? 'Editar Obra<span>.</span>'
+            : 'Adicionar Obra<span>.</span>';
+    }
+
+    const submitBtn = document.getElementById('anime-form-submit');
+    if (submitBtn) {
+        submitBtn.innerHTML = anime 
+            ? '<span>Salvar Alterações</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="av-submit-arrow"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>'
+            : '<span>Adicionar ao Catálogo</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="av-submit-arrow"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>';
+    }
 
     if (anime) {
         document.getElementById('form-anime-title').value = decodeCatalogText(anime.title);
@@ -3058,8 +3137,25 @@ function openAnimeCatalogModal(anime = null) {
             : '';
     }
 
+    updateCatalogLivePreview();
+
     const suggestions = document.getElementById('form-anime-suggestions');
     if (suggestions) suggestions.classList.add('hidden');
+
+    if (!modal.dataset.catalogBackdropHooked) {
+        modal.dataset.catalogBackdropHooked = 'true';
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeAnimeCatalogModal();
+            }
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+                closeAnimeCatalogModal();
+            }
+        });
+    }
+
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     document.body.classList.add('overflow-hidden');
@@ -6044,6 +6140,16 @@ function setupFormSubmissions() {
             studioInput.addEventListener('blur', fillKnownLogo);
         }
 
+        addAnimeForm.addEventListener('input', () => updateCatalogLivePreview());
+        addAnimeForm.addEventListener('change', () => updateCatalogLivePreview());
+
+        const cancelBtn = document.getElementById('cancel-add-anime');
+        if (cancelBtn) {
+            bindElementOnce(cancelBtn, 'cancelAddAnime', 'click', () => {
+                closeAnimeCatalogModal();
+            });
+        }
+
         bindElementOnce(addAnimeForm, 'addAnimeSubmit', 'submit', async (e) => {
             e.preventDefault();
             if (!isCurrentUserAdmin()) {
@@ -8336,6 +8442,7 @@ function initAddFriendModalOptions() {
                             input.style.boxShadow = '';
                         }, 800);
                     });
+                    updateCatalogLivePreview();
                 });
 
                 suggestionsBox.appendChild(item);
