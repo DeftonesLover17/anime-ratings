@@ -99,3 +99,218 @@ input.av-score-range::-moz-range-thumb { width: 11px; height: 11px; background: 
     .av-rating-tools { gap: 15px; }
     .av-rating-tools button { font-size: 10px; }
 }
+
+/* Workbench Mode Switcher & Global Rating Studio */
+.av-workbench-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--av-line);
+}
+
+.av-workbench-tabs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.av-wb-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 0;
+    background: transparent;
+    color: var(--av-muted);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.av-wb-tab:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.av-wb-tab.is-active {
+    background: var(--av-surface);
+    color: #ffffff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.av-wb-tab-icon {
+    width: 14px;
+    height: 14px;
+}
+
+.av-wb-star-icon {
+    color: #fbbf24;
+    font-size: 13px;
+}
+
+.av-wb-tab-pill {
+    padding: 2px 8px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.08);
+    font-family: var(--av-mono);
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.av-wb-tab.is-active .av-wb-tab-pill {
+    background: rgba(255, 85, 0, 0.18);
+    color: #ff8844;
+}
+
+/* Global Rating Button at Top of Rail */
+.av-rail-global-btn {
+    display: grid;
+    grid-template-columns: 24px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    width: 100%;
+    text-align: left;
+    padding: 13px 12px;
+    margin-bottom: 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--av-ink);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.av-rail-global-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.av-rail-global-btn[aria-pressed=true] {
+    background: rgba(255, 85, 0, 0.08);
+    border-color: var(--av-accent);
+    box-shadow: 0 0 16px rgba(255, 85, 0, 0.15);
+}
+
+.av-rail-global-icon {
+    font-size: 15px;
+    color: #fbbf24;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.av-rail-global-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.av-rail-global-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.av-rail-global-hint {
+    font-size: 10px;
+    color: var(--av-muted);
+}
+
+.av-rail-global-score {
+    font-family: var(--av-display);
+    font-size: 18px;
+    font-weight: 600;
+    color: #fbbf24;
+}
+
+/* Global Editor View Styling */
+.av-global-editor-view {
+    padding-top: 4px;
+}
+
+.av-global-status-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 500;
+}
+
+.av-global-lead {
+    font-size: 13px;
+    color: var(--av-muted);
+    line-height: 1.55;
+    margin: 12px 0 24px;
+    max-width: 560px;
+}
+
+.av-global-propagate-box {
+    margin: 24px 0;
+    padding: 16px 18px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.av-global-propagate-box:hover {
+    background: rgba(255, 255, 255, 0.045);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.av-global-check-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+}
+
+.av-global-check-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    accent-color: var(--av-accent);
+    cursor: pointer;
+}
+
+.av-global-check-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.av-global-check-text strong {
+    font-size: 13px;
+    color: #ffffff;
+}
+
+.av-global-check-text small {
+    font-size: 11.5px;
+    color: var(--av-muted);
+    line-height: 1.45;
+}
+
+.av-global-feedback {
+    margin-top: 18px;
+    font-size: 12.5px;
+    color: #10b981;
+    min-height: 22px;
+    font-weight: 500;
+}

@@ -2197,18 +2197,33 @@ class AppState {
         }
     }
 
-    setGeneralRating(animeId, friendId, generalScore) {
+    setGeneralRating(animeId, friendId, generalScore, applyToAll = false) {
         const anime = this.animes.find(a => a.id === animeId);
         if (!anime) return;
         this.initFriendRatingIfMissing(anime, friendId);
         const r = anime.ratings[friendId];
         const score = parseFloat(generalScore);
-        if (isNaN(score) || score < 1 || score > 10) return;
+        if (isNaN(score) || score < 0.1 || score > 10) return;
         const maxEps = parseInt(anime.episodes) || 0;
-        const epsWatched = r.episodesWatched || 0;
+        let epsWatched = r.episodesWatched || 0;
         if (!r.episodeRatings) r.episodeRatings = {};
+
         if (maxEps <= 1) {
             r.episodeRatings[1] = score;
+            r.overall = score;
+            r.episodesWatched = 1;
+            if (!r.watchedEpisodesMap) r.watchedEpisodesMap = {};
+            r.watchedEpisodesMap[1] = true;
+            r.status = 'Completed';
+        } else if (applyToAll || epsWatched === 0) {
+            const targetCount = maxEps > 0 ? maxEps : Math.max(1, epsWatched);
+            if (!r.watchedEpisodesMap) r.watchedEpisodesMap = {};
+            for (let i = 1; i <= targetCount; i++) {
+                r.episodeRatings[i] = score;
+                r.watchedEpisodesMap[i] = true;
+            }
+            r.episodesWatched = targetCount;
+            r.status = 'Completed';
             r.overall = score;
         } else {
             for (let i = 1; i <= epsWatched; i++) {

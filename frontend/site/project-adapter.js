@@ -223,9 +223,9 @@ function createProjectAdapter(project, site) {
                 refreshNumbers(id);
                 return persist();
             },
-            async general(value) {
+            async general(value, applyToAll = false) {
                 if (!canEdit()) throw Error('Apenas leitura');
-                state.setGeneralRating(id, profileId, value);
+                state.setGeneralRating(id, profileId, value, applyToAll);
                 refreshNumbers(id);
                 return persist();
             },
