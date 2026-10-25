@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" href="favicon.png">
     <!-- EmailJS SDK for real email delivery (optional) -->
     <script defer src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <link rel="stylesheet" href="assets/tailwind.e670b4de598b.css">
+    <link rel="stylesheet" href="assets/tailwind.193a7c5c2ddf.css">
     <!-- Iconify Icons CDN -->
     <script defer src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
     
@@ -19,7 +19,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syncopate:wght@700&family=Syne:wght@800&family=Lexend+Tera:wght@900&display=swap" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="assets/styles.d2edc09800d7.css">
+    <link rel="stylesheet" href="assets/styles.4df18563037f.css">
     
     <meta name="theme-color" content="#050505">
     <script>
@@ -627,142 +627,300 @@
         </div>
     </div>
 
-    <!-- EDIT PROFILE MODAL -->
-    <div id="edit-profile-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4">
-        <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl p-6 md:p-8 space-y-6 my-auto relative animate-[fadeIn_0.3s_ease-out]">
-            <!-- Ambient glow decorative circles -->
-            <div class="absolute -top-24 -left-24 w-48 h-48 rounded-full bg-brand/10 blur-[80px] pointer-events-none"></div>
+    <!-- EDIT PROFILE MODAL (AWWWARDS PROFILE STUDIO) -->
+    <div id="edit-profile-modal" class="fixed inset-0 bg-black/85 backdrop-blur-2xl z-[9998] hidden items-center justify-center p-3 sm:p-5 md:p-8 overflow-y-auto">
+        <div class="av-profile-studio-shell">
             
-            <!-- Top bar -->
-            <div class="flex items-center justify-between border-b border-white/5 pb-4 select-none">
-                <div class="flex items-center gap-2 text-xs font-mono text-gray-400">
-                    <iconify-icon icon="lucide:user-cog" class="text-brand text-base"></iconify-icon>
-                    <span class="tracking-widest uppercase text-[10px]">Editar Perfil</span>
+            <!-- Header -->
+            <div class="av-studio-header">
+                <div class="av-studio-header-info">
+                    <div class="av-stats-eyebrow">
+                        <span class="av-stats-dot"></span>
+                        <span>Conta & Identidade / Studio</span>
+                    </div>
+                    <h2 class="av-stats-title">Personalização de Perfil<span>.</span></h2>
+                    <p class="av-stats-subtitle">Defina sua capa cinematográfica, avatar, insígnias de autoridade e estética visual no coletivo.</p>
                 </div>
-                <button id="close-edit-profile" class="text-gray-400 hover:text-white transition-colors">
-                    <iconify-icon icon="lucide:x" class="text-lg"></iconify-icon>
+                <button type="button" id="close-edit-profile" class="av-stats-close-btn" aria-label="Fechar edição de perfil">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6 6 18M6 6l12 12"/>
+                    </svg>
                 </button>
             </div>
 
-            <!-- Content Form -->
-            <form id="edit-profile-form" class="space-y-4 text-xs font-mono">
-                <div class="space-y-1.5">
-                    <label for="edit-profile-name" class="text-gray-400 uppercase tracking-wider block font-semibold">Nome de Usuário</label>
-                    <input type="text" id="edit-profile-name" required class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50">
-                </div>
-
-                <div class="space-y-1.5">
-                    <label for="edit-profile-email" class="text-gray-400 uppercase tracking-wider block font-semibold">E-mail</label>
-                    <input type="email" id="edit-profile-email" required class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50">
-                </div>
-
-                <div class="rounded-2xl border border-white/8 bg-white/[0.025] p-4 space-y-3">
-                    <div class="flex items-center justify-between gap-3">
-                        <div>
-                            <p class="text-[10px] text-gray-400 uppercase tracking-widest font-semibold">Seguranca da conta</p>
-                            <p class="text-[10px] text-gray-500 mt-1">Preencha apenas se quiser trocar a senha.</p>
+            <!-- Horizontal Studio Grid: Live Preview (Left) + Form Studio (Right) -->
+            <div class="av-studio-layout">
+                
+                <!-- Left: Interactive Live Profile Card Preview -->
+                <aside class="av-studio-preview-col">
+                    <div class="av-preview-sticky">
+                        <div class="av-preview-top-bar">
+                            <span class="av-eyebrow">Prévia em Tempo Real</span>
+                            <span class="av-preview-live-indicator">
+                                <span class="av-live-pulse"></span>
+                                Live
+                            </span>
                         </div>
-                        <button type="button" id="edit-profile-signout-all" class="px-3 py-2 rounded-xl border border-red-500/25 text-red-300 hover:bg-red-500/10 text-[9px] uppercase tracking-wider font-bold">
-                            Sair de todos
-                        </button>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <input type="password" id="edit-profile-current-password" placeholder="Senha atual" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-xs focus:outline-none focus:border-brand/50">
-                        <input type="password" id="edit-profile-new-password" placeholder="Nova senha" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-xs focus:outline-none focus:border-brand/50">
-                    </div>
-                </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="space-y-1.5">
-                        <label class="text-gray-400 uppercase tracking-wider block font-semibold">Cor do Tema</label>
-                        <div class="relative h-12 w-full">
-                            <input type="color" id="edit-profile-color" class="absolute inset-0 w-full h-full border-0 bg-transparent cursor-pointer rounded-xl p-0.5">
+                        <!-- Card Mockup -->
+                        <div class="av-profile-preview-card">
+                            <!-- Banner -->
+                            <div id="profile-preview-banner" class="av-preview-banner">
+                                <div class="av-preview-banner-tint"></div>
+                                <button type="button" id="preview-change-banner-btn" class="av-preview-banner-action-btn" title="Alterar capa">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                                    <span>Trocar Capa</span>
+                                </button>
+                            </div>
+
+                            <!-- Identity row -->
+                            <div class="av-preview-identity-wrap">
+                                <div class="av-preview-avatar-container">
+                                    <div id="profile-preview-avatar" class="av-preview-avatar">
+                                        <span>👤</span>
+                                    </div>
+                                    <button type="button" id="preview-change-avatar-btn" class="av-preview-avatar-badge" title="Trocar foto">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                    </button>
+                                </div>
+                                <div class="av-preview-meta">
+                                    <div class="av-preview-title-row">
+                                        <h3 id="profile-preview-name" class="av-preview-name">Felipe!</h3>
+                                        <div id="profile-preview-badge" class="av-preview-badge-slot">
+                                            <!-- Injected badge -->
+                                        </div>
+                                    </div>
+                                    <p class="av-preview-membership">Membro Oficial &middot; ANIVØID Collective</p>
+                                </div>
+                            </div>
+
+                            <!-- Preview Footer Stats Mock -->
+                            <div class="av-preview-details-mock">
+                                <div class="av-preview-stat-item">
+                                    <span>Status</span>
+                                    <b class="text-emerald-400">Ativo</b>
+                                </div>
+                                <div class="av-preview-stat-item">
+                                    <span>Tema</span>
+                                    <span id="profile-preview-color-dot" class="av-preview-color-pill"></span>
+                                </div>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="space-y-1.5">
-                        <label for="edit-profile-avatar" class="text-gray-400 uppercase tracking-wider block font-semibold">Avatar (Foto)</label>
-                        <input type="hidden" id="edit-profile-avatar">
-                        <input type="file" id="edit-profile-avatar-file" accept="image/*" class="hidden">
-                        <div class="flex gap-1.5">
-                            <button type="button" id="edit-profile-avatar-trigger" title="Clique para escolher uma foto" class="flex-grow bg-white/5 border border-white/10 rounded-xl py-2 px-3 text-white flex items-center justify-center focus:outline-none hover:bg-white/10 transition-colors h-11">
-                                <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjI1KSI+PHBhdGggZD0iTTEyIDEyYTUgNSAwIDEgMCAwLTEwIDUgNSAwIDAgMCAwIDEwek0xMiAxNGMtMy43MyAwLTExIDEuODYtMTEgNS41VjIwSDIzdi0xYy0xLjEtMy42NC03LjI3LTUuNS0xMS01LjV6Ii8+PC9zdmc+" class="w-6 h-6 rounded-full object-cover" alt="avatar placeholder">
+                        <p class="av-preview-caption">Como seu cartão de perfil e cabeçalho serão exibidos para amigos e comunidade.</p>
+                    </div>
+                </aside>
+
+                <!-- Right: Form Controls & Customization Panels -->
+                <main class="av-studio-form-col">
+                    <form id="edit-profile-form" class="av-studio-form">
+                        
+                        <!-- SECTION 1: CAPA DO PERFIL (BANNER) -->
+                        <div class="av-studio-card">
+                            <div class="av-studio-card-header">
+                                <span class="av-eyebrow">Visual Panorâmico</span>
+                                <h3>Capa do Perfil (Background)</h3>
+                                <p>Escolha um banner cinematográfico para dar personalidade ao cabeçalho do seu perfil.</p>
+                            </div>
+
+                            <!-- Hidden inputs for banner -->
+                            <input type="hidden" id="edit-profile-banner" value="">
+                            <input type="file" id="edit-profile-banner-file" accept="image/*" class="hidden">
+
+                            <!-- Banner actions -->
+                            <div class="av-banner-actions">
+                                <button type="button" id="edit-profile-banner-upload-btn" class="av-button av-button-outline">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                                    <span>Fazer Upload de Capa</span>
+                                </button>
+                                <button type="button" id="edit-profile-banner-remove-btn" class="av-text-link">
+                                    Remover capa
+                                </button>
+                            </div>
+
+                            <!-- Presets -->
+                            <div class="av-banner-presets-block">
+                                <span class="av-micro-label">Ou escolha uma capa cinematográfica do catálogo:</span>
+                                <div class="av-banner-presets-grid">
+                                    <button type="button" class="av-banner-preset-btn" data-banner="covers/cyberpunk-edgerunners-2.jpg">
+                                        <img src="covers/cyberpunk-edgerunners-2.jpg" alt="Cyberpunk Edgerunners">
+                                        <span class="av-preset-tag">Cyberpunk</span>
+                                    </button>
+                                    <button type="button" class="av-banner-preset-btn" data-banner="covers/a1.jpg">
+                                        <img src="covers/a1.jpg" alt="Attack on Titan">
+                                        <span class="av-preset-tag">Shingeki</span>
+                                    </button>
+                                    <button type="button" class="av-banner-preset-btn" data-banner="covers/a3.jpg">
+                                        <img src="covers/a3.jpg" alt="Steins;Gate">
+                                        <span class="av-preset-tag">Steins;Gate</span>
+                                    </button>
+                                    <button type="button" class="av-banner-preset-btn" data-banner="covers/a5.jpg">
+                                        <img src="covers/a5.jpg" alt="Hunter x Hunter">
+                                        <span class="av-preset-tag">Hunter x Hunter</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECTION 2: AVATAR & COR DO TEMA -->
+                        <div class="av-studio-card">
+                            <div class="av-studio-card-header">
+                                <span class="av-eyebrow">Identidade Gráfica</span>
+                                <h3>Foto de Perfil & Cor de Acento</h3>
+                            </div>
+
+                            <div class="av-studio-fields-grid">
+                                <!-- Avatar -->
+                                <div class="av-field-box">
+                                    <label class="av-field-label">Foto de Perfil (Avatar)</label>
+                                    <input type="hidden" id="edit-profile-avatar">
+                                    <input type="file" id="edit-profile-avatar-file" accept="image/*" class="hidden">
+                                    <div class="av-avatar-upload-control">
+                                        <button type="button" id="edit-profile-avatar-trigger" class="av-avatar-trigger-btn" title="Clique para escolher uma foto">
+                                            <span class="text-2xl">👤</span>
+                                        </button>
+                                        <div class="av-avatar-upload-meta">
+                                            <button type="button" id="edit-profile-avatar-upload-btn" class="av-button av-button-outline">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                                                <span>Trocar Foto</span>
+                                            </button>
+                                            <span class="av-quiet text-[11px]">PNG, JPG ou GIF até 2MB</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Theme Color -->
+                                <div class="av-field-box">
+                                    <label class="av-field-label">Cor de Destaque / Acento</label>
+                                    <div class="av-color-selector-wrap">
+                                        <div class="av-color-input-wrapper">
+                                            <input type="color" id="edit-profile-color" class="av-native-color-picker" value="#ff7957">
+                                            <span class="av-color-hex-label" id="edit-profile-color-label">#FF7957</span>
+                                        </div>
+                                        <div class="av-color-quick-palette">
+                                            <button type="button" class="av-palette-pill" data-color="#ff7957" style="background:#ff7957" title="Coral"></button>
+                                            <button type="button" class="av-palette-pill" data-color="#10b981" style="background:#10b981" title="Emerald"></button>
+                                            <button type="button" class="av-palette-pill" data-color="#a78bfa" style="background:#a78bfa" title="Amethyst"></button>
+                                            <button type="button" class="av-palette-pill" data-color="#f59e0b" style="background:#f59e0b" title="Amber"></button>
+                                            <button type="button" class="av-palette-pill" data-color="#ffffff" style="background:#ffffff" title="White"></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECTION 3: TÍTULO DE DESTAQUE (FELIPE ONLY) -->
+                        <div id="edit-profile-title-container" class="av-studio-card hidden">
+                            <div class="av-studio-card-header">
+                                <span class="av-eyebrow">Insígnias de Autoridade</span>
+                                <h3>Título de Destaque</h3>
+                                <p>Defina como sua patente administrativa é identificada nas avaliações e comunidade.</p>
+                            </div>
+                            <input type="hidden" id="edit-profile-active-title" value="admin">
+                            <div class="av-title-cards-grid" id="title-picker-grid">
+                                <!-- ADMIN card -->
+                                <button type="button" data-title="admin" onclick="selectAdminTitle('admin')" class="title-picker-card av-title-card">
+                                    <div class="av-title-icon-badge av-badge-admin">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                    </div>
+                                    <div class="av-title-card-body">
+                                        <span class="av-title-card-heading">Admin</span>
+                                        <span class="av-title-card-sub">Moderação e controlo do acervo</span>
+                                    </div>
+                                    <span class="title-check-icon av-title-check">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="check-mark hidden"><path d="M20 6L9 17l-5-5"/></svg>
+                                    </span>
+                                </button>
+
+                                <!-- FUNDADOR card -->
+                                <button type="button" data-title="founder" onclick="selectAdminTitle('founder')" class="title-picker-card av-title-card">
+                                    <div class="av-title-icon-badge av-badge-founder">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/></svg>
+                                    </div>
+                                    <div class="av-title-card-body">
+                                        <span class="av-title-card-heading">Fundador</span>
+                                        <span class="av-title-card-sub">Criador e visionário do projeto</span>
+                                    </div>
+                                    <span class="title-check-icon av-title-check">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="check-mark hidden"><path d="M20 6L9 17l-5-5"/></svg>
+                                    </span>
+                                </button>
+
+                                <!-- ADMIN & FUNDADOR card -->
+                                <button type="button" data-title="both" onclick="selectAdminTitle('both')" class="title-picker-card av-title-card">
+                                    <div class="av-title-icon-badge av-badge-both">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                    </div>
+                                    <div class="av-title-card-body">
+                                        <span class="av-title-card-heading">Admin & Fundador</span>
+                                        <span class="av-title-card-sub">Ambos os títulos simultâneos</span>
+                                    </div>
+                                    <span class="title-check-icon av-title-check">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="check-mark hidden"><path d="M20 6L9 17l-5-5"/></svg>
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- SECTION 4: DADOS DA CONTA & SEGURANÇA -->
+                        <div class="av-studio-card">
+                            <div class="av-studio-card-header">
+                                <span class="av-eyebrow">Acesso & Credenciais</span>
+                                <h3>Dados da Conta</h3>
+                            </div>
+
+                            <div class="av-studio-fields-grid">
+                                <div class="av-field-box">
+                                    <label for="edit-profile-name" class="av-field-label">Nome de Usuário</label>
+                                    <input type="text" id="edit-profile-name" required class="av-input" disabled>
+                                </div>
+                                <div class="av-field-box">
+                                    <label for="edit-profile-email" class="av-field-label">E-mail Cadastrado</label>
+                                    <input type="email" id="edit-profile-email" required class="av-input">
+                                </div>
+                            </div>
+
+                            <!-- Security Drawer -->
+                            <details class="av-security-accordion">
+                                <summary class="av-security-summary">
+                                    <div class="av-security-summary-copy">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                        <span>Trocar Senha & Sessões Conectadas</span>
+                                    </div>
+                                    <span class="av-security-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span>
+                                </summary>
+                                <div class="av-security-content">
+                                    <div class="av-studio-fields-grid">
+                                        <div class="av-field-box">
+                                            <input type="password" id="edit-profile-current-password" placeholder="Senha atual" class="av-input">
+                                        </div>
+                                        <div class="av-field-box">
+                                            <input type="password" id="edit-profile-new-password" placeholder="Nova senha (mínimo 6 caracteres)" class="av-input">
+                                        </div>
+                                    </div>
+                                    <div class="av-security-actions">
+                                        <button type="button" id="edit-profile-signout-all" class="av-button av-button-outline av-btn-danger">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+                                            <span>Sair de todos os dispositivos</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </details>
+                        </div>
+
+                        <!-- Footer Actions -->
+                        <div class="av-studio-footer-actions">
+                            <button type="button" id="cancel-edit-profile" class="av-button av-button-outline">
+                                Cancelar
                             </button>
-                            <button type="button" id="edit-profile-avatar-upload-btn" class="px-3 bg-white/5 border border-white/10 rounded-xl text-white hover:bg-white/10 transition-colors flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider h-11 shrink-0">
-                                <iconify-icon icon="lucide:upload" class="text-xs"></iconify-icon>
-                                <span>Foto</span>
+                            <button type="submit" class="av-button av-button-solid">
+                                Salvar Alterações
                             </button>
                         </div>
-                    </div>
-                </div>
+                    </form>
+                </main>
 
-                <!-- Custom Title Selector for Admin (Felipe only) -->
-                <div id="edit-profile-title-container" class="space-y-3 hidden">
-                    <label class="text-gray-400 uppercase tracking-wider block font-semibold text-[10px]">Título de Destaque</label>
-                    <!-- Hidden real input for form value -->
-                    <input type="hidden" id="edit-profile-active-title" value="admin">
-                    <div class="grid grid-cols-1 gap-2" id="title-picker-grid">
-
-                        <!-- ADMIN card -->
-                        <button type="button" data-title="admin" onclick="selectAdminTitle('admin')"
-                            class="title-picker-card group relative flex items-center gap-3 w-full px-4 py-3 rounded-2xl border transition-all duration-300 cursor-pointer text-left"
-                            style="background: rgba(255,69,0,0.06); border-color: rgba(255,69,0,0.3);">
-                            <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all duration-300" style="background: rgba(255,69,0,0.15); border: 1px solid rgba(255,69,0,0.4);">
-                                <iconify-icon icon="lucide:shield-check" class="text-sm" style="color:#FF4500"></iconify-icon>
-                            </div>
-                            <div class="flex-grow min-w-0">
-                                <p class="text-[11px] font-mono font-bold tracking-widest uppercase" style="color:#FF4500">Admin</p>
-                                <p class="text-[9px] text-white/40 font-mono mt-0.5">Moderação e controlo do site</p>
-                            </div>
-                            <div class="title-check-icon w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-300" style="border-color: rgba(255,69,0,0.5);">
-                                <iconify-icon icon="lucide:check" class="text-[10px] hidden check-mark" style="color:#FF4500"></iconify-icon>
-                            </div>
-                        </button>
-
-                        <!-- FUNDADOR card -->
-                        <button type="button" data-title="founder" onclick="selectAdminTitle('founder')"
-                            class="title-picker-card group relative flex items-center gap-3 w-full px-4 py-3 rounded-2xl border transition-all duration-300 cursor-pointer text-left"
-                            style="background: rgba(255,200,0,0.04); border-color: rgba(255,200,0,0.15);">
-                            <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all duration-300" style="background: rgba(255,200,0,0.08); border: 1px solid rgba(255,200,0,0.2);">
-                                <iconify-icon icon="lucide:crown" class="text-sm" style="color:#FFC800"></iconify-icon>
-                            </div>
-                            <div class="flex-grow min-w-0">
-                                <p class="text-[11px] font-mono font-bold tracking-widest uppercase" style="color:#FFC800">Fundador</p>
-                                <p class="text-[9px] text-white/40 font-mono mt-0.5">Criador e visionário do projeto</p>
-                            </div>
-                            <div class="title-check-icon w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-300" style="border-color: rgba(255,200,0,0.3);">
-                                <iconify-icon icon="lucide:check" class="text-[10px] hidden check-mark" style="color:#FFC800"></iconify-icon>
-                            </div>
-                        </button>
-
-                        <!-- ADMIN & FUNDADOR card -->
-                        <button type="button" data-title="both" onclick="selectAdminTitle('both')"
-                            class="title-picker-card group relative flex items-center gap-3 w-full px-4 py-3 rounded-2xl border transition-all duration-300 cursor-pointer text-left"
-                            style="background: linear-gradient(135deg, rgba(255,69,0,0.05), rgba(255,200,0,0.05)); border-color: rgba(255,100,0,0.2);">
-                            <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all duration-300" style="background: linear-gradient(135deg,rgba(255,69,0,0.15),rgba(255,200,0,0.1)); border: 1px solid rgba(255,100,0,0.3);">
-                                <iconify-icon icon="lucide:sparkles" class="text-sm" style="color:#FFB347"></iconify-icon>
-                            </div>
-                            <div class="flex-grow min-w-0">
-                                <p class="text-[11px] font-mono font-bold tracking-widest uppercase" style="background: linear-gradient(90deg,#FF4500,#FFC800); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">Admin & Fundador</p>
-                                <p class="text-[9px] text-white/40 font-mono mt-0.5">Ambos os títulos simultâneos</p>
-                            </div>
-                            <div class="title-check-icon w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-300" style="border-color: rgba(255,150,0,0.3);">
-                                <iconify-icon icon="lucide:check" class="text-[10px] hidden check-mark" style="color:#FFB347"></iconify-icon>
-                            </div>
-                        </button>
-
-                    </div>
-                </div>
-
-                <div class="pt-4 flex gap-3">
-                    <button type="button" id="cancel-edit-profile" class="flex-1 py-3 rounded-full border border-white/10 text-white/70 hover:text-white hover:bg-white/5 transition-all uppercase tracking-widest font-semibold text-[9.5px]">
-                        Cancelar
-                    </button>
-                    <button type="submit" class="flex-grow py-3 rounded-full bg-brand text-white hover:bg-brand/80 hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-widest font-semibold text-[9.5px] border border-brand/40 shadow-[0_4px_15px_rgba(255,69,0,0.3)]">
-                        Salvar
-                    </button>
-                </div>
-            </form>
+            </div>
         </div>
     </div>
 
@@ -1111,6 +1269,6 @@
 
     <!-- Scripts Integration -->
     <script src="assets/sync-state.9868559c480c.js"></script>
-    <script src="assets/app.aa2767f5b0db.js"></script>
+    <script src="assets/app.183b9a3fa165.js"></script>
 </body>
 </html>

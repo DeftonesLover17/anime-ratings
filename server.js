@@ -1315,7 +1315,7 @@ const server = http.createServer((req, res) => {
                     }
                     const idx = state.registeredUsers.findIndex(u => u && u.username && u.username.toLowerCase() === username.toLowerCase());
                     if (idx < 0) { sendJson(res, 404, { error: 'User not found' }); return; }
-                    const allowedFields = ['email', 'color', 'avatar', 'emailVerified', 'favoriteGenres', 'favoriteStudios', 'favoriteAnimes', 'activeTitle', 'featuredAnimeId'];
+                    const allowedFields = ['email', 'color', 'avatar', 'banner', 'emailVerified', 'favoriteGenres', 'favoriteStudios', 'favoriteAnimes', 'activeTitle', 'featuredAnimeId'];
                     const safeFields = {};
                     allowedFields.forEach(field => {
                         if (Object.prototype.hasOwnProperty.call(fields, field)) safeFields[field] = fields[field];

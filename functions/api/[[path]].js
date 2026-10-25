@@ -1244,7 +1244,7 @@ async function handlePatchUser(request, env) {
     if (!sameUsername(auth.user.username, body.username) && !isAdminUser(auth.user, env)) return json({ error: 'Você só pode alterar o próprio perfil.' }, 403);
     const index = state.registeredUsers.findIndex(user => user && user.username && sameUsername(user.username, body.username));
     if (index < 0) return json({ error: 'User not found' }, 404);
-    const allowedFields = ['email', 'color', 'avatar', 'emailVerified', 'favoriteGenres', 'favoriteStudios', 'favoriteAnimes', 'activeTitle', 'featuredAnimeId'];
+    const allowedFields = ['email', 'color', 'avatar', 'banner', 'emailVerified', 'favoriteGenres', 'favoriteStudios', 'favoriteAnimes', 'activeTitle', 'featuredAnimeId'];
     const safeFields = {};
     allowedFields.forEach(field => {
         if (Object.prototype.hasOwnProperty.call(body.fields, field)) safeFields[field] = body.fields[field];

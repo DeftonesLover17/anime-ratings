@@ -3545,9 +3545,13 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
         `;
     }).join('') : `<p class="text-[11px] text-gray-500 italic">Sem atividade recente visivel.</p>`;
 
+    const bannerStyle = user.banner 
+        ? `background-image: linear-gradient(to bottom, rgba(18,21,16,0.3) 0%, rgba(18,21,16,0.95) 100%), url('${escapeHtml(user.banner)}'); background-size: cover; background-position: center;`
+        : '';
+
     content.innerHTML = `
         <div class="profile-hero-game relative overflow-hidden p-6 md:p-8" style="--profile-accent:${user.color}">
-            <div class="profile-hero-bg"></div>
+            <div class="profile-hero-bg" style="${bannerStyle}"></div>
             <div class="relative z-10 flex items-start justify-between gap-4">
                 <div class="flex items-center gap-5 min-w-0">
                     <div class="profile-avatar-ring" style="--profile-accent:${user.color}">
@@ -6967,32 +6971,30 @@ window.selectAdminTitle = function(title) {
     const hiddenInput = document.getElementById('edit-profile-active-title');
     if (hiddenInput) hiddenInput.value = title;
 
-    const cards = document.querySelectorAll('.title-picker-card');
-    cards.forEach(card => {
+    document.querySelectorAll('.title-picker-card').forEach(card => {
         const isActive = card.dataset.title === title;
         const checkMark = card.querySelector('.check-mark');
         const checkCircle = card.querySelector('.title-check-icon');
-
+        card.classList.toggle('is-selected', isActive);
         if (isActive) {
-            card.style.transform = 'scale(1.02)';
-            card.style.boxShadow = '0 0 20px rgba(255,100,0,0.15), 0 4px 16px rgba(0,0,0,0.4)';
+            card.style.transform = 'scale(1.01)';
             card.style.opacity = '1';
+            card.style.borderColor = 'var(--av-accent)';
             if (checkMark) checkMark.classList.remove('hidden');
-            if (checkCircle) {
-                checkCircle.style.background = 'rgba(255,100,0,0.15)';
-                checkCircle.style.borderColor = 'rgba(255,100,0,0.7)';
-            }
+            if (checkCircle) checkCircle.style.borderColor = 'var(--av-accent)';
         } else {
             card.style.transform = 'scale(1)';
-            card.style.boxShadow = 'none';
             card.style.opacity = '0.55';
+            card.style.borderColor = '';
             if (checkMark) checkMark.classList.add('hidden');
-            if (checkCircle) {
-                checkCircle.style.background = 'transparent';
-                checkCircle.style.borderColor = '';
-            }
+            if (checkCircle) checkCircle.style.borderColor = '';
         }
     });
+
+    const previewBadge = document.getElementById('profile-preview-badge');
+    if (previewBadge) {
+        previewBadge.innerHTML = getUserBadgesHtml({ activeTitle: title, id: 'felipe' });
+    }
 };
 
 function getSessionUsername() {
@@ -7036,7 +7038,6 @@ function getEditableProfileUserFromCache() {
 }
 
 function setupEditProfileModal() {
-
     const openBtn = document.getElementById('open-edit-profile');
     const closeBtn = document.getElementById('close-edit-profile');
     const cancelBtn = document.getElementById('cancel-edit-profile');
@@ -7046,17 +7047,58 @@ function setupEditProfileModal() {
     const nameInput = document.getElementById('edit-profile-name');
     const emailInput = document.getElementById('edit-profile-email');
     const colorInput = document.getElementById('edit-profile-color');
+    const colorLabel = document.getElementById('edit-profile-color-label');
+    
+    const bannerInput = document.getElementById('edit-profile-banner');
+    const bannerFileInput = document.getElementById('edit-profile-banner-file');
+    const bannerUploadBtn = document.getElementById('edit-profile-banner-upload-btn');
+    const bannerRemoveBtn = document.getElementById('edit-profile-banner-remove-btn');
+    const previewChangeBannerBtn = document.getElementById('preview-change-banner-btn');
+    const previewBanner = document.getElementById('profile-preview-banner');
     
     const avatarInput = document.getElementById('edit-profile-avatar');
     const avatarTrigger = document.getElementById('edit-profile-avatar-trigger');
     const avatarUploadBtn = document.getElementById('edit-profile-avatar-upload-btn');
     const avatarFileInput = document.getElementById('edit-profile-avatar-file');
+    const previewChangeAvatarBtn = document.getElementById('preview-change-avatar-btn');
+    const previewAvatar = document.getElementById('profile-preview-avatar');
+    const previewName = document.getElementById('profile-preview-name');
+    const previewBadge = document.getElementById('profile-preview-badge');
+    const previewColorDot = document.getElementById('profile-preview-color-dot');
+    
     const currentPasswordInput = document.getElementById('edit-profile-current-password');
     const newPasswordInput = document.getElementById('edit-profile-new-password');
     const signOutAllBtn = document.getElementById('edit-profile-signout-all');
 
     if (!modal || !form) return;
 
+    const closeModal = () => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.classList.remove('overflow-hidden');
+    };
+
+    // Backdrop click & Escape handling
+    if (!modal.dataset.modalCloseHooked) {
+        modal.dataset.modalCloseHooked = 'true';
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+        });
+    }
+
+    if (closeBtn && !closeBtn.dataset.editProfileHooked) {
+        closeBtn.dataset.editProfileHooked = 'true';
+        closeBtn.addEventListener('click', closeModal);
+    }
+    if (cancelBtn && !cancelBtn.dataset.editProfileHooked) {
+        cancelBtn.dataset.editProfileHooked = 'true';
+        cancelBtn.addEventListener('click', closeModal);
+    }
+
+    // Sign out all
     if (signOutAllBtn && !signOutAllBtn.dataset.editProfileHooked) {
         signOutAllBtn.dataset.editProfileHooked = 'true';
         signOutAllBtn.addEventListener('click', async () => {
@@ -7074,42 +7116,159 @@ function setupEditProfileModal() {
         });
     }
 
-    if (avatarTrigger && avatarFileInput && !avatarTrigger.dataset.editProfileHooked) {
-        avatarTrigger.dataset.editProfileHooked = 'true';
-        avatarTrigger.addEventListener('click', (e) => {
-            e.stopPropagation();
-            avatarFileInput.click();
-        });
-    }
-
-    // Hook custom photo upload
-    if (avatarUploadBtn && avatarFileInput && !avatarUploadBtn.dataset.editProfileHooked) {
-        avatarUploadBtn.dataset.editProfileHooked = 'true';
-        avatarUploadBtn.addEventListener('click', () => {
-            avatarFileInput.click();
-        });
-    }
-
-    if (avatarFileInput && !avatarFileInput.dataset.editProfileHooked) {
-        avatarFileInput.dataset.editProfileHooked = 'true';
-        avatarFileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                if (file.size > 2 * 1024 * 1024) {
-                    alert('Por favor, selecione uma imagem com menos de 2MB.');
-                    return;
-                }
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    const base64Url = event.target.result;
-                    if (avatarInput) avatarInput.value = base64Url;
-                    if (avatarTrigger) {
-                        avatarTrigger.innerHTML = `<img src="${escapeHtml(base64Url)}" class="w-8 h-8 rounded-full object-cover mx-auto border border-white/20 shadow-[0_2px_8px_rgba(0,0,0,0.4)]" alt="avatar">`;
-                    }
-                };
-                reader.readAsDataURL(file);
+    // Live sync helpers
+    const syncBannerPreview = (url) => {
+        if (bannerInput) bannerInput.value = url || '';
+        if (previewBanner) {
+            if (url) {
+                previewBanner.style.backgroundImage = `url('${url}')`;
+                previewBanner.style.backgroundSize = 'cover';
+                previewBanner.style.backgroundPosition = 'center';
+            } else {
+                previewBanner.style.backgroundImage = '';
             }
+        }
+    };
+
+    const syncAvatarPreview = (avatar) => {
+        if (avatarInput) avatarInput.value = avatar || '👤';
+        const isImg = avatar && (avatar.startsWith('data:') || avatar.startsWith('http') || avatar.startsWith('/'));
+        if (previewAvatar) {
+            if (isImg) {
+                previewAvatar.innerHTML = `<img src="${escapeHtml(avatar)}" class="w-full h-full rounded-full object-cover" alt="avatar">`;
+            } else {
+                previewAvatar.innerHTML = `<span class="text-2xl">${escapeHtml(avatar || '👤')}</span>`;
+            }
+        }
+        if (avatarTrigger) {
+            if (isImg) {
+                avatarTrigger.innerHTML = `<img src="${escapeHtml(avatar)}" class="w-10 h-10 rounded-full object-cover mx-auto border border-white/20 shadow-md" alt="avatar">`;
+            } else {
+                avatarTrigger.innerHTML = `<span class="text-2xl">${escapeHtml(avatar || '👤')}</span>`;
+            }
+        }
+    };
+
+    const syncThemeColor = (color) => {
+        if (!color) color = '#ff7957';
+        if (colorInput) colorInput.value = color;
+        if (colorLabel) colorLabel.textContent = color.toUpperCase();
+        if (previewColorDot) previewColorDot.style.background = color;
+        modal.querySelectorAll('.av-palette-pill').forEach(pill => {
+            pill.classList.toggle('is-selected', pill.dataset.color.toLowerCase() === color.toLowerCase());
         });
+    };
+
+    // Banner file upload & compression
+    const handleBannerFile = (file) => {
+        if (!file) return;
+        if (file.size > 8 * 1024 * 1024) {
+            alert('Por favor, selecione uma imagem com menos de 8MB.');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const maxW = 1280;
+                const maxH = 720;
+                let w = img.width;
+                let h = img.height;
+                if (w > maxW || h > maxH) {
+                    if (w / h > maxW / maxH) {
+                        h = Math.round((h * maxW) / w);
+                        w = maxW;
+                    } else {
+                        w = Math.round((w * maxH) / h);
+                        h = maxH;
+                    }
+                }
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+                const compressed = canvas.toDataURL('image/jpeg', 0.85);
+                syncBannerPreview(compressed);
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+
+    if (bannerUploadBtn && bannerFileInput && !bannerUploadBtn.dataset.hooked) {
+        bannerUploadBtn.dataset.hooked = 'true';
+        bannerUploadBtn.addEventListener('click', () => bannerFileInput.click());
+    }
+    if (previewChangeBannerBtn && bannerFileInput && !previewChangeBannerBtn.dataset.hooked) {
+        previewChangeBannerBtn.dataset.hooked = 'true';
+        previewChangeBannerBtn.addEventListener('click', () => bannerFileInput.click());
+    }
+    if (bannerFileInput && !bannerFileInput.dataset.hooked) {
+        bannerFileInput.dataset.hooked = 'true';
+        bannerFileInput.addEventListener('change', (e) => handleBannerFile(e.target.files?.[0]));
+    }
+    if (bannerRemoveBtn && !bannerRemoveBtn.dataset.hooked) {
+        bannerRemoveBtn.dataset.hooked = 'true';
+        bannerRemoveBtn.addEventListener('click', () => syncBannerPreview(''));
+    }
+
+    // Banner presets
+    modal.querySelectorAll('.av-banner-preset-btn').forEach(btn => {
+        if (!btn.dataset.hooked) {
+            btn.dataset.hooked = 'true';
+            btn.addEventListener('click', () => {
+                const banner = btn.dataset.banner;
+                if (banner) syncBannerPreview(banner);
+            });
+        }
+    });
+
+    // Avatar handlers
+    const triggerAvatarUpload = () => avatarFileInput && avatarFileInput.click();
+    if (avatarTrigger && !avatarTrigger.dataset.hooked) {
+        avatarTrigger.dataset.hooked = 'true';
+        avatarTrigger.addEventListener('click', triggerAvatarUpload);
+    }
+    if (avatarUploadBtn && !avatarUploadBtn.dataset.hooked) {
+        avatarUploadBtn.dataset.hooked = 'true';
+        avatarUploadBtn.addEventListener('click', triggerAvatarUpload);
+    }
+    if (previewChangeAvatarBtn && !previewChangeAvatarBtn.dataset.hooked) {
+        previewChangeAvatarBtn.dataset.hooked = 'true';
+        previewChangeAvatarBtn.addEventListener('click', triggerAvatarUpload);
+    }
+    if (avatarFileInput && !avatarFileInput.dataset.hooked) {
+        avatarFileInput.dataset.hooked = 'true';
+        avatarFileInput.addEventListener('change', (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            if (file.size > 3 * 1024 * 1024) {
+                alert('Por favor, selecione uma imagem com menos de 3MB.');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                syncAvatarPreview(event.target.result);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // Palette pills & color picker
+    modal.querySelectorAll('.av-palette-pill').forEach(pill => {
+        if (!pill.dataset.hooked) {
+            pill.dataset.hooked = 'true';
+            pill.addEventListener('click', () => {
+                const color = pill.dataset.color;
+                if (color) syncThemeColor(color);
+            });
+        }
+    });
+
+    if (colorInput && !colorInput.dataset.hooked) {
+        colorInput.dataset.hooked = 'true';
+        colorInput.addEventListener('input', (e) => syncThemeColor(e.target.value));
     }
 
     // Open modal
@@ -7133,8 +7292,9 @@ function setupEditProfileModal() {
                         user = {
                             username: loggedInFriendObj.name.replace(' (Você)', ''),
                             email: loggedInFriendObj.email || '',
-                            color: loggedInFriendObj.color || '#FF4500',
+                            color: loggedInFriendObj.color || '#ff7957',
                             avatar: loggedInFriendObj.avatar || '😎',
+                            banner: loggedInFriendObj.banner || '',
                             activeTitle: loggedInFriendObj.activeTitle || 'admin'
                         };
                     }
@@ -7145,44 +7305,35 @@ function setupEditProfileModal() {
                     user = editableProfile.user;
                 }
 
-                if (!user || !user.username) {
-                    return null;
-                }
+                if (!user || !user.username) return null;
 
                 modal.dataset.editUsername = user.username;
 
                 if (nameInput) {
                     nameInput.value = user.username;
                     nameInput.disabled = true;
-                    nameInput.style.cursor = 'not-allowed';
-                    nameInput.classList.add('opacity-50');
                 }
                 if (emailInput) emailInput.value = user.email || '';
-                if (colorInput) colorInput.value = user.color || '#FF4500';
-                if (avatarInput) avatarInput.value = user.avatar || '😎';
+                
+                syncBannerPreview(user.banner || '');
+                syncAvatarPreview(user.avatar || '👤');
+                syncThemeColor(user.color || '#ff7957');
+
+                if (previewName) previewName.textContent = user.username;
+                if (previewBadge) previewBadge.innerHTML = getUserBadgesHtml(user);
 
                 const editTitleContainer = document.getElementById('edit-profile-title-container');
-                const isFelipe = user.username && user.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
-                if (isFelipe && editTitleContainer) {
+                const isFelipeUser = isFelipe(user);
+                if (isFelipeUser && editTitleContainer) {
                     editTitleContainer.classList.remove('hidden');
-                    // Sync the visual card picker to the saved title
                     selectAdminTitle(user.activeTitle || 'admin');
                 } else if (editTitleContainer) {
                     editTitleContainer.classList.add('hidden');
                 }
 
-                // Show current avatar in trigger
-                if (avatarTrigger) {
-                    if (user.avatar && (user.avatar.startsWith('data:') || user.avatar.startsWith('http'))) {
-                        avatarTrigger.innerHTML = `<img src="${escapeHtml(user.avatar)}" class="w-8 h-8 rounded-full object-cover mx-auto border border-white/20" alt="avatar">`;
-                    } else {
-                        avatarTrigger.textContent = user.avatar || '😎';
-                    }
-                }
                 return user;
             };
 
-            // 1. Fill fields and show modal immediately!
             const userLoaded = fillModalFromCache();
             if (!userLoaded) {
                 alert('Nao foi possivel identificar sua sessao. Entre novamente antes de editar o perfil.');
@@ -7196,12 +7347,10 @@ function setupEditProfileModal() {
             modal.classList.add('flex');
             document.body.classList.add('overflow-hidden');
 
-            // 2. Perform background sync without blocking the UI presentation
             (async () => {
                 try {
                     await refreshRegisteredUsersFromServer({ force: true });
                     await state.syncWithServer();
-                    // Refill fields after data is synced, in case something changed on the server
                     fillModalFromCache();
                 } catch (err) {
                     console.warn('Could not refresh profile before edit:', err);
@@ -7210,30 +7359,15 @@ function setupEditProfileModal() {
         });
     }
 
-    // Close modal
-    const closeModal = () => {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        document.body.classList.remove('overflow-hidden');
-    };
-
-    if (closeBtn && !closeBtn.dataset.editProfileHooked) {
-        closeBtn.dataset.editProfileHooked = 'true';
-        closeBtn.addEventListener('click', closeModal);
-    }
-    if (cancelBtn && !cancelBtn.dataset.editProfileHooked) {
-        cancelBtn.dataset.editProfileHooked = 'true';
-        cancelBtn.addEventListener('click', closeModal);
-    }
-
     // Form submit
     if (form.dataset.editProfileHooked) return;
     form.dataset.editProfileHooked = 'true';
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const newEmail = emailInput.value.trim();
-        const newColor = colorInput.value;
-        const newAvatar = avatarInput.value;
+        const newEmail = emailInput ? emailInput.value.trim() : '';
+        const newColor = colorInput ? colorInput.value : '#ff7957';
+        const newAvatar = avatarInput ? avatarInput.value : '👤';
+        const newBanner = bannerInput ? bannerInput.value : '';
         const currentPassword = currentPasswordInput ? currentPasswordInput.value.trim() : '';
         const newPassword = newPasswordInput ? newPasswordInput.value.trim() : '';
 
@@ -7242,6 +7376,7 @@ function setupEditProfileModal() {
             alert('Nao foi possivel identificar sua sessao. Entre novamente antes de editar o perfil.');
             return;
         }
+
         if (newPassword) {
             if (newPassword.length < MIN_PASSWORD_LENGTH) {
                 alert(`A nova senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`);
@@ -7257,21 +7392,24 @@ function setupEditProfileModal() {
                 return;
             }
         }
+
         const registeredUsers = getCachedRegisteredUsers();
         const userRecord = findCachedUserByUsername(registeredUsers, editUsername);
         const fields = {
             email: newEmail,
             color: newColor,
-            avatar: newAvatar
+            avatar: newAvatar,
+            banner: newBanner
         };
+
         if (userRecord) {
             userRecord.email = newEmail;
             userRecord.color = newColor;
             userRecord.avatar = newAvatar;
+            userRecord.banner = newBanner;
             
             const editTitleSelect = document.getElementById('edit-profile-active-title');
-            const isFelipe = userRecord.username && userRecord.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
-            if (isFelipe && editTitleSelect) {
+            if (isFelipe(userRecord) && editTitleSelect) {
                 userRecord.activeTitle = editTitleSelect.value;
                 fields.activeTitle = editTitleSelect.value;
             }
@@ -7314,26 +7452,24 @@ function setupEditProfileModal() {
             }
         }
 
-        // Reconstruct friends and save/sync
         state.loadLocalSession();
         await state.syncWithServer();
         
         applyUserThemeColor(newColor);
         closeModal();
 
-        // Refresh UI
         initUI();
 
-        // Show success toast
+        // Show elegant toast
         const toast = document.createElement('div');
-        toast.className = 'fixed top-6 right-6 z-[9999] flex items-center gap-3 bg-[#0a0a0a]/95 backdrop-blur-xl border border-brand/50 rounded-2xl p-4 w-72 shadow-[0_20px_50px_rgba(0,0,0,0.8),0_0_20px_rgba(255,69,0,0.15)] animate-[fadeIn_0.3s_ease-out] transition-all duration-500';
+        toast.className = 'fixed top-6 right-6 z-[9999] flex items-center gap-3 bg-[#121510]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-4 w-80 shadow-[0_20px_50px_rgba(0,0,0,0.8)] animate-[fadeIn_0.3s_ease-out] transition-all duration-500';
         toast.innerHTML = `
-            <div class="w-8 h-8 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand text-sm shrink-0">
-                <span>🎨</span>
+            <div class="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white text-sm shrink-0">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
             </div>
-            <div class="min-w-0 flex-grow font-mono text-[11px]">
-                <p class="font-bold text-brand uppercase tracking-widest text-[9px] mb-0.5">Sucesso</p>
-                <p class="text-white font-serif font-bold text-[12px] truncate leading-tight">Perfil atualizado com sucesso!</p>
+            <div class="min-w-0 flex-grow font-sans text-[11px]">
+                <p class="font-bold text-white uppercase tracking-widest text-[9px] mb-0.5">Perfil Atualizado</p>
+                <p class="text-white/70 text-[12px] truncate leading-tight">Sua identidade e capa foram salvas com sucesso!</p>
             </div>
         `;
         document.body.appendChild(toast);
