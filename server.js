@@ -2,6 +2,10 @@ require('dotenv').config();
 const http = require('http');
 const { mergeClientState } = require('./shared/sync-state');
 const studioMetadata = require('./shared/studio-metadata');
+const identity = require('./shared/security/identity');
+const security = require('./shared/security/policy');
+const { createNodeSessions } = require('./backend/node/sessions');
+const { createAccountRoutes } = require('./backend/node/account-routes');
 let stateWriteQueue = Promise.resolve();
 const fs = require('fs');
 const path = require('path');
@@ -13,20 +17,12 @@ const STATE_FILE = process.env.STATE_FILE || path.join(DATA_DIR, 'state.json');
 const DATABASE_URL = process.env.DATABASE_URL || '';
 const PASSWORD_ITERATIONS = parseInt(process.env.PASSWORD_ITERATIONS, 10) || 500000;
 const PASSWORD_KEY_LENGTH = 32;
-const MIN_PASSWORD_LENGTH = 10;
 
-function passwordPolicyError(password) {
-    const value = String(password || '');
-    if (value.length < MIN_PASSWORD_LENGTH || !/\d/.test(value) || !/[a-zA-Z]/.test(value)) {
-        return `A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres, contendo letras e numeros.`;
-    }
-    return '';
-}
-const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
+const passwordPolicyError = security.passwordPolicyError;
 const MAX_EXTERNAL_IMAGE_URL_LENGTH = 4096;
 const MAX_DATA_IMAGE_LENGTH = 2 * 1024 * 1024;
 const DEFAULT_ALLOWED_ORIGIN = 'https://anime-ratings.pages.dev';
-const sessions = new Map();
+const sessionStore = createNodeSessions();
 const rateLimits = new Map();
 const DEFAULT_STATE = {
     friends: [],
@@ -167,6 +163,7 @@ function sanitizeUserRecord(user) {
         email: escapeHtml(String(user.email || '').trim(), 254),
         color: sanitizeColor(user.color),
         avatar: sanitizeAvatar(user.avatar),
+        banner: security.encodeCssUrl(sanitizeImageUrl(user.banner)),
         favoriteGenres: sanitizeTextArray(user.favoriteGenres),
         favoriteStudios: sanitizeTextArray(user.favoriteStudios),
         favoriteAnimes: sanitizeTextArray(user.favoriteAnimes, 50, 120),
@@ -223,38 +220,7 @@ function preferCleanerText(serverText, localText) {
         : localValue;
 }
 
-function mergeReplyPreservingCleanText(serverReply, localReply) {
-    if (!serverReply) return localReply;
-    if (!localReply) return serverReply;
-    return {
-        ...serverReply,
-        ...localReply,
-        reply: preferCleanerText(serverReply.reply, localReply.reply)
-    };
-}
 
-function mergeCommentLikes(serverLikes, localLikes, loggedInId = '') {
-    const likes = new Set();
-    const localLikeIds = new Set();
-    [serverLikes, localLikes].forEach(list => {
-        if (!Array.isArray(list)) return;
-        list.forEach(item => {
-            const id = normalizeUsername(item);
-            if (id) likes.add(id);
-        });
-    });
-    if (Array.isArray(localLikes)) {
-        localLikes.forEach(item => {
-            const id = normalizeUsername(item);
-            if (id) localLikeIds.add(id);
-        });
-    }
-    if (loggedInId) {
-        if (localLikeIds.has(loggedInId)) likes.add(loggedInId);
-        else likes.delete(loggedInId);
-    }
-    return Array.from(likes).slice(0, 200);
-}
 
 function sanitizeRatings(ratings) {
     if (!ratings || typeof ratings !== 'object') return {};
@@ -404,6 +370,7 @@ function sanitizeStateForStorage(state) {
 }
 
 function sendJson(res, statusCode, payload) {
+    if(res.writableEnded) return;
     res.statusCode = statusCode;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
@@ -438,20 +405,7 @@ function requestHasFreshStaticCache(req, stat, etag) {
 }
 
 function sanitizeUser(user, viewerUsername = '') {
-    if (!user || typeof user !== 'object') return user;
-    const {
-        password,
-        passwordHash,
-        passwordSalt,
-        passwordIterations,
-        passwordDigest,
-        ...safeUser
-    } = user;
-    if (viewerUsername && user.username && user.username.toLowerCase() === viewerUsername.toLowerCase()) {
-        return safeUser;
-    }
-    delete safeUser.email;
-    return safeUser;
+    return security.userResponse(user, viewerUsername);
 }
 
 function sanitizeState(state, viewerUsername = '') {
@@ -497,67 +451,19 @@ function verifyPassword(user, password) {
 
 function setPassword(user, password) {
     Object.assign(user, hashPassword(password));
+    user.credentialVersion = (Number(user.credentialVersion) || 0) + 1;
+    user.passwordResetRequired = false;
     delete user.password;
 }
 
-function createSession(username, res) {
-    const token = crypto.randomBytes(32).toString('base64url');
-    sessions.set(token, {
-        username,
-        expiresAt: Date.now() + SESSION_TTL_MS
-    });
-    if (res) {
-        res.setHeader('Set-Cookie', `anivoid_auth_token=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`);
-    }
-    return token;
-}
-
-function extractAuthToken(req) {
-    let token = '';
-    const authHeader = req.headers.authorization || '';
-    const match = authHeader.match(/^Bearer\s+(.+)$/i);
-    if (match) token = match[1].trim();
-
-    if (!token && req.headers.cookie) {
-        const cookieMatch = req.headers.cookie.match(/(?:^|;\s*)(?:anivoid_auth_token|auth_token)=([^;]+)/);
-        if (cookieMatch) token = cookieMatch[1].trim();
-    }
-    return token;
-}
-
-function getAuthenticatedUser(req, state) {
-    const token = extractAuthToken(req);
-    if (!token) return null;
-
-    const session = sessions.get(token);
-    if (!session || session.expiresAt < Date.now()) {
-        if (session) sessions.delete(token);
-        return null;
-    }
-    const user = (state.registeredUsers || []).find(u =>
-        u && u.username && u.username.toLowerCase() === session.username.toLowerCase()
-    );
-    if (!user) return null;
-    session.expiresAt = Date.now() + SESSION_TTL_MS;
-    return user;
-}
-
+const createSession = (user, res) => sessionStore.create(user, res);
+const getAuthenticatedUser = (req, state) => sessionStore.authenticate(req, state);
 function requireAuthenticatedUser(req, res, state) {
     const user = getAuthenticatedUser(req, state);
-    if (!user) {
-        sendJson(res, 401, { error: 'Sessão inválida ou expirada. Faça login novamente.' });
-        return null;
-    }
+    if (!user) sendJson(res, 401, {error: 'Sessão inválida ou expirada. Faça login novamente.'});
     return user;
 }
-
-function isAdminUser(user) {
-    const admins = (process.env.ADMIN_USERS || 'felipe')
-        .split(',')
-        .map(name => normalizeUsername(name))
-        .filter(Boolean);
-    return admins.includes(normalizeUsername(user && user.username));
-}
+function isAdminUser(user, state) { return identity.isAdmin(user, process.env, state); }
 
 function buildCatalogAnime(input, existingAnime = null) {
     const source = input && typeof input === 'object' ? input : {};
@@ -587,29 +493,11 @@ function sameUsername(a, b) {
     return usernameKey(a) === usernameKey(b);
 }
 
-function identifierKey(identifier) {
-    return String(identifier || '').trim().toLowerCase();
-}
-
 function findRegisteredUser(state, username) {
     return (state.registeredUsers || []).find(user => user && user.username && sameUsername(user.username, username));
 }
 
-function findRegisteredUserByIdentifier(state, identifier) {
-    const rawKey = identifierKey(identifier);
-    const normalizedKey = normalizeUsername(identifier);
-    if (!rawKey && !normalizedKey) return null;
-
-    return (state.registeredUsers || []).find(user => {
-        if (!user) return false;
-        const email = identifierKey(user.email);
-        const username = identifierKey(user.username);
-        const normalizedUsername = normalizeUsername(user.username);
-        return (email && email === rawKey)
-            || (username && username === rawKey)
-            || (normalizedUsername && normalizedUsername === normalizedKey);
-    }) || null;
-}
+function findRegisteredUserByIdentifier(state, identifier) { return identity.findLoginUser(state, identifier); }
 
 function hasFriend(user, friendName) {
     return Array.isArray(user && user.friends) && user.friends.some(name => sameUsername(name, friendName));
@@ -830,6 +718,7 @@ function writeState(state, callback) {
     const operation = stateWriteQueue.then(async () => {
         const revision = Number(state.revision) || 0;
         normalizeSocialGraph(state);
+        identity.assignAccountIds(state, () => crypto.randomUUID());
         const safeState = sanitizeStateForStorage(state);
         safeState.revision = revision + 1;
         const conflict = () => Object.assign(new Error('State changed; retry the operation.'), { code: 'STATE_CONFLICT' });
@@ -854,378 +743,6 @@ function writeState(state, callback) {
     });
     stateWriteQueue = operation.catch(() => {});
     operation.then(() => callback(null), callback);
-}
-
-// Helper to merge state databases on the server
-function mergeStates(localState, serverState, loggedInUser, canEditCatalog = false) {
-    // Get author profile for activity generation
-    let authorUser = { username: loggedInUser || 'Desconhecido', color: '#FF4500', avatar: '👤' };
-    if (loggedInUser && serverState.registeredUsers) {
-        const found = serverState.registeredUsers.find(u => u.username && u.username.toLowerCase() === loggedInUser.toLowerCase());
-        if (found) {
-            authorUser = { username: found.username, color: found.color || '#FF4500', avatar: found.avatar || '👤' };
-        }
-    }
-
-    const mergedActivities = serverState.activities ? [...serverState.activities] : [];
-
-    // Helper to generate a unique activity ID
-    function generateActivityId() {
-        return 'act_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    }
-
-    function mergeClientActivities() {
-        const loggedInId = normalizeUsername(loggedInUser);
-        if (!loggedInId || !Array.isArray(localState.activities)) return;
-
-        localState.activities.slice(0, 100).forEach(activity => {
-            if (!activity || !activity.animeId || !activity.details) return;
-            const activityUserId = normalizeUsername(activity.username);
-            if (activityUserId && activityUserId !== loggedInId) return;
-
-            mergedActivities.push({
-                id: activity.id ? String(activity.id).slice(0, 120) : generateActivityId(),
-                username: authorUser.username,
-                userColor: authorUser.color || '#FF4500',
-                userAvatar: authorUser.avatar || '&#128100;',
-                type: String(activity.type || 'activity').slice(0, 60),
-                animeId: String(activity.animeId).slice(0, 120),
-                animeTitle: String(activity.animeTitle || 'Anime').slice(0, 180),
-                details: String(activity.details).slice(0, 300),
-                timestamp: activity.timestamp && !Number.isNaN(new Date(activity.timestamp).getTime())
-                    ? String(activity.timestamp).slice(0, 40)
-                    : new Date().toISOString()
-            });
-        });
-    }
-
-    mergeClientActivities();
-
-    // 1. Merge registered users by username
-    const mergedUsers = [...serverState.registeredUsers];
-    if (localState.registeredUsers && Array.isArray(localState.registeredUsers)) {
-        localState.registeredUsers.forEach(u => {
-            const index = mergedUsers.findIndex(su => 
-                (su.username && u.username && su.username.toLowerCase() === u.username.toLowerCase()) || 
-                (su.email && u.email && su.email.toLowerCase() === u.email.toLowerCase())
-            );
-            if (index >= 0) {
-                // If a user name matches the logged-in user, we merge their personal profile updates from the client,
-                // but we strictly preserve the server's social graph fields (friends, friendRequests) to prevent client overwrites.
-                if (loggedInUser && u.username && u.username.toLowerCase() === loggedInUser.toLowerCase()) {
-                    // Safe union of friends: never drop a friend that either server or client knows about.
-                    // Friends can only be removed explicitly via /api/remove-friend.
-                    const serverFriends = (mergedUsers[index].friends || []).map(f => f.toLowerCase());
-                    const clientFriends = (u.friends || []).map(f => f.toLowerCase());
-                    const unionFriendNames = [...new Set([...serverFriends, ...clientFriends])];
-                    // Resolve canonical username casing from registeredUsers
-                    const canonicalFriends = unionFriendNames.map(fl => {
-                        const found = mergedUsers.find(mu => mu.username && mu.username.toLowerCase() === fl);
-                        return found ? found.username : fl;
-                    });
-
-                    mergedUsers[index] = {
-                        ...mergedUsers[index], // Server state is base
-                        email: u.email || mergedUsers[index].email,
-                        color: u.color || mergedUsers[index].color,
-                        avatar: u.avatar || mergedUsers[index].avatar,
-                        emailVerified: u.emailVerified !== undefined ? u.emailVerified : mergedUsers[index].emailVerified,
-                        favoriteGenres: u.favoriteGenres || mergedUsers[index].favoriteGenres,
-                        favoriteStudios: u.favoriteStudios || mergedUsers[index].favoriteStudios,
-                        favoriteAnimes: u.favoriteAnimes || mergedUsers[index].favoriteAnimes,
-                        activeTitle: u.activeTitle || mergedUsers[index].activeTitle,
-                        friends: canonicalFriends, // union — never shrinks
-                        // Preserve per-user featuredAnimeId (client wins for their own profile)
-                        featuredAnimeId: u.featuredAnimeId !== undefined ? u.featuredAnimeId : mergedUsers[index].featuredAnimeId,
-                        isVirtual: false
-                    };
-                }
-            } else {
-                // New accounts must go through /api/register so credentials are validated and hashed.
-            }
-        });
-    }
-
-    // 2. Friends - backwards compatibility for manual virtual friends if any
-    const mergedFriends = [...serverState.friends];
-    if (localState.friends && Array.isArray(localState.friends)) {
-        localState.friends.forEach(f => {
-            const index = mergedFriends.findIndex(sf => 
-                (sf.name && f.name && sf.name.toLowerCase() === f.name.toLowerCase())
-            );
-            if (index < 0) {
-                mergedFriends.push(f);
-            }
-        });
-    }
-
-    const mergedStudioLogos = {
-        ...(serverState.studioLogos && typeof serverState.studioLogos === 'object' ? serverState.studioLogos : {})
-    };
-    // 3. Merge animes ratings and comments
-    // IDs legados/stub que não devem existir no servidor (dados de teste)
-    const BOGUS_IDS = new Set(['steins-gate', 'sample-anime', 'sample-anime-test', 'sample-anime-special-sync']);
-    function isBogusAnime(a) {
-        if (!a || !a.id) return true;
-        if (BOGUS_IDS.has(a.id)) return true;
-        if (a.id.includes('debug')) return true;
-        if (a.id.startsWith('sample-anime')) return true;
-        if (a.id.includes('-test-')) return true;
-        if (a.id.startsWith('test-')) return true;
-        return false;
-    }
-    const mergedAnimes = [...serverState.animes].filter(a => !isBogusAnime(a));
-    if (localState.animes && Array.isArray(localState.animes)) {
-        const cleanLocalAnimes = localState.animes.filter(a => !isBogusAnime(a));
-        cleanLocalAnimes.forEach(localAnime => {
-            let serverAnime = mergedAnimes.find(sa => sa.id === localAnime.id);
-            if (!serverAnime) {
-                return;
-            } else {
-                // Merge ratings map
-                if (localAnime.ratings) {
-                    if (!serverAnime.ratings) serverAnime.ratings = {};
-                    
-                    if (loggedInUser) {
-                        // Secure: only allow updating ratings for the logged-in user's own ID
-                        const loggedInId = loggedInUser.toLowerCase().replace(/[^a-z0-9]/g, '');
-                        const localRating = localAnime.ratings[loggedInId];
-                        const serverRating = serverAnime.ratings[loggedInId];
-                        
-                        if (localRating) {
-                            // Skip phantom ratings: overall=0 with no episode scores and default status
-                            // These are auto-created by initFriendRatingIfMissing and should not persist
-                            const hasRealOverall = localRating.overall && parseFloat(localRating.overall) > 0;
-                            const hasEpisodeRatings = localRating.episodeRatings && Object.keys(localRating.episodeRatings).length > 0;
-                            const hasRealStatus = localRating.status && localRating.status !== 'Plan to Watch';
-                            const isRealRating = hasRealOverall || hasEpisodeRatings || hasRealStatus;
-                            
-                            if (!isRealRating) {
-                                // Do not persist empty/default ratings — skip this anime for this user
-                            } else {
-                            // Check if status changed
-                            if (localRating.status && (!serverRating || serverRating.status !== localRating.status)) {
-                                const statusPhrases = {
-                                    'Watching': 'começou a assistir 📺',
-                                    'Completed': 'concluiu a obra! 🏆',
-                                    'On Hold': 'colocou em espera ⏸️',
-                                    'Dropped': 'abandonou a obra 😭',
-                                    'Plan to Watch': 'adicionou à lista de interesse 📌'
-                                };
-                                const statusText = statusPhrases[localRating.status] || `marcou como ${localRating.status}`;
-                                mergedActivities.push({
-                                    id: generateActivityId(),
-                                    username: authorUser.username,
-                                    userColor: authorUser.color,
-                                    userAvatar: authorUser.avatar,
-                                    type: 'status',
-                                    animeId: localAnime.id,
-                                    animeTitle: localAnime.title,
-                                    details: statusText,
-                                    timestamp: new Date().toISOString()
-                                });
-                            }
-                            
-                            // Check if overall score changed
-                            if (localRating.overall !== undefined && (!serverRating || serverRating.overall !== localRating.overall)) {
-                                if (localRating.overall !== '-' && parseFloat(localRating.overall) > 0) {
-                                    mergedActivities.push({
-                                        id: generateActivityId(),
-                                        username: authorUser.username,
-                                        userColor: authorUser.color,
-                                        userAvatar: authorUser.avatar,
-                                        type: 'rating',
-                                        animeId: localAnime.id,
-                                        animeTitle: localAnime.title,
-                                        details: `avaliou esta obra com nota ${localRating.overall} ⭐`,
-                                        timestamp: new Date().toISOString()
-                                    });
-                                }
-                            }
-                            
-                            // Check if episodes progress changed
-                            const prevWatched = serverRating ? (serverRating.episodesWatched || 0) : 0;
-                            const nextWatched = localRating.episodesWatched || 0;
-                            if (nextWatched > prevWatched && nextWatched !== parseInt(localAnime.episodes)) {
-                                mergedActivities.push({
-                                    id: generateActivityId(),
-                                    username: authorUser.username,
-                                    userColor: authorUser.color,
-                                    userAvatar: authorUser.avatar,
-                                    type: 'progress',
-                                    animeId: localAnime.id,
-                                    animeTitle: localAnime.title,
-                                    details: `assistiu ao episódio ${nextWatched} 🍿`,
-                                    timestamp: new Date().toISOString()
-                                });
-                            }
-                            
-                            serverAnime.ratings[loggedInId] = {
-                                ...serverAnime.ratings[loggedInId],
-                                ...localRating
-                            };
-                            } // end isRealRating
-                        }
-                    } else {
-                        // Fallback (initial setup / migration)
-                        Object.keys(localAnime.ratings).forEach(friendId => {
-                            serverAnime.ratings[friendId] = {
-                                ...serverAnime.ratings[friendId],
-                                ...localAnime.ratings[friendId]
-                            };
-                        });
-                    }
-                }
-                
-                // Merge comments array by comment id, handling deletion and editing securely
-                if (!serverAnime.comments) serverAnime.comments = [];
-                
-                if (loggedInUser) {
-                    const loggedInId = loggedInUser.toLowerCase().replace(/[^a-z0-9]/g, '');
-                    
-                    // 1. Identify which comments of the loggedInUser were deleted by the client
-                    const localCommentIds = new Set((localAnime.comments || []).map(lc => lc.id));
-                    serverAnime.comments = serverAnime.comments.filter(sc => {
-                        const isAuthor = sc.friendId && sc.friendId.toLowerCase() === loggedInId;
-                        if (isAuthor) {
-                            const keep = localCommentIds.has(sc.id);
-                            if (!keep) {
-                                mergedActivities.push({
-                                    id: generateActivityId(),
-                                    username: authorUser.username,
-                                    userColor: authorUser.color,
-                                    userAvatar: authorUser.avatar,
-                                    type: 'comment_delete',
-                                    animeId: localAnime.id,
-                                    animeTitle: localAnime.title,
-                                    details: 'removeu sua crítica 🗑️',
-                                    timestamp: new Date().toISOString()
-                                });
-                            }
-                            return keep;
-                        }
-                        return true; // keep other users' comments
-                    });
-
-                    // 2. Add or update comments from the client
-                    if (localAnime.comments && Array.isArray(localAnime.comments)) {
-                        localAnime.comments.forEach(lc => {
-                            const isAuthor = lc.friendId && lc.friendId.toLowerCase() === loggedInId;
-                            const index = serverAnime.comments.findIndex(sc => sc.id === lc.id);
-
-                            if (isAuthor) {
-                                if (index >= 0) {
-                                    const serverComment = serverAnime.comments[index];
-                                    const mergedCommentText = preferCleanerText(serverComment.comment, lc.comment);
-                                    if (String(serverComment.comment || '') !== mergedCommentText) {
-                                        mergedActivities.push({
-                                            id: generateActivityId(),
-                                            username: authorUser.username,
-                                            userColor: authorUser.color,
-                                            userAvatar: authorUser.avatar,
-                                            type: 'comment_edit',
-                                            animeId: localAnime.id,
-                                            animeTitle: localAnime.title,
-                                            details: 'editou sua crítica ✏️',
-                                            timestamp: new Date().toISOString()
-                                        });
-                                    }
-                                    // Merge replies: union by reply id so no reply is ever lost
-                                    const serverReplies = serverAnime.comments[index].replies || [];
-                                    const localReplies = lc.replies || [];
-                                    const repliesMap = {};
-                                    serverReplies.forEach(r => { if (r && r.id) repliesMap[r.id] = r; });
-                                    localReplies.forEach(r => {
-                                        if (r && r.id) {
-                                            repliesMap[r.id] = mergeReplyPreservingCleanText(repliesMap[r.id], r);
-                                        }
-                                    });
-                                    const mergedReplies = Object.values(repliesMap).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                                    serverAnime.comments[index] = {
-                                        ...serverComment,
-                                        ...lc,
-                                        comment: mergedCommentText,
-                                        likes: mergeCommentLikes(serverComment.likes, lc.likes, loggedInId),
-                                        replies: mergedReplies
-                                    };
-                                } else {
-                                    mergedActivities.push({
-                                        id: generateActivityId(),
-                                        username: authorUser.username,
-                                        userColor: authorUser.color,
-                                        userAvatar: authorUser.avatar,
-                                        type: 'comment_add',
-                                        animeId: localAnime.id,
-                                        animeTitle: localAnime.title,
-                                        details: 'escreveu uma nova crítica 💬',
-                                        timestamp: new Date().toISOString()
-                                    });
-                                    // Ensure replies array exists on new comment
-                                    serverAnime.comments.push({ ...lc, likes: lc.likes || [], replies: lc.replies || [] });
-                                }
-                            } else if (index >= 0) {
-                                // Not the comment author, but may have added a reply.
-                                // Merge ONLY the replies array — never overwrite the comment text.
-                                const serverReplies = serverAnime.comments[index].replies || [];
-                                const localReplies = lc.replies || [];
-                                const repliesMap = {};
-                                serverReplies.forEach(r => { if (r && r.id) repliesMap[r.id] = r; });
-                                // Only accept replies authored by the logged-in user
-                                localReplies.forEach(r => {
-                                    if (r && r.id) {
-                                        if (r.friendId && r.friendId.toLowerCase() === loggedInId) {
-                                            repliesMap[r.id] = mergeReplyPreservingCleanText(repliesMap[r.id], r);
-                                        } else if (!repliesMap[r.id]) {
-                                            repliesMap[r.id] = r; // keep existing replies from others
-                                        }
-                                    }
-                                });
-                                const mergedReplies = Object.values(repliesMap).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                                serverAnime.comments[index] = {
-                                    ...serverAnime.comments[index],
-                                    likes: mergeCommentLikes(serverAnime.comments[index].likes, lc.likes, loggedInId),
-                                    replies: mergedReplies
-                                };
-                            }
-                        });
-                    }
-                } else {
-                    // Fallback sync (without loggedInUser)
-                    if (localAnime.comments && Array.isArray(localAnime.comments)) {
-                        localAnime.comments.forEach(lc => {
-                            const index = serverAnime.comments.findIndex(sc => sc.id === lc.id);
-                            if (index >= 0) {
-                                serverAnime.comments[index] = { ...serverAnime.comments[index], ...lc };
-                            } else {
-                                serverAnime.comments.push(lc);
-                            }
-                        });
-                    }
-                }
-
-                serverAnime.comments.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-            }
-        });
-    }
-
-    // Merge featuredAnimeId (admin catalog updates win if defined, otherwise preserve server)
-    let featuredAnimeId = serverState.featuredAnimeId || null;
-    if (canEditCatalog && localState.featuredAnimeId !== undefined) {
-        featuredAnimeId = localState.featuredAnimeId;
-    }
-
-    // Limit activities to 50 items (newest first)
-    mergedActivities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    const finalActivities = mergedActivities.slice(0, 50);
-
-    return {
-        friends: mergedFriends,
-        animes: mergedAnimes,
-        studioLogos: mergedStudioLogos,
-        registeredUsers: mergedUsers,
-        featuredAnimeId: featuredAnimeId,
-        activities: finalActivities
-    };
 }
 
 function getSafeCorsHeaders(req) {
@@ -1253,9 +770,7 @@ function getSafeCorsHeaders(req) {
 }
 
 function getClientIp(req) {
-    return String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown')
-        .split(',')[0]
-        .trim();
+    return String(process.env.TRUST_PROXY === 'true' ? req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress : req.socket.remoteAddress || 'unknown').split(',')[0].trim();
 }
 
 function enforceRateLimit(req, res, bucket, maxAttempts, windowMs, discriminator = '') {
@@ -1279,7 +794,8 @@ function enforceRateLimit(req, res, bucket, maxAttempts, windowMs, discriminator
     return false;
 }
 
-const server = http.createServer((req, res) => {
+const accountRoutes = createAccountRoutes({ readState, writeState, sessionStore, verifyPassword, setPassword, sanitizeUser, sanitizeState, sendJson, enforceRateLimit });
+const server = http.createServer(async (req, res) => {
     const cors = getSafeCorsHeaders(req);
     res.setHeader('Access-Control-Allow-Origin', cors.origin);
     res.setHeader('Access-Control-Allow-Methods', cors.methods);
@@ -1295,7 +811,21 @@ const server = http.createServer((req, res) => {
     res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
     res.setHeader('Permissions-Policy', 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()');
-    res.setHeader('Content-Security-Policy', "default-src 'self' data: https: 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: blob: https:; frame-ancestors 'none';");
+    const csp = fs.readFileSync(path.join(__dirname,'_headers'),'utf8').match(/Content-Security-Policy: ([^\r\n]+)/)?.[1];
+    if(csp) res.setHeader('Content-Security-Policy',csp);
+
+    const allowedOrigins = String(process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGIN || DEFAULT_ALLOWED_ORIGIN + ',http://localhost:' + PORT + ',http://127.0.0.1:' + PORT).split(',').map(value => value.trim());
+    const boundaryError = security.mutationPolicy({method:req.method, origin:req.headers.origin, contentType:req.headers['content-type'], fetchSite:req.headers['sec-fetch-site'], authorization:req.headers.authorization}, allowedOrigins);
+    if (boundaryError) { sendJson(res, boundaryError.status, {error:boundaryError.message,code:boundaryError.code}); return; }
+    if (Number(req.headers['content-length']) > security.MAX_JSON_BYTES) { sendJson(res, 413, {error:'Requisição grande demais.'}); return; }
+    let bodyBytes = 0;
+    req.on('data', chunk => {
+        bodyBytes += chunk.length;
+        if (bodyBytes > security.MAX_JSON_BYTES && !res.writableEnded) {
+            req.pause(); res.once('finish', () => req.destroy()); sendJson(res, 413, {error:'Requisição grande demais.'});
+        }
+    });
+    if (accountRoutes.handles(req)) { await accountRoutes(req, res); return; }
 
     if (req.method === 'OPTIONS') {
         res.statusCode = 204;
@@ -1323,50 +853,6 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // API Route: patch current user profile fields
-    if (req.url === '/api/patch-user' && req.method === 'POST') {
-        let body = '';
-        req.on('data', chunk => { body += chunk; });
-        req.on('end', () => {
-            try {
-                const { username, fields } = JSON.parse(body);
-                if (!username || !fields) {
-                    sendJson(res, 400, { error: 'Missing username or fields' }); return;
-                }
-                readState((err, data) => {
-                    let state = { friends: [], animes: [], registeredUsers: [], activities: [] };
-                    if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
-                    const authUser = requireAuthenticatedUser(req, res, state);
-                    if (!authUser) return;
-                    if (authUser.username.toLowerCase() !== username.toLowerCase() && !isAdminUser(authUser)) {
-                        sendJson(res, 403, { error: 'Você só pode alterar o próprio perfil.' });
-                        return;
-                    }
-                    const idx = state.registeredUsers.findIndex(u => u && u.username && u.username.toLowerCase() === username.toLowerCase());
-                    if (idx < 0) { sendJson(res, 404, { error: 'User not found' }); return; }
-                    const allowedFields = ['email', 'color', 'avatar', 'banner', 'emailVerified', 'favoriteGenres', 'favoriteStudios', 'favoriteAnimes', 'activeTitle', 'featuredAnimeId'];
-                    const safeFields = {};
-                    allowedFields.forEach(field => {
-                        if (Object.prototype.hasOwnProperty.call(fields, field)) safeFields[field] = fields[field];
-                    });
-                    Object.assign(state.registeredUsers[idx], safeFields);
-                    // If field is explicitly null, delete it
-                    Object.keys(safeFields).forEach(k => { if (safeFields[k] === null) delete state.registeredUsers[idx][k]; });
-                    writeState(state, (writeErr) => {
-                        if (writeErr) { sendJson(res, 500, { error: 'Failed to save' }); return; }
-                        sendJson(res, 200, {
-                            success: true,
-                            user: sanitizeUser(state.registeredUsers[idx], authUser.username),
-                            registeredUsers: sanitizeState(state, authUser.username).registeredUsers
-                        });
-                    });
-                });
-            } catch(e) { sendJson(res, 400, { error: 'Invalid JSON' }); }
-        });
-        return;
-    }
-
-
     // API Route: Get state
     if (req.url === '/api/get-state' && req.method === 'GET') {
         readState((err, data) => {
@@ -1390,11 +876,11 @@ const server = http.createServer((req, res) => {
             try {
                 const { email, identifier, password } = JSON.parse(body);
                 const loginIdentifier = identifier || email;
-                if (!loginIdentifier || !password) {
+                if (typeof loginIdentifier !== 'string' || loginIdentifier.length > 254 || typeof password !== 'string' || !password || password.length > 256) {
                     sendJson(res, 400, { error: 'E-mail ou usuario e senha sao obrigatorios.' });
                     return;
                 }
-                if (enforceRateLimit(req, res, 'login', 8, 1000 * 60 * 10, loginIdentifier)) return;
+                if (enforceRateLimit(req, res, 'login-ip', 24, 1000 * 60 * 10) || enforceRateLimit(req, res, 'login', 8, 1000 * 60 * 10, loginIdentifier)) return;
                 readState((err, data) => {
                     let state = { friends: [], animes: [], registeredUsers: [], activities: [] };
                     if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
@@ -1402,22 +888,22 @@ const server = http.createServer((req, res) => {
 
                     const user = findRegisteredUserByIdentifier(state, loginIdentifier);
 
-                    if (!user || !verifyPassword(user, password)) {
+                    if (!user || user.passwordResetRequired || !verifyPassword(user, password)) {
                         sendJson(res, 401, { error: 'E-mail ou senha incorretos.' });
                         return;
                     }
 
-                    let migrated = false;
+                    let migrated = !user.accountId;
+                    if (!user.accountId) identity.assignAccountIds(state, () => crypto.randomUUID());
                     if (!user.passwordHash || user.password) {
                         setPassword(user, password);
                         migrated = true;
                     }
 
                     const finishLogin = () => {
-                        const token = createSession(user.username, res);
+                        createSession(user, res);
                         sendJson(res, 200, {
                             success: true,
-                            token,
                             user: sanitizeUser(user, user.username),
                             state: sanitizeState(state, user.username)
                         });
@@ -1458,21 +944,15 @@ const server = http.createServer((req, res) => {
                     sendJson(res, 400, { error: policyError });
                     return;
                 }
-                if (enforceRateLimit(req, res, 'register', 5, 1000 * 60 * 30, newUser.email || newUser.username)) return;
+                if (enforceRateLimit(req, res, 'register', 5, 1000 * 60 * 30)) return;
                 readState((err, data) => {
                     let state = { friends: [], animes: [], registeredUsers: [], activities: [] };
                     if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
                     if (!state.registeredUsers) state.registeredUsers = [];
 
 
-                    const existingIdx = state.registeredUsers.findIndex(u =>
-                        (u.username && u.username.toLowerCase() === newUser.username.toLowerCase()) ||
-                        (u.email && u.email.toLowerCase() === newUser.email.toLowerCase())
-                    );
-                    if (existingIdx >= 0) {
-                        sendJson(res, 409, { error: 'Nome de usuário ou e-mail já cadastrado.' });
-                        return;
-                    }
+                    const registrationError = identity.registrationError(state, newUser, process.env);
+                    if (registrationError) { sendJson(res, 409, {error:registrationError}); return; }
 
                     const nextMemberNumber = state.registeredUsers.filter(u => u.memberNumber).length + 1;
                     const memberDescs = {
@@ -1489,11 +969,12 @@ const server = http.createServer((req, res) => {
                     };
                     const memberDesc = memberDescs[nextMemberNumber] || `Você é o ${nextMemberNumber}º membro a fazer parte do AniVoid. Bem-vindo a esta comunidade.`;
                     const userToAdd = {
+                        accountId: crypto.randomUUID(),
                         username: newUser.username,
-                        email: newUser.email,
+                        email: identity.emailKey(newUser.email),
                         color: newUser.color || '#FF4500',
                         avatar: newUser.avatar || '👤',
-                        emailVerified: newUser.emailVerified !== undefined ? newUser.emailVerified : false,
+                        emailVerified: false,
                         friends: [],
                         friendRequests: [],
                         favoriteGenres: newUser.favoriteGenres || [],
@@ -1511,10 +992,9 @@ const server = http.createServer((req, res) => {
                             sendJson(res, 500, { error: 'Failed to save user' });
                             return;
                         }
-                        const token = createSession(userToAdd.username, res);
+                        createSession(userToAdd, res);
                         sendJson(res, 200, {
                             success: true,
-                            token,
                             user: sanitizeUser(userToAdd, userToAdd.username),
                             state: sanitizeState(state, userToAdd.username)
                         });
@@ -1544,7 +1024,7 @@ const server = http.createServer((req, res) => {
                     }));
                     const authUser = requireAuthenticatedUser(req, res, serverState);
                     if (!authUser) return;
-                    const nextState = mergeClientState(payload.localState || payload, payload.baseState, serverState, authUser.username, isAdminUser(authUser));
+                    const nextState = mergeClientState(payload.localState || payload, payload.baseState, serverState, authUser.username, isAdminUser(authUser, serverState));
                     await new Promise((resolve, reject) => writeState(nextState, error => error ? reject(error) : resolve()));
                     sendJson(res, 200, sanitizeState(nextState, authUser.username));
                     return;
@@ -1573,7 +1053,7 @@ const server = http.createServer((req, res) => {
                     if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
                     const authUser = requireAuthenticatedUser(req, res, state);
                     if (!authUser) return;
-                    if (!isAdminUser(authUser)) {
+                    if (!isAdminUser(authUser, state)) {
                         sendJson(res, 403, { error: 'Apenas o administrador pode alterar o catalogo.' });
                         return;
                     }
@@ -1646,7 +1126,7 @@ const server = http.createServer((req, res) => {
                     if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
                     const authUser = requireAuthenticatedUser(req, res, state);
                     if (!authUser) return;
-                    if (!isAdminUser(authUser)) {
+                    if (!isAdminUser(authUser, state)) {
                         sendJson(res, 403, { error: 'Apenas o administrador pode excluir animes.' });
                         return;
                     }
@@ -1697,7 +1177,7 @@ const server = http.createServer((req, res) => {
                     if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
                     const authUser = requireAuthenticatedUser(req, res, state);
                     if (!authUser) return;
-                    if (authUser.username.toLowerCase() !== username.toLowerCase() && !isAdminUser(authUser)) {
+                    if (authUser.username.toLowerCase() !== username.toLowerCase() && !isAdminUser(authUser, state)) {
                         sendJson(res, 403, { error: 'Você só pode limpar as próprias avaliações.' });
                         return;
                     }
@@ -1896,7 +1376,7 @@ const server = http.createServer((req, res) => {
 
                     const authUser = requireAuthenticatedUser(req, res, state);
                     if (!authUser) return;
-                    if (!isAdminUser(authUser)) {
+                    if (!isAdminUser(authUser, state)) {
                         sendJson(res, 403, { error: 'Admin only' });
                         return;
                     }
@@ -1998,11 +1478,13 @@ const server = http.createServer((req, res) => {
     }
 
     const relativePath = path.relative(rootDir, filePath);
-    const publicRootFiles = new Set(['index.html', 'app.js', 'styles.css', 'favicon.png', 'logo.png']);
+    const publicRootFiles = new Set(['index.html', 'favicon.png', 'logo.png']);
     const publicImageExtensions = new Set(['.png', '.jpg', '.jpeg', '.svg']);
     const firstSegment = relativePath.split(path.sep)[0];
     const isPublicAsset =
         publicRootFiles.has(relativePath) ||
+        (firstSegment === 'assets' && ['.js', '.css'].includes(path.extname(relativePath))) ||
+        (firstSegment === 'fonts' && path.extname(relativePath) === '.woff2') ||
         ((firstSegment === 'covers' || firstSegment === 'logos') &&
             publicImageExtensions.has(path.extname(relativePath).toLowerCase()));
 
@@ -2070,5 +1552,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}/`);
+    console.log(`Server running at http://localhost:${server.address().port}/`);
 });

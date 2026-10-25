@@ -5,6 +5,8 @@ const { createSite } = require('../site');
 const { imageUrl } = require('../shared/dom');
 const studioMetadata = require('../../shared/studio-metadata');
 const { createAccountDrawer } = require('../account/drawer');
+const { createAccountSession } = require('../account/session');
+const { installDomActions } = require('../security/dom-actions');
 
 const theme = createThemeController(window);
 const motion = createMotionController(window);
@@ -16,6 +18,7 @@ window.AnivoidUI = {
     imageUrl,
     studioMetadata,
     account,
+    session: createAccountSession(window),
     site: createSite(window, motion.animate),
     readTheme: theme.readTheme,
     setTheme: theme.setTheme,
@@ -25,3 +28,4 @@ window.AnivoidUI = {
 };
 theme.install();
 motion.install();
+installDomActions(window);

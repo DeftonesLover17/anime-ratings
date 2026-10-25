@@ -1,7 +1,8 @@
 // Shared by the browser and both APIs. A sync applies changes since the client's
 // last snapshot, rather than replacing newer values with an entire stale cache.
 (function (root) {
-    const profileFields = ['email', 'color', 'avatar', 'favoriteGenres', 'favoriteStudios', 'favoriteAnimes', 'activeTitle', 'featuredAnimeId'];
+    const identity = require('./security/identity');
+    const profileFields = ['color', 'avatar', 'banner', 'favoriteGenres', 'favoriteStudios', 'favoriteAnimes', 'activeTitle', 'featuredAnimeId'];
     const ratingFields = ['animation', 'story', 'sound', 'overall', 'status', 'episodesWatched', 'updatedAt', 'episodeRatings', 'watchedEpisodesMap'];
     const commentFields = ['friendName', 'comment', 'timestamp', 'kind', 'title', 'episode', 'spoiler'];
     const blockedKeys = new Set(['__proto__', 'prototype', 'constructor']);
@@ -44,7 +45,7 @@
 
     function clientSnapshot(state, username) {
         const id = userId(username);
-        const me = (state.registeredUsers || []).find(user => userId(user.username) === id);
+        const me = (state.registeredUsers || []).find(user => identity.usernameKey(user.username) === identity.usernameKey(username));
         return {
             registeredUsers: me ? [{ username: me.username, ...select(me, profileFields) }] : [],
             animes: (state.animes || []).map(anime => ({
@@ -73,6 +74,9 @@
             if (!record?.id || userId(record.friendId) !== id) continue;
             const previous = baseMap.get(record.id);
             const index = result.findIndex(item => item.id === record.id);
+            // The stored owner is authoritative, even if the client changes the
+            // friendId or forges its entire baseline to claim an existing ID.
+            if (index >= 0 && userId(result[index].friendId) !== id) continue;
             // A record deleted on another device must not reappear from a cache.
             if (previous && index < 0) continue;
             if (previous && equal(select(previous, fields), select(record, fields))) continue;
@@ -106,9 +110,10 @@
         const base = clientSnapshot(baseState, username);
         const local = clientSnapshot(localState, username);
         const next = copy(serverState);
+        const me = identity.uniqueUser(next, username);
+        if (!me) return next;
         const baseUser = base.registeredUsers[0];
         const localUser = local.registeredUsers[0];
-        const me = (next.registeredUsers || []).find(user => userId(user.username) === id);
         if (me && localUser) {
             const merged = applyChanges(select(baseUser, profileFields), select(localUser, profileFields), select(me, profileFields));
             for (const field of profileFields) if (!Object.hasOwn(merged, field)) delete me[field];

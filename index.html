@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-    <script src="assets/ui.a92307189956.js"></script>
+    <script src="assets/ui.45c4867dd728.js"></script>
     <title>ANIVØID | Season Ratings</title>
     <!-- Favicon / Logo -->
     <link rel="icon" type="image/png" href="favicon.png">
     <!-- EmailJS SDK for real email delivery (optional) -->
     <script defer src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <link rel="stylesheet" href="assets/tailwind.669799d9ef22.css">
+    <link rel="stylesheet" href="assets/tailwind.d3cdfdce7b33.css">
     <!-- Iconify Icons CDN -->
     <script defer src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
     <!-- GSAP 3 & ScrollTrigger (Awwwards Creative Motion) -->
@@ -357,7 +357,7 @@
                     
                     <!-- Collapsible Advanced Filters -->
                     <div id="advanced-filters-panel" class="hidden overflow-hidden transition-all duration-300 ease-out space-y-4 pt-4 border-t border-white/5">
-                        <button type="button" class="av-text-link" onclick="resetFilters()">Limpar filtros</button>
+                        <button type="button" class="av-text-link" data-reset-filters>Limpar filtros</button>
                         <!-- Filters: Season pills -->
                         <div class="flex flex-col gap-2">
                             <span class="text-[9px] uppercase tracking-widest text-gray-500 font-mono">Temporadas:</span>
@@ -1073,7 +1073,7 @@
                             <input type="hidden" id="edit-profile-active-title" value="admin">
                             <div class="av-title-cards-grid" id="title-picker-grid">
                                 <!-- ADMIN card -->
-                                <button type="button" data-title="admin" onclick="selectAdminTitle('admin')" class="title-picker-card av-title-card">
+                                <button type="button" data-title="admin" data-admin-title="admin" class="title-picker-card av-title-card">
                                     <div class="av-title-icon-badge av-badge-admin">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                                     </div>
@@ -1087,7 +1087,7 @@
                                 </button>
 
                                 <!-- FUNDADOR card -->
-                                <button type="button" data-title="founder" onclick="selectAdminTitle('founder')" class="title-picker-card av-title-card">
+                                <button type="button" data-title="founder" data-admin-title="founder" class="title-picker-card av-title-card">
                                     <div class="av-title-icon-badge av-badge-founder">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/></svg>
                                     </div>
@@ -1101,7 +1101,7 @@
                                 </button>
 
                                 <!-- ADMIN & FUNDADOR card -->
-                                <button type="button" data-title="both" onclick="selectAdminTitle('both')" class="title-picker-card av-title-card">
+                                <button type="button" data-title="both" data-admin-title="both" class="title-picker-card av-title-card">
                                     <div class="av-title-icon-badge av-badge-both">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                                     </div>
@@ -1566,7 +1566,7 @@
     </div>
 
     <!-- Scripts Integration -->
-    <script src="assets/sync-state.cf8c4191aba9.js"></script>
-    <script src="assets/app.0175dce5e426.js"></script>
+    <script src="assets/sync-state.b756841060b2.js"></script>
+    <script src="assets/app.93e669e767b2.js"></script>
 </body>
 </html>

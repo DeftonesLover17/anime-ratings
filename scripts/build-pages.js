@@ -24,11 +24,15 @@ async function build() {
         entryPoints: [path.join(root, 'frontend/ui/index.js')],
         bundle: true, write: false, format: 'iife', platform: 'browser', target: 'es2020'
     }).outputFiles[0].text;
+    const syncBundle = esbuild.buildSync({
+        entryPoints: [path.join(root, 'shared/sync-state.js')], bundle: true, write: false,
+        format: 'iife', globalName: 'AnivoidSync', platform: 'browser', target: 'es2020'
+    }).outputFiles[0].text;
     let html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
     const assets = [
         ['tailwind.css', generated.css, 'css'],
         ['styles.css', ['styles.css', 'frontend/ui/ui.css', 'frontend/site/fonts.css', 'frontend/site/site.css', 'frontend/account/account.css', 'frontend/ratings/ratings.css', 'frontend/community/community.css', 'frontend/site/motion.css'].map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n'), 'css'],
-        ['shared/sync-state.js', fs.readFileSync(path.join(root, 'shared/sync-state.js'), 'utf8'), 'js'],
+        ['shared/sync-state.js', syncBundle, 'js'],
         ['app.js', fs.readFileSync(path.join(root, 'app.js'), 'utf8'), 'js'],
         ['ui.js', uiBundle, 'js']
     ];
@@ -55,7 +59,11 @@ async function build() {
     // compiled asset set there as well as in dist so either configuration works.
     fs.writeFileSync(path.join(root, 'index.html'), html);
     fs.writeFileSync(path.join(dist, 'index.html'), html);
-    fs.copyFileSync(path.join(root, '_headers'), path.join(dist, '_headers'));
+    const inlineHashes = [...html.matchAll(/<script\b(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script\s*>/gi)]
+        .map(match => "'sha256-" + crypto.createHash('sha256').update(match[1].replace(/\r\n?/g,'\n')).digest('base64') + "'").join(' ');
+    const headers = fs.readFileSync(path.join(root, 'config/security-headers.template'),'utf8').replace('__INLINE_SCRIPT_HASHES__',inlineHashes);
+    fs.writeFileSync(path.join(root, '_headers'),headers);
+    fs.writeFileSync(path.join(dist, '_headers'),headers);
     console.log('Cloudflare Pages output ready at dist (compiled CSS and versioned assets)');
 }
 
