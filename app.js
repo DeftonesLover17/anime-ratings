@@ -8270,6 +8270,7 @@ function initAddFriendModalOptions() {
                         studios: studioName ? [{ name: studioName }] : [],
                         genres: genres,
                         synopsis: attrs.synopsis || '',
+                        score: attrs.averageRating ? parseFloat((parseFloat(attrs.averageRating) / 10).toFixed(1)) : null,
                         isKitsu: true,
                         kitsuId: anime.id
                     };
@@ -8335,46 +8336,151 @@ function initAddFriendModalOptions() {
             }
         };
 
+        let activeSuggestionIndex = -1;
+
+        const updateActiveSuggestion = (items) => {
+            items.forEach((item, idx) => {
+                if (idx === activeSuggestionIndex) {
+                    item.classList.add('is-active');
+                    item.scrollIntoView({ block: 'nearest' });
+                } else {
+                    item.classList.remove('is-active');
+                }
+            });
+        };
+
         // Render search results dropdown
-        const renderSuggestions = (results) => {
+        const renderSuggestions = (results, query = '') => {
+            activeSuggestionIndex = -1;
             suggestionsBox.innerHTML = '';
+
             if (results.length === 0) {
                 suggestionsBox.innerHTML = `
-                    <div class="p-4 text-center text-white/50 italic select-none">
-                        Nenhum anime encontrado.
+                    <div class="av-sug-container">
+                        <div class="av-sug-header">
+                            <div class="av-sug-header-left">
+                                <span class="av-sug-radar-dot"></span>
+                                <span class="av-sug-header-label">CATÁLOGO GLOBAL</span>
+                                <span class="av-sug-header-divider">/</span>
+                                <span class="av-sug-header-source">MYANIMELIST & KITSU</span>
+                            </div>
+                            <div class="av-sug-header-right">
+                                <span class="av-sug-count-badge">0 resultados</span>
+                            </div>
+                        </div>
+                        <div class="av-sug-empty-state">
+                            <div class="av-sug-empty-icon-box">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="av-sug-empty-svg">
+                                    <circle cx="11" cy="11" r="8"/>
+                                    <path d="m21 21-4.35-4.35"/>
+                                    <path d="M8 8l6 6M14 8l-6 6"/>
+                                </svg>
+                            </div>
+                            <div class="av-sug-empty-title">Nenhuma obra localizada para &ldquo;${escapeHtml(query)}&rdquo;</div>
+                            <p class="av-sug-empty-desc">Não encontramos correspondências diretas no MyAnimeList ou Kitsu. Tente pesquisar pelo título em inglês ou japonês romanizado.</p>
+                            <button type="button" class="av-sug-manual-btn" id="sug-fill-manual">
+                                <span>Preencher campos manualmente</span>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="av-sug-arrow"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+                            </button>
+                        </div>
+                        <div class="av-sug-footer">
+                            <div class="av-sug-shortcuts">
+                                <kbd class="av-sug-kbd">ESC</kbd>
+                                <span class="av-sug-kbd-label">Fechar sugestões</span>
+                            </div>
+                        </div>
                     </div>
                 `;
+
+                const manualBtn = document.getElementById('sug-fill-manual');
+                if (manualBtn) {
+                    manualBtn.addEventListener('click', () => {
+                        suggestionsBox.classList.add('hidden');
+                        document.getElementById('form-anime-jp-title')?.focus();
+                    });
+                }
                 return;
             }
 
-            results.forEach(anime => {
+            const container = document.createElement('div');
+            container.className = 'av-sug-container';
+
+            // 1. Header
+            const header = document.createElement('div');
+            header.className = 'av-sug-header';
+            header.innerHTML = `
+                <div class="av-sug-header-left">
+                    <span class="av-sug-radar-dot av-sug-radar-active"></span>
+                    <span class="av-sug-header-label">CATÁLOGO GLOBAL</span>
+                    <span class="av-sug-header-divider">/</span>
+                    <span class="av-sug-header-source">MYANIMELIST & KITSU</span>
+                </div>
+                <div class="av-sug-header-right">
+                    <span class="av-sug-count-badge">${results.length} ${results.length === 1 ? 'resultado' : 'resultados'}</span>
+                </div>
+            `;
+            container.appendChild(header);
+
+            // 2. List
+            const list = document.createElement('div');
+            list.className = 'av-sug-list';
+            list.setAttribute('role', 'listbox');
+
+            results.forEach((anime, index) => {
                 const title = anime.title_english || anime.title;
-                const jpTitle = anime.title_japanese || '';
+                const jpTitle = anime.title_japanese || (anime.title_english && anime.title !== anime.title_english ? anime.title : '');
                 const image = anime.images?.webp?.large_image_url || anime.images?.jpg?.large_image_url || '';
                 const type = anime.type || 'TV';
-                const eps = anime.episodes ? `${anime.episodes} eps` : '? eps';
+                const eps = anime.episodes ? (parseInt(anime.episodes) === 1 ? 'Filme' : `${anime.episodes} eps`) : '? eps';
                 const year = anime.year || (anime.aired?.prop?.from?.year) || '';
-                const subtext = [type, eps, year].filter(Boolean).join(' • ');
+                const score = anime.score || (anime.attributes?.averageRating ? parseFloat((parseFloat(anime.attributes.averageRating) / 10).toFixed(1)) : null);
+                
+                const studioName = getStandardStudioName(window.AnivoidUI.studioMetadata.studioForAnime(anime));
+                const studioMissing = window.AnivoidUI.studioMetadata.isUnknownStudio(studioName);
 
                 const item = document.createElement('div');
-                item.className = 'flex items-center gap-3 p-3 hover:bg-white/5 transition-colors cursor-pointer text-left';
+                item.className = 'av-sug-item';
+                item.setAttribute('role', 'option');
+                item.setAttribute('data-index', String(index));
+                
+                const scoreBadgeHtml = score && !isNaN(score)
+                    ? `<span class="av-sug-score-badge">
+                        <svg viewBox="0 0 24 24" class="av-sug-star"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <span>${Number(score).toFixed(1)}</span>
+                    </span>`
+                    : '';
+
                 item.innerHTML = `
-                    <img src="${image}" class="w-8 h-12 object-cover rounded border border-white/10 shrink-0" alt="">
-                    <div class="overflow-hidden">
-                        <p class="font-serif font-bold text-white text-xs truncate">${title}</p>
-                        <p class="text-[10px] text-gray-500 font-mono mt-0.5 truncate">${subtext}</p>
+                    <div class="av-sug-poster-wrap">
+                        <img src="${image || 'covers/cyberpunk-edgerunners-2.jpg'}" class="av-sug-poster-img" alt="" loading="lazy" onerror="this.src='covers/cyberpunk-edgerunners-2.jpg'">
+                    </div>
+                    <div class="av-sug-info">
+                        <div class="av-sug-title-row">
+                            <span class="av-sug-title" title="${escapeHtml(title)}">${escapeHtml(title)}</span>
+                            ${scoreBadgeHtml}
+                        </div>
+                        ${jpTitle ? `<span class="av-sug-jp-title">${escapeHtml(jpTitle)}</span>` : ''}
+                        <div class="av-sug-chips">
+                            <span class="av-sug-chip av-sug-chip-type">${escapeHtml(type)}</span>
+                            <span class="av-sug-chip">${escapeHtml(eps)}</span>
+                            ${year ? `<span class="av-sug-chip">${escapeHtml(year)}</span>` : ''}
+                            ${!studioMissing && studioName ? `<span class="av-sug-chip av-sug-chip-studio">${escapeHtml(studioName)}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="av-sug-action-col">
+                        <span class="av-sug-import-pill">
+                            <span>Preencher</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="av-sug-arrow"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+                        </span>
                     </div>
                 `;
 
                 // Handle click on suggestion
                 item.addEventListener('click', () => {
-                    // Populate inputs
                     document.getElementById('form-anime-title').value = title;
                     document.getElementById('form-anime-jp-title').value = jpTitle;
                     
                     const studioInput = document.getElementById('form-anime-studio');
-                    const studioName = getStandardStudioName(window.AnivoidUI.studioMetadata.studioForAnime(anime));
-                    const studioMissing = window.AnivoidUI.studioMetadata.isUnknownStudio(studioName);
                     if (studioInput) {
                         studioInput.value = studioMissing ? '' : studioName;
                         studioInput.placeholder = studioMissing ? 'Estúdio não informado; preencha se souber' : 'Ex: Ufotable';
@@ -8417,10 +8523,9 @@ function initAddFriendModalOptions() {
                         synopsisInput.value = anime.synopsis || '';
                     }
 
-                    // Hide dropdown
                     suggestionsBox.classList.add('hidden');
+                    activeSuggestionIndex = -1;
 
-                    // Visual feedback: brief border pulse on all inputs
                     const inputs = [
                         document.getElementById('form-anime-title'),
                         document.getElementById('form-anime-jp-title'),
@@ -8435,8 +8540,8 @@ function initAddFriendModalOptions() {
 
                     inputs.forEach(input => {
                         input.style.transition = 'border-color 0.2s ease, box-shadow 0.2s ease';
-                        input.style.borderColor = 'rgba(255, 69, 0, 0.6)';
-                        input.style.boxShadow = '0 0 10px rgba(255, 69, 0, 0.2)';
+                        input.style.borderColor = 'rgba(255, 85, 0, 0.6)';
+                        input.style.boxShadow = '0 0 12px rgba(255, 85, 0, 0.25)';
                         setTimeout(() => {
                             input.style.borderColor = '';
                             input.style.boxShadow = '';
@@ -8445,8 +8550,34 @@ function initAddFriendModalOptions() {
                     updateCatalogLivePreview();
                 });
 
-                suggestionsBox.appendChild(item);
+                list.appendChild(item);
             });
+
+            container.appendChild(list);
+
+            // 3. Footer
+            const footer = document.createElement('div');
+            footer.className = 'av-sug-footer';
+            footer.innerHTML = `
+                <div class="av-sug-shortcuts">
+                    <kbd class="av-sug-kbd">↑</kbd>
+                    <kbd class="av-sug-kbd">↓</kbd>
+                    <span class="av-sug-kbd-label">Navegar</span>
+                    <span class="av-sug-sep">•</span>
+                    <kbd class="av-sug-kbd">↵</kbd>
+                    <span class="av-sug-kbd-label">Importar</span>
+                    <span class="av-sug-sep">•</span>
+                    <kbd class="av-sug-kbd">ESC</kbd>
+                    <span class="av-sug-kbd-label">Fechar</span>
+                </div>
+                <div class="av-sug-footer-tip">
+                    <span class="av-sug-sparkle">✦</span>
+                    <span>Preenchimento inteligente em 1 clique</span>
+                </div>
+            `;
+            container.appendChild(footer);
+
+            suggestionsBox.appendChild(container);
         };
 
         // Listen for input changes
@@ -8456,20 +8587,67 @@ function initAddFriendModalOptions() {
 
             if (query.length < 3) {
                 suggestionsBox.classList.add('hidden');
+                activeSuggestionIndex = -1;
                 return;
             }
 
             suggestionsBox.classList.remove('hidden');
             suggestionsBox.innerHTML = `
-                <div class="p-4 text-center text-white/50 font-mono text-[10px] select-none flex items-center justify-center gap-2">
-                    <iconify-icon icon="lucide:loader-2" class="animate-spin text-brand"></iconify-icon>
-                    Buscando no MyAnimeList...
+                <div class="av-sug-container">
+                    <div class="av-sug-header">
+                        <div class="av-sug-header-left">
+                            <span class="av-sug-radar-dot av-sug-radar-pulsing"></span>
+                            <span class="av-sug-header-label">CATÁLOGO GLOBAL</span>
+                            <span class="av-sug-header-divider">/</span>
+                            <span class="av-sug-header-source">MYANIMELIST & KITSU</span>
+                        </div>
+                        <div class="av-sug-header-right">
+                            <span class="av-sug-sync-badge">
+                                <svg class="av-sug-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
+                                    <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/>
+                                </svg>
+                                <span>Consultando base oficial...</span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="av-sug-skeletons">
+                        <div class="av-sug-skel-item">
+                            <div class="av-sug-skel-poster av-shimmer-sweep"></div>
+                            <div class="av-sug-skel-meta">
+                                <div class="av-sug-skel-bar av-sug-skel-title av-shimmer-sweep"></div>
+                                <div class="av-sug-skel-bar av-sug-skel-sub av-shimmer-sweep"></div>
+                                <div class="av-sug-skel-tags">
+                                    <div class="av-sug-skel-chip av-shimmer-sweep"></div>
+                                    <div class="av-sug-skel-chip av-shimmer-sweep"></div>
+                                    <div class="av-sug-skel-chip av-shimmer-sweep" style="width: 50px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="av-sug-skel-item">
+                            <div class="av-sug-skel-poster av-shimmer-sweep"></div>
+                            <div class="av-sug-skel-meta">
+                                <div class="av-sug-skel-bar av-sug-skel-title av-shimmer-sweep" style="width: 72%;"></div>
+                                <div class="av-sug-skel-bar av-sug-skel-sub av-shimmer-sweep" style="width: 44%;"></div>
+                                <div class="av-sug-skel-tags">
+                                    <div class="av-sug-skel-chip av-shimmer-sweep"></div>
+                                    <div class="av-sug-skel-chip av-shimmer-sweep" style="width: 60px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="av-sug-footer">
+                        <div class="av-sug-footer-tip">
+                            <span class="av-sug-sparkle">✦</span>
+                            <span>Buscando arte em alta resolução, estúdio e metadados oficiais</span>
+                        </div>
+                    </div>
                 </div>
             `;
 
             searchDebounceTimeout = setTimeout(async () => {
                 const results = await searchAnimeMAL(query);
-                renderSuggestions(results);
+                renderSuggestions(results, query);
             }, 450);
         });
 
@@ -8477,13 +8655,39 @@ function initAddFriendModalOptions() {
         document.addEventListener('click', (e) => {
             if (!animeTitleInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
                 suggestionsBox.classList.add('hidden');
+                activeSuggestionIndex = -1;
             }
         });
 
-        // Handle Escape key to close suggestions
+        // Keyboard navigation (ArrowDown, ArrowUp, Enter, Escape)
         animeTitleInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
+            if (suggestionsBox.classList.contains('hidden')) return;
+
+            const items = suggestionsBox.querySelectorAll('.av-sug-item');
+            if (!items.length) {
+                if (e.key === 'Escape') {
+                    suggestionsBox.classList.add('hidden');
+                    activeSuggestionIndex = -1;
+                }
+                return;
+            }
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                activeSuggestionIndex = (activeSuggestionIndex + 1) % items.length;
+                updateActiveSuggestion(items);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                activeSuggestionIndex = (activeSuggestionIndex - 1 + items.length) % items.length;
+                updateActiveSuggestion(items);
+            } else if (e.key === 'Enter') {
+                if (activeSuggestionIndex >= 0 && items[activeSuggestionIndex]) {
+                    e.preventDefault();
+                    items[activeSuggestionIndex].click();
+                }
+            } else if (e.key === 'Escape') {
                 suggestionsBox.classList.add('hidden');
+                activeSuggestionIndex = -1;
             }
         });
     }
