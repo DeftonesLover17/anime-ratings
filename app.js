@@ -1808,7 +1808,7 @@ class AppState {
                                 <div class="flex items-center gap-3">
                                     ${avatarHtml}
                                     <div>
-                                        <p class="font-semibold text-white" style="color: ${friend.color}">${friend.name}${adminBadge}</p>
+                                        <p class="font-semibold text-white" style="color: ${getUserDisplayNameColor(friend, friend.color)}">${friend.name}${adminBadge}</p>
                                         <div class="flex items-center gap-2 mt-1">
                                             <span class="text-[8px] uppercase tracking-wider font-mono px-2 py-0.5 border ${statusObj.border} ${statusObj.bg} ${statusObj.text} rounded-full">
                                                 ${statusObj.label} (${epsWatched}/${totalEps > 0 ? totalEps : '?'})
@@ -3986,7 +3986,7 @@ function startApp() {
                                 <div class="flex items-center gap-3">
                                     ${avatarHtml}
                                     <div>
-                                        <p class="font-semibold text-white" style="color: ${friend.color}">${friend.name}${adminBadge}</p>
+                                        <p class="font-semibold text-white" style="color: ${getUserDisplayNameColor(friend, friend.color)}">${friend.name}${adminBadge}</p>
                                         <div class="flex items-center gap-2 mt-1">
                                             <span class="text-[8px] uppercase tracking-wider font-mono px-2 py-0.5 border ${statusObj.border} ${statusObj.bg} ${statusObj.text} rounded-full">
                                                 ${statusObj.label} (${epsWatched}/${totalEps > 0 ? totalEps : '?'})
@@ -4446,6 +4446,26 @@ function getMemberBadgeHtml(user, compact = false) {
         return `<span class="premium-badge ml-1" style="${style} display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:6px; font-size:9px; font-family:monospace; font-weight:900; letter-spacing:0.06em; text-transform:uppercase; border:1px solid; box-shadow: 0 0 8px rgba(255,255,255,0.15);">${icon} ${fullLabel}</span>`;
     }
     return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-mono font-bold border ml-1.5 shrink-0" style="${style} box-shadow: 0 0 8px rgba(255,255,255,0.12); letter-spacing: 0.05em;">${icon} ${fullLabel}</span>`;
+}
+
+// Helper to detect Felipe and ensure his display name is always pure white
+function isFelipe(nameOrUser) {
+    if (!nameOrUser) return false;
+    const name = typeof nameOrUser === 'string'
+        ? nameOrUser
+        : (nameOrUser.username || nameOrUser.name || nameOrUser.id || '');
+    return String(name).toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
+}
+
+function getUserDisplayNameColor(nameOrUser, customColor = null) {
+    if (isFelipe(nameOrUser)) {
+        return '#ffffff';
+    }
+    const color = customColor || (typeof nameOrUser === 'object' ? nameOrUser.color : null);
+    if (!color || color === '#0000ff' || color.toLowerCase() === 'blue' || color === '#0000EE') {
+        return '#ffffff';
+    }
+    return color;
 }
 
 // Helper to get HTML badges for Felipe dynamically based on active title choice (admin, founder, or both)
@@ -5403,7 +5423,7 @@ function renderAnimeDetailBody(anime) {
     
     const activeFriendLabel = document.getElementById('active-friend-name-label');
     if (activeFriendLabel) {
-        activeFriendLabel.style.color = currentFriend.color;
+        activeFriendLabel.style.color = getUserDisplayNameColor(currentFriend, currentFriend.color);
         const adminBadge = getUserBadgesHtml(currentFriend);
         if (isReadOnly) {
             activeFriendLabel.innerHTML = `${escapeHtml(currentFriend.name)}${adminBadge} <span class="text-[9px] bg-white/10 text-white/50 border border-white/5 px-2 py-0.5 rounded-md ml-1 font-mono tracking-normal font-normal">Apenas Leitura</span>`;
@@ -5522,7 +5542,7 @@ function renderAnimeDetailBody(anime) {
                 <div class="flex items-center gap-3">
                     ${avatarHtml}
                     <div>
-                        <p class="font-semibold text-white" style="color: ${friend.color}">${friend.name}${adminBadge}</p>
+                        <p class="font-semibold text-white" style="color: ${getUserDisplayNameColor(friend, friend.color)}">${friend.name}${adminBadge}</p>
                         <div class="flex items-center gap-2 mt-1">
                             <span class="text-[8px] uppercase tracking-wider font-mono px-2 py-0.5 border ${statusObj.border} ${statusObj.bg} ${statusObj.text} rounded-full">
                                 ${statusObj.label} (${epsWatched}/${totalEps > 0 ? totalEps : '?'})
@@ -8353,7 +8373,7 @@ function renderActivitiesFeed() {
             ${activityVisualHtml}
             <div class="activity-copy flex-grow min-w-0">
                 <div class="flex justify-between items-baseline gap-1.5">
-                    <span class="font-bold truncate" style="color: ${escapeHtml(act.userColor || '#FF4500')}">${escapeHtml(act.username)}${adminBadgeHtml}</span>
+                    <span class="font-bold truncate" style="color: ${getUserDisplayNameColor(act.username, act.userColor)}">${escapeHtml(act.username)}${adminBadgeHtml}</span>
                     <span class="text-[8px] text-gray-500 font-mono shrink-0">${timeText}</span>
                 </div>
                 <p class="text-gray-400 font-light mt-0.5 leading-relaxed">
@@ -8405,7 +8425,7 @@ function renderActivityHistoryModal() {
                 </div>
                 <div class="min-w-0 flex-grow">
                     <div class="flex items-center justify-between gap-3">
-                        <b class="text-[11px] font-mono truncate" style="color:${escapeHtml(activity.userColor || '#FF4500')}">${escapeHtml(activity.username)}</b>
+                        <b class="text-[11px] font-mono truncate" style="color:${getUserDisplayNameColor(activity.username, activity.userColor)}">${escapeHtml(activity.username)}</b>
                         <span class="text-[9px] text-gray-500 font-mono shrink-0">${escapeHtml(timeText)}</span>
                     </div>
                     <p class="text-[11px] text-gray-400 mt-1 leading-relaxed">
@@ -8673,7 +8693,7 @@ function renderGroupStats() {
     if (maratonista && maratonista.totalEpisodes > 0) {
         if (statMarName) {
             statMarName.innerText = maratonista.username;
-            statMarName.style.color = maratonista.color;
+            statMarName.style.color = '#ffffff';
         }
         if (statMarVal) statMarVal.innerText = `${maratonista.totalEpisodes} eps assistidos`;
     } else {
@@ -8689,7 +8709,7 @@ function renderGroupStats() {
     if (rigoroso) {
         if (statRigName) {
             statRigName.innerText = rigoroso.username;
-            statRigName.style.color = rigoroso.color;
+            statRigName.style.color = '#ffffff';
         }
         if (statRigVal) statRigVal.innerText = `Média: ${rigoroso.avgScore.toFixed(1)} ⭐`;
     } else {
@@ -8704,7 +8724,7 @@ function renderGroupStats() {
     if (empolgado) {
         if (statEmpName) {
             statEmpName.innerText = empolgado.username;
-            statEmpName.style.color = empolgado.color;
+            statEmpName.style.color = '#ffffff';
         }
         if (statEmpVal) statEmpVal.innerText = `Média: ${empolgado.avgScore.toFixed(1)} ⭐`;
     } else {
@@ -8719,7 +8739,7 @@ function renderGroupStats() {
     if (escritor && escritor.commentsCount > 0) {
         if (statEscName) {
             statEscName.innerText = escritor.username;
-            statEscName.style.color = escritor.color;
+            statEscName.style.color = '#ffffff';
         }
         if (statEscVal) statEscVal.innerText = `${escritor.commentsCount} reviews escritas`;
     } else {
@@ -8751,7 +8771,7 @@ function renderGroupStats() {
                     <div class="av-stats-rank-user">
                         <span class="av-stats-rank-num">${rankFormatted}</span>
                         ${avatarHtml}
-                        <span class="av-stats-rank-name" style="color: ${u.color || 'inherit'}">${escapeHtml(u.username)}</span>
+                        <span class="av-stats-rank-name" style="color: ${getUserDisplayNameColor(u.username, u.color)}">${escapeHtml(u.username)}</span>
                         ${adminBadgeHtml}
                     </div>
                     <div class="av-stats-rank-score">
