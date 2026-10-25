@@ -4135,6 +4135,7 @@ function initMotionSuite() {
                 if (!anchor) return;
                 const targetId = anchor.getAttribute('href');
                 if (!targetId || targetId === '#' || targetId === '#!') return;
+                if (targetId.startsWith('#obra/') || targetId.startsWith('#estudio/')) return;
                 try {
                     const targetEl = document.querySelector(targetId);
                     if (targetEl && window.lenis) {
@@ -5683,7 +5684,8 @@ function showAnimeDetail(animeId, returnHash) {
     const alreadyOpen = !detailPage.classList.contains('hidden');
     const changingAnime = state.activeDetailAnimeId !== animeId;
     window.AnivoidUI.cancel('detail');
-    if (!alreadyOpen) detailReturnContext = { scrollTop: window.scrollY, animeId, hash: returnHash };
+    const currentY = (window.lenis && typeof window.lenis.scroll === 'number') ? window.lenis.scroll : window.scrollY;
+    if (!alreadyOpen) detailReturnContext = { scrollTop: currentY, animeId, hash: returnHash };
     state.activeDetailAnimeId = animeId;
     document.body.dataset.avView = 'detail';
     const banner = document.getElementById('featured-banner-wrapper');
@@ -5703,11 +5705,32 @@ function showAnimeDetail(animeId, returnHash) {
         detailPage.classList.remove('av-detail-entering');
     }, 1000);
     renderAnimeDetailBody(anime);
-    if (!alreadyOpen || changingAnime) {
-        window.scrollTo({ top: 0, behavior: 'instant' });
-        const title = document.getElementById('detail-title');
-        if (title) { title.tabIndex = -1; title.focus({ preventScroll: true }); }
+    const resetDetailScroll = () => {
+        if (window.lenis) {
+            try {
+                window.lenis.scrollTo(0, { immediate: true, force: true });
+            } catch (_) {}
+        }
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+        if (typeof ScrollTrigger !== 'undefined') {
+            try { ScrollTrigger.refresh(); } catch (_) {}
+        }
+    };
 
+    resetDetailScroll();
+    requestAnimationFrame(resetDetailScroll);
+    setTimeout(resetDetailScroll, 50);
+    setTimeout(resetDetailScroll, 180);
+    setTimeout(resetDetailScroll, 350);
+
+    const title = document.getElementById('detail-title');
+    if (title) {
+        title.tabIndex = -1;
+        try {
+            title.focus({ preventScroll: true });
+        } catch (_) {}
     }
 }
 
@@ -5973,9 +5996,25 @@ function hideAnimeDetail() {
     renderFeaturedBanner();
     const context = detailReturnContext;
     detailReturnContext = null;
-    window.scrollTo({ top: context?.scrollTop || 0, behavior: 'instant' });
+    const returnY = context?.scrollTop || 0;
+    if (window.lenis) {
+        try {
+            window.lenis.scrollTo(returnY, { immediate: true, force: true });
+        } catch (_) {}
+    }
+    window.scrollTo({ top: returnY, behavior: 'instant' });
+    document.documentElement.scrollTop = returnY;
+    document.body.scrollTop = returnY;
+    if (typeof ScrollTrigger !== 'undefined') {
+        try { ScrollTrigger.refresh(); } catch (_) {}
+    }
     const origin = Array.from(document.querySelectorAll('[data-anime-id]')).find(item => item.dataset.animeId === context?.animeId);
-    if (origin) { origin.tabIndex = -1; origin.focus({ preventScroll: true }); }
+    if (origin) {
+        origin.tabIndex = -1;
+        try {
+            origin.focus({ preventScroll: true });
+        } catch (_) {}
+    }
 
 }
 
