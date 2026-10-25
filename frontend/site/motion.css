@@ -99,3 +99,29 @@
     .av-detail-entering, .av-detail-entering *, .av-studios, .av-studio-profile { animation: none !important; transform: none !important; filter: none !important; }
 }
 @media(hover:none),(pointer:coarse) { .av-card-invitation { transform: none; } }
+
+
+/* ==========================================================================
+   LENIS SMOOTH SCROLL (Awwwards Momentum Scrolling)
+   ========================================================================== */
+
+html.lenis,
+html.lenis body {
+    height: auto;
+}
+
+.lenis.lenis-smooth {
+    scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+    overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+    overflow: hidden;
+}
+
+.lenis.lenis-smooth iframe {
+    pointer-events: none;
+}

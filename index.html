@@ -12,6 +12,11 @@
     <link rel="stylesheet" href="assets/tailwind.92a612e12802.css">
     <!-- Iconify Icons CDN -->
     <script defer src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <!-- GSAP 3 & ScrollTrigger (Awwwards Creative Motion) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    <!-- Lenis Smooth Scroll (Inertia Momentum Scrolling) -->
+    <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js"></script>
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,7 +24,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syncopate:wght@700&family=Syne:wght@800&family=Lexend+Tera:wght@900&display=swap" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="assets/styles.7dcae5e3c34b.css">
+    <link rel="stylesheet" href="assets/styles.938148accfaf.css">
     
     <meta name="theme-color" content="#050505">
     <script>
@@ -287,7 +292,7 @@
                 </button>
                 
                 <!-- Account actions are mounted by frontend/account/drawer.js. -->
-                <div id="friends-dropdown" class="av-account-panel hidden"></div>
+                <div id="friends-dropdown" data-lenis-prevent="true" class="av-account-panel hidden"></div>
             </div>
         </div>
         </div>
@@ -628,7 +633,7 @@
     </div>
 
     <!-- EDIT PROFILE MODAL (AWWWARDS PROFILE STUDIO) -->
-    <div id="edit-profile-modal" class="fixed inset-0 bg-black/85 backdrop-blur-2xl z-[9998] hidden items-center justify-center p-3 sm:p-5 md:p-8 overflow-y-auto">
+    <div id="edit-profile-modal" data-lenis-prevent="true" class="fixed inset-0 bg-black/85 backdrop-blur-2xl z-[9998] hidden items-center justify-center p-3 sm:p-5 md:p-8 overflow-y-auto">
         <div class="av-profile-studio-shell">
             
             <!-- Header -->
@@ -925,7 +930,7 @@
     </div>
 
     <!-- GROUP STATISTICS MODAL -->
-    <div id="group-stats-modal" class="fixed inset-0 bg-black/85 backdrop-blur-2xl z-[9998] hidden items-center justify-center p-4 sm:p-6 md:p-8 overflow-y-auto">
+    <div id="group-stats-modal" data-lenis-prevent="true" class="fixed inset-0 bg-black/85 backdrop-blur-2xl z-[9998] hidden items-center justify-center p-4 sm:p-6 md:p-8 overflow-y-auto">
         <div class="av-stats-shell">
 
             <!-- Header -->
@@ -1094,7 +1099,7 @@
     </div>
 
     <!-- PLAYER PROFILE MODAL (AWWWARDS PLAYER PROFILE) -->
-    <div id="player-profile-modal" class="fixed inset-0 bg-black/85 backdrop-blur-2xl z-[9998] hidden items-center justify-center p-3 sm:p-5 md:p-8 overflow-y-auto">
+    <div id="player-profile-modal" data-lenis-prevent="true" class="fixed inset-0 bg-black/85 backdrop-blur-2xl z-[9998] hidden items-center justify-center p-3 sm:p-5 md:p-8 overflow-y-auto">
         <div class="av-player-modal-shell" id="player-profile-shell">
             <div id="player-profile-content" class="w-full flex flex-col min-w-0">
                 <!-- JS populated -->
@@ -1103,7 +1108,7 @@
     </div>
 
     <!-- NOTIFICATIONS MODAL -->
-    <div id="notifications-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
+    <div id="notifications-modal" data-lenis-prevent="true" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
         <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl p-6 md:p-8 space-y-5 my-auto relative">
             <div class="flex items-center justify-between border-b border-white/5 pb-4">
                 <div class="flex items-center gap-2 text-xs font-mono text-gray-400">
@@ -1216,7 +1221,7 @@
     </div>
 
     <!-- SECURITY UPDATE NOTIFICATION MODAL -->
-    <div id="security-notice-modal" class="fixed inset-0 bg-black/90 z-[9999] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
+    <div id="security-notice-modal" data-lenis-prevent="true" class="fixed inset-0 bg-black/90 z-[9999] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
         <div class="bg-[#1a1a1a] border border-[#333] rounded-3xl w-full max-w-md overflow-hidden shadow-2xl p-6 md:p-8 space-y-6 my-auto relative">
             
             <div class="flex items-center gap-3 border-b border-[#333] pb-4 select-none">
@@ -1269,6 +1274,6 @@
 
     <!-- Scripts Integration -->
     <script src="assets/sync-state.9868559c480c.js"></script>
-    <script src="assets/app.30a1b3bc6a53.js"></script>
+    <script src="assets/app.ff25a9534cb2.js"></script>
 </body>
 </html>

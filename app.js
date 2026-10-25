@@ -3476,6 +3476,8 @@ function closePlayerProfileModal() {
     const modal = document.getElementById('player-profile-modal');
     if (!modal || modal.classList.contains('hidden') || modal.classList.contains('is-closing')) return;
 
+    if (window.lenisStart) window.lenisStart();
+
     const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion) {
         modal.classList.add('hidden');
@@ -4054,6 +4056,178 @@ function showRegistrationGate() {
 }
 
 // --- DOM ELEMENTS AND EVENT LISTENERS ---
+
+// ==========================================================================
+// AWWWARDS MOTION SUITE: LENIS SMOOTH SCROLL & GSAP CREATIVE CHOREOGRAPHY
+// ==========================================================================
+
+function initMotionSuite() {
+    if (typeof window === 'undefined') return;
+
+    const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // 1. Tag all modals, shells and drawers with data-lenis-prevent so inner scrolling is contained
+    const preventSelectors = [
+        '#edit-profile-modal',
+        '#player-profile-modal',
+        '#group-stats-modal',
+        '#notifications-modal',
+        '#friends-dropdown',
+        '#detail-modal',
+        '#detail-content',
+        '#registration-gate',
+        '#security-notice-modal',
+        '.av-profile-studio-shell',
+        '.av-player-modal-shell',
+        '.av-stats-shell',
+        '.av-studio-layout',
+        '.av-player-scroll-body',
+        '.av-stats-scroll-content'
+    ];
+    preventSelectors.forEach(sel => {
+        document.querySelectorAll(sel).forEach(el => {
+            el.setAttribute('data-lenis-prevent', 'true');
+        });
+    });
+
+    // 2. Initialize Lenis Smooth Scroll
+    if (typeof Lenis !== 'undefined' && !reducedMotion && !window.lenis) {
+        try {
+            window.lenis = new Lenis({
+                duration: 1.15,
+                easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+                orientation: 'vertical',
+                gestureOrientation: 'vertical',
+                smoothWheel: true,
+                wheelMultiplier: 1.0,
+                touchMultiplier: 1.5,
+                infinite: false
+            });
+
+            // Connect Lenis to GSAP ticker if available, or fallback to requestAnimationFrame
+            if (typeof gsap !== 'undefined') {
+                if (typeof ScrollTrigger !== 'undefined') {
+                    gsap.registerPlugin(ScrollTrigger);
+                    window.lenis.on('scroll', ScrollTrigger.update);
+                }
+                gsap.ticker.add((time) => {
+                    window.lenis?.raf(time * 1000);
+                });
+                gsap.ticker.lagSmoothing(0);
+            } else {
+                function raf(time) {
+                    window.lenis?.raf(time);
+                    requestAnimationFrame(raf);
+                }
+                requestAnimationFrame(raf);
+            }
+
+            // Global scroll control helpers
+            window.lenisStop = () => window.lenis?.stop();
+            window.lenisStart = () => window.lenis?.start();
+
+            // Smooth anchor links interceptor
+            document.addEventListener('click', (e) => {
+                const anchor = e.target.closest('a[href^="#"]');
+                if (!anchor) return;
+                const targetId = anchor.getAttribute('href');
+                if (!targetId || targetId === '#' || targetId === '#!') return;
+                try {
+                    const targetEl = document.querySelector(targetId);
+                    if (targetEl && window.lenis) {
+                        e.preventDefault();
+                        window.lenis.scrollTo(targetEl, { offset: -24, duration: 1.15 });
+                    }
+                } catch (_) {}
+            });
+        } catch (err) {
+            console.warn('Lenis init notice:', err);
+        }
+    }
+
+    // 3. GSAP Creative Choreography
+    if (typeof gsap !== 'undefined' && !reducedMotion) {
+        try {
+            // A. Hero Parallax on Scroll
+            const heroWrapper = document.getElementById('featured-banner-wrapper');
+            const heroMedia = heroWrapper?.querySelector('.av-hero-media');
+            if (heroWrapper && heroMedia && typeof ScrollTrigger !== 'undefined') {
+                gsap.to(heroMedia, {
+                    yPercent: 16,
+                    scale: 1.04,
+                    ease: 'none',
+                    scrollTrigger: {
+                        trigger: heroWrapper,
+                        start: 'top top',
+                        end: 'bottom top',
+                        scrub: true
+                    }
+                });
+            }
+
+            // B. Ambient Depth Planes Float
+            const planeA = document.querySelector('.ambient-plane-a');
+            const planeB = document.querySelector('.ambient-plane-b');
+            if (planeA && typeof ScrollTrigger !== 'undefined') {
+                gsap.to(planeA, {
+                    yPercent: -20,
+                    xPercent: 8,
+                    ease: 'none',
+                    scrollTrigger: {
+                        trigger: document.body,
+                        start: 'top top',
+                        end: 'bottom bottom',
+                        scrub: 1.5
+                    }
+                });
+            }
+            if (planeB && typeof ScrollTrigger !== 'undefined') {
+                gsap.to(planeB, {
+                    yPercent: 25,
+                    xPercent: -10,
+                    ease: 'none',
+                    scrollTrigger: {
+                        trigger: document.body,
+                        start: 'top top',
+                        end: 'bottom bottom',
+                        scrub: 2
+                    }
+                });
+            }
+
+            // C. Magnetic Micro-Physics on Primary Actions & Pills
+            setupMagneticPhysics();
+
+        } catch (err) {
+            console.warn('GSAP motion setup notice:', err);
+        }
+    }
+}
+window.initMotionSuite = initMotionSuite;
+
+function setupMagneticPhysics() {
+    if (typeof window === 'undefined' || typeof gsap === 'undefined') return;
+    if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return;
+
+    const selector = '.av-button-solid, .av-button-accent, .av-stats-close-btn, .av-player-close-btn, .av-chip, .av-studio-pill-item';
+    document.querySelectorAll(selector).forEach(el => {
+        if (el.dataset.magneticHooked) return;
+        el.dataset.magneticHooked = 'true';
+
+        el.addEventListener('mousemove', (e) => {
+            const rect = el.getBoundingClientRect();
+            const x = (e.clientX - rect.left - rect.width / 2) * 0.22;
+            const y = (e.clientY - rect.top - rect.height / 2) * 0.22;
+            gsap.to(el, { x, y, duration: 0.3, ease: 'power2.out', overwrite: 'auto' });
+        });
+
+        el.addEventListener('mouseleave', () => {
+            gsap.to(el, { x: 0, y: 0, duration: 0.55, ease: 'elastic.out(1, 0.35)', overwrite: 'auto' });
+        });
+    });
+}
+window.setupMagneticPhysics = setupMagneticPhysics;
+
 function startApp() {
     window.AnivoidUI.site.mount();
     window.AnivoidUI.account.mount();
@@ -4086,6 +4260,7 @@ function startApp() {
     
     // 3. Populate and Render Dashboard UI
     initUI();
+    initMotionSuite();
 
     // Setup security notice modal close listener
     const secModal = document.getElementById('security-notice-modal');
@@ -4243,6 +4418,7 @@ function setupSplashScreen() {
         if (state.friends.length === 0 && !state.loggedInUser) showRegistrationGate();
         else { hideRegistrationGate(); checkAndShowSecurityModal(); }
         if (window.initObserver) window.initObserver();
+        if (window.initMotionSuite) window.initMotionSuite();
     };
     const transitionOut = (instant = false) => {
         if (transitioned) return;
@@ -4802,6 +4978,8 @@ function renderAnimeGrid() {
         catalogPanelsFrame = null;
         renderActivitiesFeed();
         renderRecommendationsRail();
+        if (typeof ScrollTrigger !== 'undefined') ScrollTrigger.refresh();
+        if (window.setupMagneticPhysics) window.setupMagneticPhysics();
     });
 }
 
@@ -5067,8 +5245,12 @@ function renderStudiosDirectory() {
 
 window.switchTabToFeatured = () => {
     window.switchTabToAll('#featured-banner-wrapper', false);
-    window.scrollTo({ top: 0, behavior: 'instant' });
-    document.getElementById('featured-banner-wrapper')?.scrollIntoView({ behavior: 'instant' });
+    if (window.lenis) {
+        window.lenis.scrollTo(0, { duration: 1.0 });
+    } else {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        document.getElementById('featured-banner-wrapper')?.scrollIntoView({ behavior: 'instant' });
+    }
 };
 
 window.backToStudiosLanding = () => window.switchTabToStudio(null);
@@ -5082,7 +5264,14 @@ window.switchTabToAll = (targetHash = null, shouldScroll = false) => {
     if (state.activeDetailAnimeId) closeAnimeDetail(false, targetHash);
     else { if (targetHash && targetHash !== '#anime-grid-section') window.AnivoidUI.site.navigation.mark(targetHash); renderAnimeGrid(); }
     renderFeaturedBanner();
-    if (shouldScroll) { document.getElementById('anime-grid-section')?.scrollIntoView({ behavior: 'instant' }); }
+    if (shouldScroll) {
+        const gridSec = document.getElementById('anime-grid-section');
+        if (window.lenis && gridSec) {
+            window.lenis.scrollTo(gridSec, { offset: -24, duration: 1.15 });
+        } else {
+            gridSec?.scrollIntoView({ behavior: 'instant' });
+        }
+    }
 };
 
 window.switchTabToStudio = (studioName, animate = true) => {
