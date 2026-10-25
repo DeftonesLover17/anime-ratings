@@ -1,14 +1,17 @@
 import syncTools from '../../shared/sync-state.js';
 import studioMetadata from '../../shared/studio-metadata.js';
+import identity from '../../shared/security/identity.js';
+import security from '../../shared/security/policy.js';
+import sessionTools from '../../backend/cloudflare/sessions.js';
+import verificationTools from '../../backend/security/email-verification.js';
+import emailStoreTools from '../../backend/cloudflare/email-store.js';
 const { mergeClientState } = syncTools;
 const storageReady = new WeakMap();
 const REQUEST_LIMITS = Symbol('requestRateLimits');
 
 const PASSWORD_ITERATIONS = 100000;
 const PASSWORD_KEY_LENGTH_BITS = 256;
-const MIN_PASSWORD_LENGTH = 10;
-const LEGACY_PASSWORD_RESET_ITERATION_THRESHOLD = 150000;
-const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
+const LEGACY_PASSWORD_RESET_ITERATION_THRESHOLD = 100000;
 const MAX_EXTERNAL_IMAGE_URL_LENGTH = 4096;
 const MAX_DATA_IMAGE_LENGTH = 2 * 1024 * 1024;
 const BACKUP_RETENTION = 20;
@@ -64,24 +67,8 @@ function sameUsername(a, b) {
     return usernameKey(a) === usernameKey(b);
 }
 
-function identifierKey(identifier) {
-    return String(identifier || '').trim().toLowerCase();
-}
-
 function findRegisteredUserByIdentifier(state, identifier) {
-    const rawKey = identifierKey(identifier);
-    const normalizedKey = normalizeUsername(identifier);
-    if (!rawKey && !normalizedKey) return null;
-
-    return (state.registeredUsers || []).find(user => {
-        if (!user) return false;
-        const email = identifierKey(user.email);
-        const username = identifierKey(user.username);
-        const normalizedUsername = normalizeUsername(user.username);
-        return (email && email === rawKey)
-            || (username && username === rawKey)
-            || (normalizedUsername && normalizedUsername === normalizedKey);
-    }) || null;
+    return identity.findLoginUser(state, identifier);
 }
 
 function normalizeAnimeIdentity(value) {
@@ -241,6 +228,7 @@ function sanitizeUserRecord(user) {
         email: escapeHtml(String(user.email || '').trim(), 254),
         color: sanitizeColor(user.color),
         avatar: sanitizeAvatar(user.avatar),
+        banner: security.encodeCssUrl(sanitizeImageUrl(user.banner)),
         favoriteGenres: sanitizeTextArray(user.favoriteGenres),
         favoriteStudios: sanitizeTextArray(user.favoriteStudios),
         favoriteAnimes: sanitizeTextArray(user.favoriteAnimes, 50, 120),
@@ -312,15 +300,6 @@ function preferCleanerText(serverText, localText) {
         : localValue;
 }
 
-function mergeReplyPreservingCleanText(serverReply, localReply) {
-    if (!serverReply) return localReply;
-    if (!localReply) return serverReply;
-    return {
-        ...serverReply,
-        ...localReply,
-        reply: preferCleanerText(serverReply.reply, localReply.reply)
-    };
-}
 
 function sanitizeRatings(ratings) {
     if (!ratings || typeof ratings !== 'object') return {};
@@ -474,20 +453,7 @@ function sanitizeStateForStorage(state) {
 }
 
 function sanitizeUser(user, viewerUsername = '') {
-    if (!user || typeof user !== 'object') return user;
-    const {
-        password,
-        passwordHash,
-        passwordSalt,
-        passwordIterations,
-        passwordDigest,
-        passwordResetRequired,
-        ...safeUser
-    } = user;
-    if (viewerUsername && user.username && sameUsername(user.username, viewerUsername)) return safeUser;
-    delete safeUser.email;
-    delete safeUser.notifications;
-    return safeUser;
+    return security.userResponse(user, viewerUsername);
 }
 
 function sanitizeAdminUserSummary(user) {
@@ -556,7 +522,7 @@ function createTemporaryPassword() {
     return `Ani${randomToken().replace(/[^a-zA-Z0-9]/g, '').slice(0, 22)}7`;
 }
 
-async function hashPassword(password, salt = randomBase64(16), iterations = PASSWORD_ITERATIONS) {
+async function hashPassword(password, salt = randomBase64(16), iterations = PASSWORD_ITERATIONS, saltEncoding = 'base64') {
     const key = await crypto.subtle.importKey(
         'raw',
         new TextEncoder().encode(String(password || '')),
@@ -565,7 +531,7 @@ async function hashPassword(password, salt = randomBase64(16), iterations = PASS
         ['deriveBits']
     );
     const bits = await crypto.subtle.deriveBits(
-        { name: 'PBKDF2', salt: base64ToBytes(salt), iterations, hash: 'SHA-256' },
+        { name: 'PBKDF2', salt: saltEncoding === 'utf8' ? new TextEncoder().encode(salt) : base64ToBytes(salt), iterations, hash: 'SHA-256' },
         key,
         PASSWORD_KEY_LENGTH_BITS
     );
@@ -573,7 +539,8 @@ async function hashPassword(password, salt = randomBase64(16), iterations = PASS
         passwordHash: bytesToBase64(new Uint8Array(bits)),
         passwordSalt: salt,
         passwordIterations: iterations,
-        passwordDigest: 'pbkdf2-sha256'
+        passwordDigest: 'pbkdf2-sha256',
+        passwordSaltEncoding: saltEncoding
     };
 }
 
@@ -589,9 +556,17 @@ function timingSafeEqual(a, b) {
 async function verifyPassword(user, password) {
     if (!user || !password) return false;
     if (user.passwordHash && user.passwordSalt) {
-        const iterations = user.passwordIterations || PASSWORD_ITERATIONS;
-        const candidate = await hashPassword(password, user.passwordSalt, iterations);
-        return timingSafeEqual(candidate.passwordHash, user.passwordHash);
+        const iterations = Number(user.passwordIterations) || PASSWORD_ITERATIONS;
+        if (!Number.isInteger(iterations) || iterations < 1 || iterations > LEGACY_PASSWORD_RESET_ITERATION_THRESHOLD) return false;
+        const encodings = user.passwordSaltEncoding ? [user.passwordSaltEncoding] : ['base64', 'utf8'];
+        try {
+            for (const encoding of encodings) {
+                if (!['base64', 'utf8'].includes(encoding)) return false;
+                const candidate = await hashPassword(password, user.passwordSalt, iterations, encoding);
+                if (timingSafeEqual(candidate.passwordHash, user.passwordHash)) return true;
+            }
+        } catch { return false; }
+        return false;
     }
     return typeof user.password === 'string' && user.password === password;
 }
@@ -608,15 +583,12 @@ function hasUnsupportedLegacyPassword(user) {
 }
 
 function passwordPolicyError(password) {
-    const value = String(password || '');
-    if (value.length < MIN_PASSWORD_LENGTH || !/\d/.test(value) || !/[a-zA-Z]/.test(value)) {
-        return `A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres, contendo letras e numeros.`;
-    }
-    return '';
+    return security.passwordPolicyError(password);
 }
 
 async function setPassword(user, password) {
     Object.assign(user, await hashPassword(password));
+    user.credentialVersion = (Number(user.credentialVersion) || 0) + 1;
     user.passwordResetRequired = false;
     delete user.password;
 }
@@ -751,12 +723,8 @@ function notifyFriendsOfActivity(state, authorUser, activity) {
     });
 }
 
-function isAdminUser(user, env) {
-    const admins = String(env.ADMIN_USERS || 'felipe')
-        .split(',')
-        .map(name => normalizeUsername(name))
-        .filter(Boolean);
-    return admins.includes(normalizeUsername(user && user.username));
+function isAdminUser(user, env, state) {
+    return identity.isAdmin(user, env, state);
 }
 
 function buildCatalogAnime(input, existingAnime = null) {
@@ -797,6 +765,8 @@ async function initializeStorage(env) {
     const db = getDb(env);
     await db.prepare('CREATE TABLE IF NOT EXISTS app_state (id TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)').run();
     await db.prepare('CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, username TEXT NOT NULL, expires_at INTEGER NOT NULL)').run();
+    await sessionStore.initialize(db);
+    await emailStore.initialize(db);
     await db.prepare('CREATE TABLE IF NOT EXISTS rate_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, reset_at INTEGER NOT NULL)').run();
     await db.prepare('CREATE TABLE IF NOT EXISTS state_backups (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, reason TEXT NOT NULL, state TEXT NOT NULL)').run();
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions (expires_at)').run();
@@ -853,6 +823,7 @@ async function writeState(env, state) {
     await ensureStorage(env);
     const revision = Number(state.revision) || 0;
     normalizeSocialGraph(state);
+    identity.assignAccountIds(state, () => crypto.randomUUID());
     await maybeCreateAutomaticBackup(env, 'auto');
     const safeState = sanitizeStateForStorage(state);
     safeState.revision = revision + 1;
@@ -868,36 +839,11 @@ async function writeState(env, state) {
     return safeState;
 }
 
-async function createSession(env, username) {
-    await ensureStorage(env);
-    const token = randomToken();
-    const expiresAt = Date.now() + SESSION_TTL_MS;
-    await getDb(env).prepare('INSERT INTO sessions (token, username, expires_at) VALUES (?1, ?2, ?3)').bind(token, username, expiresAt).run();
-    return token;
-}
-
-async function getAuthenticatedUser(request, env, state) {
-    let token = '';
-    const authHeader = request.headers.get('Authorization') || '';
-    const match = authHeader.match(/^Bearer\s+(.+)$/i);
-    if (match) token = match[1];
-
-    const cookieHeader = request.headers.get('Cookie') || '';
-    const cookieMatch = cookieHeader.match(/anivoid_auth_token=([^;]+)/);
-    if (!token && cookieMatch) token = cookieMatch[1];
-
-    if (!token) return null;
-    await ensureStorage(env);
-    const row = await getDb(env).prepare('SELECT username, expires_at FROM sessions WHERE token = ?1').bind(token).first();
-    if (!row || Number(row.expires_at) < Date.now()) {
-        if (row) await getDb(env).prepare('DELETE FROM sessions WHERE token = ?1').bind(token).run();
-        return null;
-    }
-    const user = findRegisteredUser(state, row.username);
-    if (!user) return null;
-    await getDb(env).prepare('UPDATE sessions SET expires_at = ?1 WHERE token = ?2').bind(Date.now() + SESSION_TTL_MS, token).run();
-    return user;
-}
+const sessionStore = sessionTools.createD1Sessions({ crypto, getDb, ensureStorage, randomToken });
+const emailStore = emailStoreTools.createD1EmailStore({ getDb, ensureStorage });
+const emailVerification = verificationTools.createEmailVerification({ crypto, store: emailStore });
+const createSession = (env, user) => sessionStore.create(env, user);
+const getAuthenticatedUser = (request, env, state) => sessionStore.authenticate(request, env, state);
 
 async function requireAuthenticatedUser(request, env, state) {
     const user = await getAuthenticatedUser(request, env, state);
@@ -927,14 +873,10 @@ async function enforceRateLimitOnce(request, env, bucket, maxAttempts, windowMs,
     const resetAt = now + windowMs;
     const key = clientRateLimitKey(request, bucket, discriminator);
     await getDb(env).prepare('DELETE FROM rate_limits WHERE reset_at < ?1').bind(now).run();
-    const row = await getDb(env).prepare('SELECT count, reset_at FROM rate_limits WHERE key = ?1').bind(key).first();
-    if (!row || Number(row.reset_at) < now) {
-        await getDb(env).prepare(
-            'INSERT INTO rate_limits (key, count, reset_at) VALUES (?1, 1, ?2) ON CONFLICT(key) DO UPDATE SET count = 1, reset_at = ?2'
-        ).bind(key, resetAt).run();
-        return null;
-    }
-    if (Number(row.count) >= maxAttempts) {
+    const row = await getDb(env).prepare(
+        'INSERT INTO rate_limits (key, count, reset_at) VALUES (?1, 1, ?2) ON CONFLICT(key) DO UPDATE SET count = CASE WHEN reset_at <= ?3 THEN 1 ELSE MIN(count + 1, ?4) END, reset_at = CASE WHEN reset_at <= ?3 THEN ?2 ELSE reset_at END RETURNING count, reset_at'
+    ).bind(key, resetAt, now, maxAttempts + 1).first();
+    if (Number(row.count) > maxAttempts) {
         const retryAfter = Math.max(1, Math.ceil((Number(row.reset_at) - now) / 1000));
         return json(
             { error: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' },
@@ -942,7 +884,6 @@ async function enforceRateLimitOnce(request, env, bucket, maxAttempts, windowMs,
             { 'Retry-After': String(retryAfter) }
         );
     }
-    await getDb(env).prepare('UPDATE rate_limits SET count = count + 1 WHERE key = ?1').bind(key).run();
     return null;
 }
 
@@ -951,97 +892,6 @@ function isBogusAnime(anime) {
     const id = String(anime.id);
     const bogusIds = new Set(['steins-gate', 'sample-anime', 'sample-anime-test', 'sample-anime-special-sync']);
     return bogusIds.has(id) || id.includes('debug') || id.startsWith('sample-anime') || id.includes('-test-') || id.startsWith('test-');
-}
-
-function mergeCommentLikes(serverLikes, localLikes, loggedInId = '') {
-    const likes = new Set();
-    const localLikeIds = new Set();
-    [serverLikes, localLikes].forEach(list => {
-        if (!Array.isArray(list)) return;
-        list.forEach(item => {
-            const id = normalizeUsername(item);
-            if (id) likes.add(id);
-        });
-    });
-    if (Array.isArray(localLikes)) {
-        localLikes.forEach(item => {
-            const id = normalizeUsername(item);
-            if (id) localLikeIds.add(id);
-        });
-    }
-    if (loggedInId) {
-        if (localLikeIds.has(loggedInId)) likes.add(loggedInId);
-        else likes.delete(loggedInId);
-    }
-    return Array.from(likes).slice(0, 200);
-}
-
-function mergeCommentsForUser(serverAnime, localAnime, loggedInId, onActivity = () => {}) {
-    if (!serverAnime.comments) serverAnime.comments = [];
-    const localComments = Array.isArray(localAnime.comments) ? localAnime.comments : [];
-    const localCommentIds = new Set(localComments.map(comment => comment && comment.id).filter(Boolean));
-
-    serverAnime.comments = serverAnime.comments.filter(comment => {
-        const isAuthor = comment.friendId && comment.friendId.toLowerCase() === loggedInId;
-        if (isAuthor && !localCommentIds.has(comment.id)) {
-            onActivity('comment_delete', 'removeu uma critica');
-        }
-        return !isAuthor || localCommentIds.has(comment.id);
-    });
-
-    localComments.forEach(localComment => {
-        if (!localComment || !localComment.id) return;
-        const index = serverAnime.comments.findIndex(comment => comment.id === localComment.id);
-        const isAuthor = localComment.friendId && localComment.friendId.toLowerCase() === loggedInId;
-
-        if (isAuthor) {
-            if (index >= 0) {
-                const serverComment = serverAnime.comments[index];
-                const mergedCommentText = preferCleanerText(serverComment.comment, localComment.comment);
-                if (String(serverComment.comment || '') !== mergedCommentText) {
-                    onActivity('comment_edit', 'editou uma critica');
-                }
-                const repliesMap = {};
-                (serverComment.replies || []).forEach(reply => { if (reply && reply.id) repliesMap[reply.id] = reply; });
-                (localComment.replies || []).forEach(reply => {
-                    if (reply && reply.id) {
-                        repliesMap[reply.id] = mergeReplyPreservingCleanText(repliesMap[reply.id], reply);
-                    }
-                });
-                serverAnime.comments[index] = {
-                    ...serverComment,
-                    ...localComment,
-                    comment: mergedCommentText,
-                    likes: mergeCommentLikes(serverComment.likes, localComment.likes, loggedInId),
-                    replies: Object.values(repliesMap).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-                };
-            } else {
-                onActivity('comment_add', 'escreveu uma critica');
-                serverAnime.comments.push({ ...localComment, likes: localComment.likes || [], replies: localComment.replies || [] });
-            }
-            return;
-        }
-
-        if (index >= 0) {
-            const repliesMap = {};
-            (serverAnime.comments[index].replies || []).forEach(reply => { if (reply && reply.id) repliesMap[reply.id] = reply; });
-            let addedReply = false;
-            (localComment.replies || []).forEach(reply => {
-                if (reply && reply.id && reply.friendId && reply.friendId.toLowerCase() === loggedInId) {
-                    if (!repliesMap[reply.id]) addedReply = true;
-                    repliesMap[reply.id] = mergeReplyPreservingCleanText(repliesMap[reply.id], reply);
-                }
-            });
-            if (addedReply) onActivity('reply_add', 'respondeu uma critica');
-            serverAnime.comments[index] = {
-                ...serverAnime.comments[index],
-                likes: mergeCommentLikes(serverAnime.comments[index].likes, localComment.likes, loggedInId),
-                replies: Object.values(repliesMap).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-            };
-        }
-    });
-
-    serverAnime.comments.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 }
 
 function createActivity(authorUser, type, anime, details) {
@@ -1132,17 +982,15 @@ function mergeStates(localState, serverState, loggedInUser, canEditCatalog = fal
 }
 
 async function parseJsonBody(request) {
-    try {
-        return await request.json();
-    } catch (err) {
-        return null;
-    }
+    return security.readJson(request);
 }
 
 async function handleLogin(request, env) {
     const body = await parseJsonBody(request);
     const identifier = body && (body.identifier || body.email);
-    if (!body || !identifier || !body.password) return json({ error: 'E-mail ou usuario e senha sao obrigatorios.' }, 400);
+    if (!body || typeof identifier !== 'string' || identifier.length > 254 || typeof body.password !== 'string' || !body.password || body.password.length > 256) return json({ error: 'E-mail ou usuario e senha sao obrigatorios.' }, 400);
+    const ipLimited = await enforceRateLimit(request, env, 'login-ip', 24, 10 * 60 * 1000);
+    if (ipLimited) return ipLimited;
     const limited = await enforceRateLimit(request, env, 'login', 8, 1000 * 60 * 10, identifier);
     if (limited) return limited;
     const state = await readState(env);
@@ -1170,8 +1018,11 @@ async function handleLogin(request, env) {
         return json({ error: 'E-mail ou senha incorretos.' }, 401);
     }
 
-    const token = await createSession(env, user.username);
-    const cookie = `anivoid_auth_token=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${Math.floor(SESSION_TTL_MS/1000)}`;
+    const needsMigration = !user.accountId || Boolean(user.password);
+    if (user.password) await setPassword(user, body.password);
+    if (needsMigration) await writeState(env, state);
+    const token = await createSession(env, user);
+    const cookie = security.sessionCookie(token);
     return json({
         success: true,
         user: sanitizeUser(user, user.username),
@@ -1192,23 +1043,21 @@ async function handleRegister(request, env) {
     }
     const passwordError = passwordPolicyError(newUser.password);
     if (passwordError) return json({ error: passwordError }, 400);
-    const limited = await enforceRateLimit(request, env, 'register', 5, 1000 * 60 * 30, newUser.email || newUser.username);
+    const limited = await enforceRateLimit(request, env, 'register', 5, 1000 * 60 * 30);
     if (limited) return limited;
     const state = await readState(env);
     if (!Array.isArray(state.registeredUsers)) state.registeredUsers = [];
-    const exists = state.registeredUsers.some(user =>
-        (user.username && sameUsername(user.username, newUser.username)) ||
-        (user.email && user.email.toLowerCase() === String(newUser.email).toLowerCase())
-    );
-    if (exists) return json({ error: 'Nome de usuário ou e-mail já cadastrado.' }, 409);
+    const registrationError = identity.registrationError(state, newUser, env);
+    if (registrationError) return json({ error: registrationError }, 409);
 
     const nextMemberNumber = state.registeredUsers.filter(user => user.memberNumber).length + 1;
     const userToAdd = {
+        accountId: crypto.randomUUID(),
         username: newUser.username,
-        email: newUser.email,
+        email: identity.emailKey(newUser.email),
         color: newUser.color || '#FF4500',
         avatar: newUser.avatar || '👤',
-        emailVerified: newUser.emailVerified !== undefined ? newUser.emailVerified : false,
+        emailVerified: false,
         friends: [],
         friendRequests: [],
         favoriteGenres: newUser.favoriteGenres || [],
@@ -1230,8 +1079,8 @@ async function handleRegister(request, env) {
     await setPassword(userToAdd, newUser.password);
     state.registeredUsers.push(userToAdd);
     await writeState(env, state);
-    const token = await createSession(env, userToAdd.username);
-    const cookie = `anivoid_auth_token=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${Math.floor(SESSION_TTL_MS/1000)}`;
+    const token = await createSession(env, userToAdd);
+    const cookie = security.sessionCookie(token);
     return json({ success: true, user: sanitizeUser(userToAdd, userToAdd.username), state: sanitizeState(state, userToAdd.username) }, 200, { 'Set-Cookie': cookie });
 }
 
@@ -1241,20 +1090,27 @@ async function handlePatchUser(request, env) {
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
-    if (!sameUsername(auth.user.username, body.username) && !isAdminUser(auth.user, env)) return json({ error: 'Você só pode alterar o próprio perfil.' }, 403);
+    if (!sameUsername(auth.user.username, body.username) && !isAdminUser(auth.user, env, state)) return json({ error: 'Você só pode alterar o próprio perfil.' }, 403);
     const index = state.registeredUsers.findIndex(user => user && user.username && sameUsername(user.username, body.username));
     if (index < 0) return json({ error: 'User not found' }, 404);
-    const allowedFields = ['email', 'color', 'avatar', 'banner', 'emailVerified', 'favoriteGenres', 'favoriteStudios', 'favoriteAnimes', 'activeTitle', 'featuredAnimeId'];
-    const safeFields = {};
-    allowedFields.forEach(field => {
-        if (Object.prototype.hasOwnProperty.call(body.fields, field)) safeFields[field] = body.fields[field];
-    });
+    const safeFields = security.profilePatch(state.registeredUsers[index], body.fields, state.registeredUsers);
+    if (Object.hasOwn(safeFields, 'email')) {
+        const limited = await enforceRateLimit(request, env, 'email-change', 5, 30 * 60 * 1000, auth.user.username);
+        if (limited) return limited;
+    }
+    if (Object.hasOwn(safeFields, 'email') && (!sameUsername(auth.user.username, body.username)
+        || !(await verifyPassword(auth.user, body.currentPassword)))) return json({ error: 'Confirme sua senha atual para alterar o e-mail.' }, 403);
     Object.assign(state.registeredUsers[index], safeFields);
     Object.keys(safeFields).forEach(field => {
         if (safeFields[field] === null) delete state.registeredUsers[index][field];
     });
     await writeState(env, state);
-    return json({ success: true, user: sanitizeUser(state.registeredUsers[index], auth.user.username), registeredUsers: sanitizeState(state, auth.user.username).registeredUsers });
+    let cookieHeaders = {};
+    if (Object.hasOwn(safeFields, 'email')) {
+        await sessionStore.revokeUser(env, auth.user.username);
+        cookieHeaders = { 'Set-Cookie': security.sessionCookie(await createSession(env, state.registeredUsers[index])) };
+    }
+    return json({ success: true, user: sanitizeUser(state.registeredUsers[index], auth.user.username), registeredUsers: sanitizeState(state, auth.user.username).registeredUsers }, 200, cookieHeaders);
 }
 
 async function handleSyncState(request, env) {
@@ -1265,7 +1121,10 @@ async function handleSyncState(request, env) {
     const serverState = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, serverState);
     if (auth.response) return auth.response;
-    const nextState = mergeStates(localState, serverState, auth.user.username, isAdminUser(auth.user, env), body.baseState);
+    if (body.viewerUsername !== undefined && body.viewerUsername !== auth.user.username) {
+        return json({ error: 'A conta desta aba mudou. Atualize a página antes de salvar.', code: 'SESSION_CHANGED' }, 409);
+    }
+    const nextState = mergeStates(localState, serverState, auth.user.username, isAdminUser(auth.user, env, serverState), body.baseState);
     await writeState(env, nextState);
     return json(sanitizeState(nextState, auth.user.username));
 }
@@ -1278,7 +1137,7 @@ async function handleAdminUpsertAnime(request, env) {
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
-    if (!isAdminUser(auth.user, env)) return json({ error: 'Apenas o administrador pode alterar o catalogo.' }, 403);
+    if (!isAdminUser(auth.user, env, state)) return json({ error: 'Apenas o administrador pode alterar o catalogo.' }, 403);
 
     const requestedId = String(input.id || '').trim();
     const existingIndex = requestedId
@@ -1332,7 +1191,7 @@ async function handleAdminDeleteAnime(request, env) {
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
-    if (!isAdminUser(auth.user, env)) return json({ error: 'Apenas o administrador pode excluir animes.' }, 403);
+    if (!isAdminUser(auth.user, env, state)) return json({ error: 'Apenas o administrador pode excluir animes.' }, 403);
 
     const animeIndex = state.animes.findIndex(anime => anime && anime.id === animeId);
     if (animeIndex < 0) return json({ error: 'Anime nao encontrado.' }, 404);
@@ -1468,7 +1327,7 @@ async function handleSetFriendship(request, env) {
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
-    if (!isAdminUser(auth.user, env)) return json({ error: 'Admin only' }, 403);
+    if (!isAdminUser(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
     const sourceUser = findRegisteredUser(state, body.username || auth.user.username);
     const targetUser = findRegisteredUser(state, body.target);
     if (!sourceUser || !targetUser) return json({ error: 'User not found' }, 404);
@@ -1498,7 +1357,7 @@ async function handleClearUserRatings(request, env) {
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
-    if (!sameUsername(auth.user.username, body.username) && !isAdminUser(auth.user, env)) return json({ error: 'Você só pode limpar as próprias avaliações.' }, 403);
+    if (!sameUsername(auth.user.username, body.username) && !isAdminUser(auth.user, env, state)) return json({ error: 'Você só pode limpar as próprias avaliações.' }, 403);
     const userId = normalizeUsername(body.username);
     let cleared = 0;
     (state.animes || []).forEach(anime => {
@@ -1543,7 +1402,8 @@ async function handleForcedChangePassword(request, env) {
     await setPassword(user, body.newPassword);
     user.passwordResetRequired = false;
     await writeState(env, state);
-    return json({ success: true });
+    await sessionStore.revokeUser(env, user.username);
+    return json({ success: true }, 200, { 'Set-Cookie': security.expiredCookie() });
 }
 
 async function handleChangePassword(request, env) {
@@ -1551,12 +1411,16 @@ async function handleChangePassword(request, env) {
     if (!body || !body.password) {
         return json({ error: 'Nova senha obrigatoria.' }, 400);
     }
-    if (String(body.password).length < MIN_PASSWORD_LENGTH) return json({ error: `A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.` }, 400);
+    const passwordError = passwordPolicyError(body.password);
+    if (passwordError) return json({ error: passwordError }, 400);
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
     const user = findRegisteredUser(state, auth.user.username);
     if (!user) return json({ error: 'User not found' }, 404);
+    const limited = await enforceRateLimit(request, env, 'password-change', 5, 30 * 60 * 1000, user.username);
+    if (limited) return limited;
+    if (!(await verifyPassword(user, body.currentPassword))) return json({ error: 'Senha atual incorreta.' }, 403);
     await setPassword(user, body.password);
     pushUserNotification(user, {
         type: 'account',
@@ -1566,6 +1430,32 @@ async function handleChangePassword(request, env) {
         avatar: user.avatar || 'bell'
     });
     await writeState(env, state);
+    await sessionStore.revokeUser(env, user.username);
+    const token = await createSession(env, user);
+    return json({ success: true }, 200, { 'Set-Cookie': security.sessionCookie(token) });
+}
+
+async function handleLogout(request, env) {
+    await sessionStore.revokeCurrent(request, env);
+    return json({ success: true }, 200, { 'Set-Cookie': security.expiredCookie() });
+}
+
+async function handleEmailVerificationRequest(request, env) {
+    const state = await readState(env);
+    const auth = await requireAuthenticatedUser(request, env, state);
+    if (auth.response) return auth.response;
+    const limited = await enforceRateLimit(request, env, 'verification-request', 3, 60 * 60 * 1000, auth.user.username);
+    if (limited) return limited;
+    await emailVerification.request(env, auth.user);
+    return json({ success: true });
+}
+
+async function handleEmailVerificationConfirm(request, env) {
+    const limited = await enforceRateLimit(request, env, 'verification-confirm', 12, 30 * 60 * 1000);
+    if (limited) return limited;
+    const body = await parseJsonBody(request);
+    const state = await readState(env);
+    await emailVerification.confirm(env, body.token, state, state => writeState(env, state));
     return json({ success: true });
 }
 
@@ -1575,7 +1465,8 @@ async function handleSignOutAll(request, env) {
     if (auth.response) return auth.response;
     await ensureStorage(env);
     await getDb(env).prepare('DELETE FROM sessions WHERE username = ?1').bind(auth.user.username).run();
-    return json({ success: true });
+    await sessionStore.revokeUser(env, auth.user.username);
+    return json({ success: true }, 200, { 'Set-Cookie': security.expiredCookie() });
 }
 
 async function handleNotificationsAction(request, env, action) {
@@ -1637,7 +1528,7 @@ async function handleAdminOverview(request, env) {
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
-    if (!isAdminUser(auth.user, env)) return json({ error: 'Admin only' }, 403);
+    if (!isAdminUser(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
     const users = Array.isArray(state.registeredUsers) ? state.registeredUsers : [];
     const animes = Array.isArray(state.animes) ? state.animes : [];
     let ratings = 0;
@@ -1669,13 +1560,14 @@ async function handleAdminDeleteUser(request, env) {
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
-    if (!isAdminUser(auth.user, env)) return json({ error: 'Admin only' }, 403);
+    if (!isAdminUser(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
     if (sameUsername(auth.user.username, body.username)) return json({ error: 'Nao remova sua propria conta por aqui.' }, 400);
     await maybeCreateAutomaticBackup(env, 'auto');
     await createStateBackup(env, JSON.stringify(sanitizeStateForStorage(state)), `before-delete-user:${normalizeUsername(body.username)}`);
     const removed = scrubUserFromState(state, body.username);
     await writeState(env, state);
     await getDb(env).prepare('DELETE FROM sessions WHERE username = ?1').bind(body.username).run();
+    await sessionStore.revokeUser(env, body.username);
     return json({ success: true, removed, state: sanitizeState(state, auth.user.username) });
 }
 
@@ -1683,7 +1575,7 @@ async function handleAdminBackups(request, env) {
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
-    if (!isAdminUser(auth.user, env)) return json({ error: 'Admin only' }, 403);
+    if (!isAdminUser(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
 
     if (request.method === 'POST') {
         await createStateBackup(env, JSON.stringify(sanitizeStateForStorage(state)), 'manual');
@@ -1707,7 +1599,7 @@ async function handleAdminBackupDownload(request, env, backupId) {
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
-    if (!isAdminUser(auth.user, env)) return json({ error: 'Admin only' }, 403);
+    if (!isAdminUser(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
     const row = await getDb(env).prepare('SELECT id, created_at, reason, state FROM state_backups WHERE id = ?1').bind(Number(backupId)).first();
     if (!row) return json({ error: 'Backup not found' }, 404);
     return json({
@@ -1724,7 +1616,7 @@ async function handleAdminExportState(request, env) {
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
-    if (!isAdminUser(auth.user, env)) return json({ error: 'Admin only' }, 403);
+    if (!isAdminUser(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
     return json({
         app: 'anivoid',
         type: 'server-state-export',
@@ -1737,8 +1629,9 @@ async function handleAdminCleanSessions(request, env) {
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
-    if (!isAdminUser(auth.user, env)) return json({ error: 'Admin only' }, 403);
+    if (!isAdminUser(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
     await getDb(env).prepare('DELETE FROM sessions').run();
+    await getDb(env).prepare('DELETE FROM auth_sessions').run();
     return json({ success: true, message: 'Todas as sessões antigas foram invalidadas com sucesso no banco de dados D1.' });
 }
 
@@ -1751,7 +1644,7 @@ async function handleAdminResetPassword(request, env) {
 
     const resetKey = String(request.headers.get('X-Admin-Reset-Key') || (body && body.resetKey) || '').trim();
     const identifier = body && (body.identifier || body.email || body.username);
-    const keyLimited = await enforceRateLimit(request, env, 'admin-password-reset-key', 10, 1000 * 60 * 30, identifier || 'unknown');
+    const keyLimited = await enforceRateLimit(request, env, 'admin-password-reset-key', 10, 1000 * 60 * 30);
     if (keyLimited) return keyLimited;
 
     if (!resetKey || !timingSafeEqual(resetKey, configuredKey)) {
@@ -1777,6 +1670,7 @@ async function handleAdminResetPassword(request, env) {
     user.passwordResetRequired = body.requireChange !== false;
     await writeState(env, state);
     await getDb(env).prepare('DELETE FROM sessions WHERE username = ?1').bind(user.username).run();
+    await sessionStore.revokeUser(env, user.username);
 
     return json({
         success: true,
@@ -1822,6 +1716,7 @@ async function handleAdminResetLegacyPasswords(request, env) {
     if (resetUsers.length) {
         await writeState(env, state);
         for (const resetUser of resetUsers) {
+            await sessionStore.revokeUser(env, resetUser.username);
             await getDb(env).prepare('DELETE FROM sessions WHERE username = ?1').bind(resetUser.username).run();
         }
     }
@@ -1877,6 +1772,7 @@ async function handleAdminRequirePasswordChange(request, env) {
     if (changedUsers.length) {
         await writeState(env, state);
         for (const changedUser of changedUsers) {
+            await sessionStore.revokeUser(env, changedUser.username);
             await getDb(env).prepare('DELETE FROM sessions WHERE username = ?1').bind(changedUser.username).run();
         }
     }
@@ -1891,6 +1787,13 @@ async function handleAdminRequirePasswordChange(request, env) {
 async function route(request, env) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, '') || '/';
+    const allowedOrigins = String(env.ALLOWED_ORIGINS || DEFAULT_ALLOWED_ORIGIN).split(',').map(value => value.trim()).filter(Boolean);
+    const policyError = security.mutationPolicy({ method: request.method, origin: request.headers.get('Origin'), contentType: request.headers.get('Content-Type'), fetchSite: request.headers.get('Sec-Fetch-Site'), authorization: request.headers.get('Authorization') }, allowedOrigins);
+    if (policyError) throw policyError;
+    if (request.method === 'POST') {
+        const limited = await enforceRateLimit(request, env, 'writes-ip', 120, 60 * 1000);
+        if (limited) return limited;
+    }
 
     if (request.method === 'OPTIONS') return new Response(null, {
         status: 204,
@@ -1917,6 +1820,9 @@ async function route(request, env) {
     }
     if (path === '/api/login-challenge' && request.method === 'POST') return handleLoginChallenge(request, env);
     if (path === '/api/login' && request.method === 'POST') return handleLogin(request, env);
+    if (path === '/api/logout' && request.method === 'POST') return handleLogout(request, env);
+    if (path === '/api/account/email-verification/request' && request.method === 'POST') return handleEmailVerificationRequest(request, env);
+    if (path === '/api/account/email-verification/confirm' && request.method === 'POST') return handleEmailVerificationConfirm(request, env);
     if (path === '/api/register' && request.method === 'POST') return handleRegister(request, env);
     if (path === '/api/patch-user' && request.method === 'POST') return handlePatchUser(request, env);
     if (path === '/api/account/change-password' && request.method === 'POST') return handleChangePassword(request, env);
@@ -1956,6 +1862,7 @@ export async function onRequest(context) {
         }
         return json({ error: 'Os dados mudaram durante a gravacao. Tente salvar novamente.', code: 'STATE_CONFLICT' }, 409, { 'Retry-After': '1' });
     } catch (err) {
+        if (err instanceof security.SecurityError) return json({ error: err.message, code: err.code }, err.status);
         if (String(err && err.message) === 'missing_d1_binding') {
             return json({
                 ok: false,

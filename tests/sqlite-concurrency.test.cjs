@@ -18,11 +18,7 @@ test('D1 schema and conditional writes work against real SQLite', { skip: !Datab
             };
         }
     };
-    const source = fs.readFileSync(path.join(__dirname, '../functions/api/[[path]].js'), 'utf8')
-        .replace(/^import syncTools[^\n]*\n/m, '').replace(/^import studioMetadata[^\n]*\n/m, '').replace('export async function onRequest', 'async function onRequest');
-    const api = new Function('crypto', 'syncTools', 'studioMetadata', source + '\nreturn { readState, writeState };')(
-        require('node:crypto').webcrypto, require('../shared/sync-state'), require('../shared/studio-metadata')
-    );
+    const api = require('./helpers/cloudflare.cjs').loadCloudflare();
     const env = { ANIVOID_DB: db };
     try {
         const initial = await api.readState(env);

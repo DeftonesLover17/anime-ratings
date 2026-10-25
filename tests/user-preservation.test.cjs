@@ -5,12 +5,8 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
 const copy = value => JSON.parse(JSON.stringify(value));
-const apiSource = fs.readFileSync(path.join(root, 'functions/api/[[path]].js'), 'utf8')
-    .replace(/^import syncTools[^\n]*\n/m, '')
-    .replace(/^import studioMetadata[^\n]*\n/m, '')
-    .replace('export async function onRequest', 'async function onRequest');
 const syncTools = require('../shared/sync-state');
-const api = new Function('crypto', 'syncTools', 'studioMetadata', apiSource + '\nreturn { readState, writeState, handleRegister, handleLogin, onRequest };')(require('node:crypto').webcrypto, syncTools, require('../shared/studio-metadata'));
+const api = require('./helpers/cloudflare.cjs').loadCloudflare();
 
 function fixture() {
     return {
@@ -37,6 +33,7 @@ class MemoryD1 {
     constructor(state) {
         this.state = JSON.stringify(state);
         this.sessions = new Map();
+        this.authSessions = new Map();
         this.limits = new Map();
         this.backups = [];
     }
@@ -58,6 +55,12 @@ class MemoryD1 {
                     return { success: true, meta: { changes: 1 } };
                 } else if (sql.startsWith('INSERT INTO state_backups')) {
                     db.backups.push({ reason: args[0], state: args[1], created_at: new Date().toISOString() });
+                } else if (sql.startsWith('INSERT INTO auth_sessions')) {
+                    db.authSessions.set(args[0],{token_hash:args[0],account_id:args[1],username:args[2],credential_version:args[3],created_at:args[4],expires_at:args[5]});
+                } else if (sql.startsWith('UPDATE auth_sessions')) {
+                    if(db.authSessions.has(args[1])) db.authSessions.get(args[1]).expires_at=args[0];
+                } else if (sql.startsWith('DELETE FROM auth_sessions')) {
+                    for(const [key,row] of db.authSessions) if(sql.includes('token_hash')?key===args[0]:sql.includes('username')?row.username===args[0]:sql.includes('expires_at')?row.expires_at<args[0]:true) db.authSessions.delete(key);
                 } else if (sql.startsWith('INSERT INTO sessions')) {
                     db.sessions.set(args[0], { username: args[1], expires_at: args[2] });
                 } else if (sql.startsWith('INSERT INTO rate_limits')) {
@@ -72,9 +75,16 @@ class MemoryD1 {
                 return { success: true };
             },
             async first() {
+                if (sql.startsWith('INSERT INTO rate_limits')) {
+                    const [key, resetAt, now, cap] = this.args;
+                    const previous = db.limits.get(key);
+                    const next = !previous || previous.reset_at <= now ? {count:1,reset_at:resetAt} : {count:Math.min(previous.count+1,cap),reset_at:previous.reset_at};
+                    db.limits.set(key,next); return next;
+                }
                 if (sql.startsWith('SELECT state FROM app_state')) return { state: db.state };
                 if (sql.startsWith('SELECT created_at FROM state_backups')) return db.backups.at(-1) || null;
                 if (sql.startsWith('SELECT count, reset_at FROM rate_limits')) return db.limits.get(this.args[0]) || null;
+                if (sql.startsWith('SELECT * FROM auth_sessions')) return db.authSessions.get(this.args[0]) || null;
                 if (sql.startsWith('SELECT username, expires_at FROM sessions')) return db.sessions.get(this.args[0]) || null;
                 throw new Error('Unexpected SQL: ' + sql);
             }
@@ -156,7 +166,7 @@ test('legacy Node backend preserves community data when saving', async () => {
         if (name === 'http') return { createServer: () => ({ listen() {} }) };
         if (name === 'fs') return fakeFs;
         if (name === './shared/sync-state') return syncTools;
-        if (name === './shared/studio-metadata') return require('../shared/studio-metadata');
+        if (name.startsWith('./')) return require(path.join(root, name));
         return require(name);
     };
     const backend = new Function('require', 'process', '__dirname', source + '\nreturn { writeState };')(
@@ -181,22 +191,25 @@ test('a stale D1 write is rejected instead of overwriting a committed revision',
 test('HTTP sync retries a competing write and keeps edits to different rating fields', async () => {
     const original = fixture();
     const db = new MemoryD1(original);
-    db.sessions.set('ana', { username: 'Ana', expires_at: Date.now() + 60000 });
+    const authenticated = await api.readState({ANIVOID_DB:db});
+    await api.writeState({ANIVOID_DB:db},authenticated);
+    const token = await api.createSession({ANIVOID_DB:db},authenticated.registeredUsers.find(user=>user.username==='Ana'));
+    const initialRevision=authenticated.revision;
     const baseState = syncTools.clientSnapshot(original, 'Ana');
     const localState = copy(baseState);
     localState.animes[0].ratings.ana.overall = 8;
     db.beforeUpdate = () => {
         const concurrent = JSON.parse(db.state);
-        concurrent.revision = 1;
+        concurrent.revision = initialRevision + 1;
         concurrent.animes[0].ratings.ana.sound = 7;
         db.state = JSON.stringify(concurrent);
     };
     const response = await api.onRequest({ env: { ANIVOID_DB: db }, request: new Request('https://example.invalid/api/sync-state', {
-        method: 'POST', headers: { Cookie: 'anivoid_auth_token=ana' }, body: JSON.stringify({ localState, baseState })
+        method: 'POST', headers: {Cookie:'anivoid_auth_token='+token,Origin:'https://anime-ratings.pages.dev','Content-Type':'application/json'}, body: JSON.stringify({ localState, baseState })
     }) });
     assert.equal(response.status, 200);
     const state = await response.json();
-    assert.equal(state.revision, 2);
+    assert.equal(state.revision, initialRevision + 2);
     assert.equal(state.animes[0].ratings.ana.overall, 8);
     assert.equal(state.animes[0].ratings.ana.sound, 7);
 });
@@ -205,7 +218,7 @@ test('old clients must refresh before sending a full cached state', async () => 
     const db = new MemoryD1(fixture());
     const before = db.state;
     const response = await api.onRequest({ env: { ANIVOID_DB: db }, request: new Request('https://example.invalid/api/sync-state', {
-        method: 'POST', body: JSON.stringify({ localState: fixture() })
+        method:'POST',headers:{Origin:'https://anime-ratings.pages.dev','Content-Type':'application/json'}, body:JSON.stringify({localState:fixture()})
     }) });
     assert.equal(response.status, 409);
     assert.equal((await response.json()).code, 'CLIENT_UPDATE_REQUIRED');
