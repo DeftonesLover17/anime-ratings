@@ -694,10 +694,6 @@ body.auth-gate-active .noise-overlay {
     z-index: 1000;
 }
 
-#friends-dropdown {
-    z-index: 1002;
-    pointer-events: auto;
-}
 
 #registration-gate,
 #add-anime-modal,
@@ -1544,10 +1540,6 @@ aside .rounded-3xl:has(.profile-style-grid) {
 }
 
 @media (max-width: 640px) {
-    #friends-dropdown {
-        width: min(92vw, 330px);
-        right: 0;
-    }
 
     #anime-grid-container {
         gap: 18px;

@@ -75,7 +75,6 @@ body.av-app { background: var(--av-bg) !important; }
 .av-app #profile-indicator * { box-shadow: none !important; text-shadow: none !important; }
 .av-app #active-name { font-size: 11px; letter-spacing: .04em; }
 .av-app #active-name .premium-badge { display: none; }
-.av-app #friends-dropdown { border-radius: 6px; background: var(--av-surface); }
 .av-app #main-nav :is(.theme-toggle,#profile-indicator) { background: transparent; }
 
 /* Discovery / one image leads the composition. */

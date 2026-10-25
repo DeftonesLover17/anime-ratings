@@ -3676,13 +3676,7 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
 }
 
 function setupUtilityModals() {
-    const closeDropdown = () => {
-        const dropdown = document.getElementById('friends-dropdown');
-        if (dropdown) {
-            dropdown.classList.add('hidden');
-            dropdown.classList.remove('flex');
-        }
-    };
+    const closeDropdown = () => window.AnivoidUI.account.close({ animate: false, restoreFocus: false });
 
     const bindOnce = (id, event, handler) => {
         const el = document.getElementById(id);
@@ -3855,6 +3849,7 @@ function showRegistrationGate() {
 // --- DOM ELEMENTS AND EVENT LISTENERS ---
 function startApp() {
     window.AnivoidUI.site.mount();
+    window.AnivoidUI.account.mount();
     if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
         window.history.scrollRestoration = 'manual';
     }
@@ -3910,12 +3905,7 @@ function startApp() {
             statsModal.classList.remove('hidden');
             statsModal.classList.add('flex');
             
-            // Close dropdown
-            const dropdown = document.getElementById('friends-dropdown');
-            if (dropdown) {
-                dropdown.classList.add('hidden');
-                dropdown.classList.remove('flex');
-            }
+            window.AnivoidUI.account.close({ animate: false, restoreFocus: false });
         });
     }
     
@@ -4274,59 +4264,17 @@ function updateProfileIndicator() {
 }
 
 function renderFriendsDropdown() {
-    const container = document.getElementById('friends-dropdown-list');
-    if (!container) return;
-
-    container.innerHTML = '';
-    state.friends.forEach((friend, idx) => {
-        const isSelected = friend.id === state.currentFriendId;
-        const item = document.createElement('button');
-        item.style.setProperty('--item-idx', idx);
-        item.style.setProperty('--status-color', friend.color || '#FF4500');
-        item.className = `profile-switch-card tilt-card av-dropdown-item w-full text-left px-3.5 py-2.5 rounded-xl flex items-center gap-3 text-xs font-mono uppercase transition-all ${
-            isSelected ? 'av-option-selected text-white font-semibold' : 'text-gray-400 hover:text-white'
-        }`;
-        item.style.setProperty('--profile-color', friend.color || '#FF4500');
-        const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
-            ? `<img src="${friend.avatar}" class="w-6 h-6 rounded-full object-cover shrink-0" alt="">`
-            : `<span class="text-base shrink-0">${friend.avatar || '👤'}</span>`;
-        const adminBadge = getUserBadgesHtml(friend);
-        const selectedIndicator = isSelected
-            ? `<span class="av-selected-pill-beam"></span><iconify-icon icon="lucide:check" class="av-check-icon text-xs ml-auto flex-shrink-0"></iconify-icon>`
-            : '';
-
-        item.innerHTML = `
-            ${avatarHtml}
-            <span class="av-option-label flex-grow"><span class="av-option-text">${friend.name}${adminBadge}</span></span>
-            <span class="av-status-dot-wrap mr-1">
-                <span class="av-status-dot-halo"></span>
-                <span class="av-status-dot"></span>
-            </span>
-            ${selectedIndicator}
-        `;
-
-        item.addEventListener('click', () => {
-            item.style.transform = 'scale(0.96)';
-            state.currentFriendId = friend.id;
-            state.save();
-            applyUserThemeColor(friend.color);
-            updateProfileIndicator();
-            renderFriendsDropdown();
-            renderAnimeGrid();
-            renderFeaturedBanner();
-            
-            // Toggle dropdown close
-            const dropdown = document.getElementById('friends-dropdown');
-            if (dropdown) closeDropdownAnimated(dropdown);
-
-            // If detail modal is active, refresh it too
-            if (state.activeDetailAnimeId) {
-                openAnimeDetail(state.activeDetailAnimeId);
-            }
-        });
-
-        container.appendChild(item);
-    });
+    window.AnivoidUI.account.renderReviewers(state.friends, state.currentFriendId, (friend, event) => {
+        state.currentFriendId = friend.id;
+        state.save();
+        applyUserThemeColor(friend.color);
+        updateProfileIndicator();
+        renderFriendsDropdown();
+        renderAnimeGrid();
+        renderFeaturedBanner();
+        window.AnivoidUI.account.close({ animate: event.detail > 0 });
+        if (state.activeDetailAnimeId) openAnimeDetail(state.activeDetailAnimeId);
+    }, getUserBadgesHtml);
 }
 
 function renderFilters() {
@@ -4997,6 +4945,9 @@ function renderCircularRating(containerId, score) {
 
 // Smooth animated dropdown closing helper honoring reduced motion
 function closeDropdownAnimated(listEl, triggerEl, onClosed) {
+    if (listEl?.id === 'friends-dropdown') {
+        return window.AnivoidUI.account.close().then(() => { if (onClosed) onClosed(); });
+    }
     if (!listEl || listEl.classList.contains('hidden')) {
         if (onClosed) onClosed();
         return;
@@ -5752,7 +5703,7 @@ document.addEventListener('click', () => {
 
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-        document.querySelectorAll('.select-options-list:not(.hidden), #friends-dropdown:not(.hidden)').forEach(el => {
+        document.querySelectorAll('.select-options-list:not(.hidden)').forEach(el => {
             closeDropdownAnimated(el, el.__dropdownTrigger);
         });
     }
@@ -7139,12 +7090,7 @@ function setupEditProfileModal() {
         openBtn.dataset.editProfileHooked = 'true';
         openBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            // Close the dropdown list first
-            const friendsDropdown = document.getElementById('friends-dropdown');
-            if (friendsDropdown) {
-                friendsDropdown.classList.add('hidden');
-                friendsDropdown.classList.remove('flex');
-            }
+            window.AnivoidUI.account.close({ animate: false, restoreFocus: false });
 
             const fillModalFromCache = () => {
                 const loggedInUsername = getSessionUsername();
@@ -8979,52 +8925,3 @@ if (document.readyState === 'loading') {
 } else {
     startApp();
 }
-
-
-// Custom trigger for profile menu opening with Awwwards cascade animations
-document.addEventListener('DOMContentLoaded', () => {
-    const profileBtn = document.getElementById('profile-indicator');
-    const dropdown = document.getElementById('friends-dropdown');
-    const chev = profileBtn?.querySelector('.select-chevron');
-
-    if (profileBtn && dropdown) {
-        dropdown.classList.add('av-dropdown-drawer');
-        dropdown.__dropdownTrigger = profileBtn;
-        profileBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (dropdown.__closingTimer) {
-                clearTimeout(dropdown.__closingTimer);
-                dropdown.__closingTimer = null;
-            }
-            const isHidden = dropdown.classList.contains('hidden') || dropdown.classList.contains('av-closing');
-            if (isHidden) {
-                dropdown.classList.remove('hidden', 'av-closing');
-                dropdown.classList.add('flex');
-                if (chev) chev.classList.add('rotate-180');
-                dropdown.querySelectorAll('.av-dropdown-item').forEach(btn => {
-                    btn.style.animation = 'none';
-                    void btn.offsetWidth;
-                    btn.style.animation = '';
-                });
-                dropdown.querySelectorAll('.av-option-text').forEach(txt => {
-                    txt.style.animation = 'none';
-                    void txt.offsetWidth;
-                    txt.style.animation = '';
-                });
-            } else {
-                if (chev) chev.classList.remove('rotate-180');
-                closeDropdownAnimated(dropdown, profileBtn);
-            }
-        });
-        
-        // Close when clicking outside
-        document.addEventListener('click', () => {
-            if (!dropdown.classList.contains('hidden')) {
-                if (chev) chev.classList.remove('rotate-180');
-                closeDropdownAnimated(dropdown, profileBtn);
-            }
-        });
-    }
-});
-
-

@@ -273,8 +273,7 @@ body ::-webkit-scrollbar {
    ========================================================================== */
 
 .av-dropdown-drawer,
-.select-options-list,
-#friends-dropdown {
+.select-options-list {
     background: rgba(13, 14, 18, 0.94) !important;
     backdrop-filter: blur(28px) saturate(190%) !important;
     -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
@@ -287,14 +286,12 @@ body ::-webkit-scrollbar {
 }
 
 .av-dropdown-drawer:not(.hidden):not(.av-closing),
-.select-options-list:not(.hidden):not(.av-closing),
-#friends-dropdown:not(.hidden):not(.av-closing) {
+.select-options-list:not(.hidden):not(.av-closing) {
     animation: avDrawerOpen 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
 }
 
 .av-dropdown-drawer.av-closing,
-.select-options-list.av-closing,
-#friends-dropdown.av-closing {
+.select-options-list.av-closing {
     animation: avDrawerClose 0.16s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
     pointer-events: none !important;
 }
@@ -528,8 +525,7 @@ body ::-webkit-scrollbar {
 
 /* Light Mode Harmonization */
 :root[data-color-scheme="light"] .av-dropdown-drawer,
-:root[data-color-scheme="light"] .select-options-list,
-:root[data-color-scheme="light"] #friends-dropdown {
+:root[data-color-scheme="light"] .select-options-list {
     background: rgba(255, 253, 248, 0.96) !important;
     border-color: rgba(25, 36, 30, 0.12) !important;
     box-shadow: 0 20px 48px -10px rgba(25, 36, 30, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
@@ -566,7 +562,6 @@ body ::-webkit-scrollbar {
 @media (prefers-reduced-motion: reduce) {
     .av-dropdown-drawer,
     .select-options-list,
-    #friends-dropdown,
     .av-dropdown-item,
     .av-option-text,
     .av-trigger-text,

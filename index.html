@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="assets/ui.35bf9cd506c9.js"></script>
+    <script src="assets/ui.444667595b00.js"></script>
     <title>ANIVØID | Season Ratings</title>
     <!-- Favicon / Logo -->
     <link rel="icon" type="image/png" href="favicon.png">
     <!-- EmailJS SDK for real email delivery (optional) -->
     <script defer src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <link rel="stylesheet" href="assets/tailwind.85b0cad52c7f.css">
+    <link rel="stylesheet" href="assets/tailwind.9d07e198f1bf.css">
     <!-- Iconify Icons CDN -->
     <script defer src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
     
@@ -19,7 +19,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syncopate:wght@700&family=Syne:wght@800&family=Lexend+Tera:wght@900&display=swap" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="assets/styles.7e3dec0f1699.css">
+    <link rel="stylesheet" href="assets/styles.dab1da05779b.css">
     
     <meta name="theme-color" content="#050505">
     <script>
@@ -286,51 +286,8 @@
                     <iconify-icon icon="lucide:chevron-down" class="select-chevron text-gray-400 transition-transform duration-300 text-xs flex-shrink-0"></iconify-icon>
                 </button>
                 
-                <!-- Dropdown -->
-                <div id="friends-dropdown" class="absolute right-0 mt-3 w-64 glass-panel av-dropdown-drawer rounded-2xl p-2 hidden flex-col shadow-2xl z-50 border border-white/10">
-                    <span class="text-[10px] text-gray-500 uppercase tracking-widest font-mono p-3 block">Trocar Avaliador</span>
-                    <div id="friends-dropdown-list" class="space-y-1">
-                        <!-- Filled in JS -->
-                    </div>
-                    <div class="w-full h-px bg-white/5 my-2"></div>
-                    <button id="open-edit-profile" class="w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-white/80 hover:bg-white/5 transition-colors">
-                        <iconify-icon icon="lucide:user-cog" class="text-base text-brand"></iconify-icon>
-                        <span class="font-mono uppercase tracking-wider">Editar Perfil</span>
-                    </button>
-                    <button id="open-player-profile" class="w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-white/80 hover:bg-white/5 transition-colors">
-                        <iconify-icon icon="lucide:gamepad-2" class="text-base text-brand"></iconify-icon>
-                        <span class="font-mono uppercase tracking-wider">Perfil de Jogador</span>
-                    </button>
-                    <div class="w-full h-px bg-white/5 my-2"></div>
-                    <button id="open-add-friend" class="w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-brand hover:bg-brand/10 hover:text-white transition-colors">
-                        <iconify-icon icon="lucide:user-plus" class="text-base"></iconify-icon>
-                        <span class="font-mono uppercase tracking-wider">Adicionar Amigo</span>
-                    </button>
-                    <div class="w-full h-px bg-white/5 my-2"></div>
-                    <button id="open-notifications" class="w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-white/80 hover:bg-white/5 transition-colors">
-                        <iconify-icon icon="lucide:bell" class="text-base text-brand"></iconify-icon>
-                        <span class="font-mono uppercase tracking-wider flex-grow">Notifica&ccedil;&otilde;es</span>
-                        <span id="notifications-dropdown-badge" class="hidden bg-brand text-white text-[9px] font-bold min-w-4 h-4 px-1 rounded-full items-center justify-center">0</span>
-                    </button>
-                    <button id="open-backup-center" class="w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-white/80 hover:bg-white/5 transition-colors">
-                        <iconify-icon icon="lucide:database" class="text-base text-brand"></iconify-icon>
-                        <span class="font-mono uppercase tracking-wider">Backup dos Dados</span>
-                    </button>
-                    <button id="open-admin-center" class="hidden w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-white/80 hover:bg-white/5 transition-colors">
-                        <iconify-icon icon="lucide:shield-check" class="text-base text-brand"></iconify-icon>
-                        <span class="font-mono uppercase tracking-wider">Painel Admin</span>
-                    </button>
-                    <div class="w-full h-px bg-white/5 my-2"></div>
-                    <button id="open-group-stats" class="w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-white/80 hover:bg-white/5 transition-colors">
-                        <iconify-icon icon="lucide:bar-chart-2" class="text-base text-brand"></iconify-icon>
-                        <span class="font-mono uppercase tracking-wider">Estatísticas do Grupo</span>
-                    </button>
-                    <div class="w-full h-px bg-white/5 my-2"></div>
-                    <button id="logout-btn" class="w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-xs text-red-500 hover:bg-red-500/10 transition-colors">
-                        <iconify-icon icon="lucide:log-out" class="text-base"></iconify-icon>
-                        <span class="font-mono uppercase tracking-wider text-red-400">Desconectar Conta</span>
-                    </button>
-                </div>
+                <!-- Account actions are mounted by frontend/account/drawer.js. -->
+                <div id="friends-dropdown" class="av-account-panel hidden"></div>
             </div>
         </div>
         </div>
@@ -1098,6 +1055,6 @@
 
     <!-- Scripts Integration -->
     <script src="assets/sync-state.9868559c480c.js"></script>
-    <script src="assets/app.f4dc7f84408d.js"></script>
+    <script src="assets/app.26e54d50ef8a.js"></script>
 </body>
 </html>

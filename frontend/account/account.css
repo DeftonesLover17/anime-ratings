@@ -1,0 +1,103 @@
+/* Account drawer / the archive's typography and rhythm, anchored to the right. */
+.av-account-dialog {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    color: var(--av-ink);
+    background: transparent;
+    font-family: var(--av-body);
+}
+.av-account-dialog:not([open]) { display: none; }
+.av-account-dialog::backdrop { background: transparent; }
+.av-account-scrim { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: rgb(0 0 0 / .58); cursor: pointer; }
+.av-app #friends-dropdown.av-account-panel {
+    position: absolute;
+    inset: 0 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    width: min(500px,100%);
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-left: 1px solid var(--av-line);
+    border-radius: 0;
+    overflow: hidden;
+    background: var(--av-bg);
+    color: var(--av-ink);
+    box-shadow: none;
+}
+.av-account-panel.hidden,.av-account-action.hidden,.av-account-count.hidden { display: none !important; }
+.av-account-topline { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 20px; padding: 22px 32px 8px; }
+.av-account-topline > span { color: var(--av-muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+.av-account-close { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; padding: 0; border: 1px solid var(--av-line); border-radius: 50%; background: transparent; color: var(--av-ink); transition: color .18s ease,border-color .18s ease; }
+.av-account-close svg { width: 19px; height: 19px; }
+.av-account-heading { flex-shrink: 0; padding: 10px 32px 30px; }
+.av-app .av-account-heading h2 { margin: 0; padding-bottom: .12em; font: 600 clamp(42px,5vw,58px)/1.12 var(--av-display); letter-spacing: -.055em; overflow-wrap: anywhere; }
+.av-account-heading h2 > span { color: var(--av-accent); }
+.av-app .av-account-heading p { margin: 5px 0 0; font-size: 12px; line-height: 1.7; color: var(--av-muted); }
+.av-account-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 32px 24px; scrollbar-gutter: stable; }
+.av-account-group,.av-account-reviewers { margin: 0 0 26px; }
+.av-account-group:last-child { margin-bottom: 0; }
+.av-app .av-account-panel h3 { margin: 0 0 12px; color: var(--av-muted); font: 500 10px/1.6 var(--av-body); letter-spacing: .1em; text-transform: uppercase; }
+.av-account-action { display: grid; grid-template-columns: 19px minmax(0,1fr) 19px; align-items: center; gap: 15px; width: 100%; min-height: 54px; padding: 13px 0; border: 0; border-bottom: 1px solid var(--av-line); border-radius: 0; background: transparent; color: var(--av-ink); text-align: left; font: 600 18px/1.45 var(--av-display); letter-spacing: -.025em; transition: color .18s ease; }
+.av-account-action > svg { width: 19px; height: 19px; color: var(--av-muted); }
+.av-account-action-label { display: flex; align-items: center; min-width: 0; gap: 10px; }
+.av-account-action-label > span:first-child { min-width: 0; padding-block: .1em; overflow-wrap: anywhere; }
+.av-account-arrow { display: grid; place-items: center; opacity: .4; transition: transform .18s var(--av-ease),opacity .18s ease; }
+.av-account-arrow svg { width: 19px; height: 19px; }
+.av-account-count { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; min-width: 22px; height: 22px; padding-inline: 5px; border: 1px solid var(--av-line); color: var(--av-accent); font: 500 10px/1 var(--av-body); }
+.av-account-reviewer { display: grid; grid-template-columns: 34px minmax(0,1fr) 18px; align-items: center; gap: 12px; width: 100%; min-height: 58px; padding: 10px 12px; margin-top: 5px; border: 0; border-left: 2px solid transparent; border-radius: 0; background: transparent; color: var(--av-ink); text-align: left; transition: background-color .18s ease,border-color .18s ease; }
+.av-account-reviewer[aria-pressed=true] { border-left-color: var(--av-accent); background: color-mix(in srgb,var(--av-ink) 4%,transparent); }
+.av-account-avatar { display: grid; place-items: center; width: 34px; height: 34px; color: var(--av-muted); }
+.av-account-avatar img { display: block; width: 34px; height: 34px; object-fit: cover; border-radius: 50%; }
+.av-account-avatar svg { width: 22px; height: 22px; }
+.av-account-reviewer-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.av-account-reviewer-copy > span { padding-block: .1em; font: 600 16px/1.4 var(--av-display); letter-spacing: -.025em; overflow-wrap: anywhere; }
+.av-account-reviewer-copy small { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; color: var(--av-muted); font: 400 10px/1.5 var(--av-body); }
+/* Legacy role badges keep their meaning without importing their animated skin. */
+.av-account-reviewer-copy .premium-badge { display: inline-flex; gap: 3px; height: auto; margin: 0; padding: 0; border: 0; background: transparent; color: var(--av-muted) !important; box-shadow: none; text-shadow: none; filter: none; animation: none; transition: none; transform: none; font: 500 9px/1.5 var(--av-body); letter-spacing: .02em; }
+.av-account-reviewer-copy .premium-badge::before,.av-account-reviewer-copy .premium-badge::after { display: none; }
+.av-account-check { color: var(--av-accent); }
+.av-account-check svg { width: 18px; height: 18px; }
+.av-account-empty { color: var(--av-muted); font-size: 12px; line-height: 1.6; }
+.av-account-footer { flex-shrink: 0; padding: 16px 32px 22px; padding-bottom: max(22px,env(safe-area-inset-bottom)); border-top: 1px solid var(--av-line); }
+.av-account-logout { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; min-height: 44px; padding: 7px 0; border: 0; background: transparent; color: var(--score-low); text-align: left; font: 500 13px/1.6 var(--av-body); }
+.av-account-logout svg { width: 18px; height: 18px; }
+.av-account-footer > span { display: block; margin-top: 7px; color: var(--av-muted); font-size: 10px; }
+.av-app #profile-indicator[aria-expanded=true] { border-color: var(--av-accent) !important; }
+.av-app #profile-indicator[aria-expanded=true] .select-chevron { transform: rotate(180deg); }
+.av-account-panel :is(button):focus-visible { outline: 2px solid var(--av-accent); outline-offset: 3px; }
+@media(hover:hover) and (pointer:fine) {
+    .av-account-action:hover,.av-account-close:hover { color: var(--av-accent); }
+    .av-account-action:hover .av-account-arrow { opacity: 1; transform: translateX(3px); }
+    .av-account-reviewer:hover { background: color-mix(in srgb,var(--av-ink) 6%,transparent); }
+    .av-account-close:hover { border-color: var(--av-accent); }
+}
+@media(max-width:600px) {
+    .av-account-topline { padding: 14px 22px 6px; }
+    .av-account-heading { padding: 8px 22px 24px; }
+    .av-account-scroll { padding-inline: 22px; padding-bottom: 14px; }
+    .av-account-group,.av-account-reviewers { margin-bottom: 18px; }
+    .av-account-group:last-child { margin-bottom: 0; }
+    .av-app .av-account-panel h3 { margin-bottom: 8px; }
+    .av-account-footer { padding-inline: 22px; }
+    .av-account-action { font-size: 17px; gap: 12px; }
+}
+@media(max-height:740px) {
+    .av-account-heading { padding-bottom: 18px; }
+    .av-account-heading h2 { font-size: 42px; }
+    .av-account-topline { padding-top: 12px; }
+}
+@media(prefers-reduced-motion:reduce) {
+    .av-account-panel * { transition: none !important; animation: none !important; }
+}

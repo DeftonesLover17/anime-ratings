@@ -26,6 +26,7 @@ npm start
 | `frontend/ratings/model.js` | Parsing decimal, seleção e paginação de episódios; funções puras. |
 | `frontend/ratings/workbench.js` | Editor real de notas, progresso, rascunhos, salvamento, desfazer e repetição de sincronização. |
 | `frontend/community/` | Composição e leitura de reviews/comentários, contexto de episódio, spoilers, respostas, edição e curtidas. |
+| `frontend/account/` | Gaveta da conta, seleção de avaliador e transições interrompíveis de abertura, fechamento e passagem às ações existentes. |
 | `frontend/shared/dom.js` | Escape de texto, URLs de mídia e pequenos elementos realmente compartilhados. |
 | `frontend/shared/catalog-media.js` | Substituições de pôsteres do catálogo por arquivos locais, preservando os dados e as avaliações. |
 | `frontend/ui/index.js` | Inicialização dos módulos de UI e ponte explícita `window.AnivoidUI` usada pelo legado. |
@@ -59,6 +60,8 @@ Para novos recursos, criar um módulo no domínio correspondente em `frontend/`.
 ## Interface e compatibilidade
 
 As telas usam toda a largura disponível com o shell compartilhado `.av-wrap` e o token `--av-page-gutter`. Cabeçalho, descoberta, acervo, detalhe, estúdios e rodapé compartilham as mesmas margens laterais. Não reintroduzir um limite fixo de largura nos shells. Limites de leitura de textos e larguras de modais continuam próprios de cada componente.
+
+A área da conta usa um diálogo lateral nativo, com foco contido, Escape, retorno ao botão de origem e rolagem interna. A gaveta fecha antes de abrir a ação escolhida. O movimento é interrompível, fica imediato pelo teclado ou com redução de movimento e reutiliza a curva do site. Os handlers existentes de perfis, amigos, notificações, backup, administração e logout permanecem no integrador legado.
 
 A descoberta, o catálogo, o detalhe da obra, a avaliação e os estúdios são telas da aplicação real. O estudo visual externo não é um substituto do produto nem uma fonte de dados fictícios para produção.
 
