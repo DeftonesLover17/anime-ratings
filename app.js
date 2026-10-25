@@ -2784,6 +2784,7 @@ function getProfileDisplayUser(profileId = state.currentFriendId) {
             username: registered?.username || friend?.name?.replace(' (Voce)', '').replace(' (Voc\u00ea)', '') || cleanId || 'Usu\u00e1rio',
             name: friend?.name || registered?.username || cleanId || 'Usuario',
             avatar: registered?.avatar || friend?.avatar || DEFAULT_AVATAR_SVG,
+            banner: registered?.banner || friend?.banner || '',
             color: registered?.color || friend?.color || '#FF4500',
             emailVerified: Boolean(registered?.emailVerified || friend?.emailVerified),
             favoriteGenres: registered?.favoriteGenres || friend?.favoriteGenres || [],
@@ -3471,212 +3472,414 @@ function importBackupData(file) {
     reader.readAsText(file);
 }
 
+function closePlayerProfileModal() {
+    const modal = document.getElementById('player-profile-modal');
+    if (!modal || modal.classList.contains('hidden') || modal.classList.contains('is-closing')) return;
+
+    const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.classList.remove('overflow-hidden');
+        return;
+    }
+
+    modal.classList.add('is-closing');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex', 'is-closing');
+        document.body.classList.remove('overflow-hidden');
+    }, 220);
+}
+window.closePlayerProfileModal = closePlayerProfileModal;
+
 function renderPlayerProfileModal(profileId = state.currentFriendId) {
     const modal = document.getElementById('player-profile-modal');
     const content = document.getElementById('player-profile-content');
     if (!modal || !content) return;
     const user = getProfileDisplayUser(profileId);
     const stats = getProfileStats(user.id);
-    const rank = getProfileRank(stats);
     const badges = getUserBadgesHtml({ ...user, username: user.username, name: user.username });
     const scoreColor = getScoreColor(stats.avgScore);
     const completed = stats.statusCounts.Completed || 0;
     const watching = stats.statusCounts.Watching || 0;
     const completionRate = stats.ratingCount > 0 ? Math.round((completed / stats.ratingCount) * 100) : 0;
+
+    const bannerUrl = user.banner || 'covers/cyberpunk-edgerunners-2.jpg';
+    const bannerStyle = `background-image: linear-gradient(180deg, rgba(8,9,10,0.3) 0%, rgba(8,9,10,0.85) 60%, rgba(12,13,16,1) 100%), url('${escapeHtml(bannerUrl)}'); background-size: cover; background-position: center;`;
+
+    // Achievement cards
+    const achievementCards = [
+        { 
+            label: 'Maratonista', 
+            value: `${stats.totalEpisodes} episódios`, 
+            active: stats.totalEpisodes >= 50,
+            icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 11 2-6h3l-2 6M7 11l2-6h3l-2 6M10 11l2-6h3l-2 6M2 11h20v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"/></svg>`
+        },
+        { 
+            label: 'Crítico', 
+            value: `${stats.ratingCount} avaliações`, 
+            active: stats.ratingCount >= 10,
+            icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
+        },
+        { 
+            label: 'Voz do Coletivo', 
+            value: `${stats.commentsCount} análises`, 
+            active: stats.commentsCount >= 3,
+            icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`
+        },
+        { 
+            label: 'Finalizador', 
+            value: `${completed} animes`, 
+            active: completed >= 5,
+            icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>`
+        }
+    ].map(card => `
+        <div class="av-player-trophy-card ${card.active ? 'is-active' : ''}">
+            <div class="av-player-trophy-top">
+                <div class="av-player-trophy-icon">
+                    ${card.icon}
+                </div>
+                <span class="av-player-trophy-status ${card.active ? 'is-unlocked' : ''}">
+                    <span class="av-trophy-dot"></span>
+                    ${card.active ? 'Desbloqueado' : 'Em Progresso'}
+                </span>
+            </div>
+            <div class="av-player-trophy-meta">
+                <h4 class="av-player-trophy-title">${escapeHtml(card.label)}</h4>
+                <p class="av-player-trophy-val">${escapeHtml(card.value)}</p>
+            </div>
+        </div>
+    `).join('');
+
+    // Favorite Anime Cards (Top 3)
     const favoriteAnimeCards = stats.topAnime.slice(0, 3).map(item => {
         const color = getScoreColor(item.overall);
         return `
-            <button class="profile-fav-card rounded-2xl overflow-hidden border border-white/8 bg-white/[0.035] text-left group" data-anime-id="${escapeHtml(item.anime.id)}">
-                <div class="relative aspect-[3/4]">
-                    <img src="${escapeHtml(window.AnivoidUI.imageUrl(item.anime.coverUrl))}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="${escapeHtml(item.anime.title)}">
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent"></div>
-                    <span class="absolute top-3 right-3 rounded-xl border bg-black/75 px-2 py-1 text-[10px] font-mono font-bold" style="color:${color.text}; border-color:color-mix(in srgb, ${color.text} 33%, transparent); box-shadow:0 0 14px ${color.glow}">★ ${item.overall}</span>
-                    <h4 class="absolute bottom-3 left-3 right-3 text-xs font-serif font-bold text-white line-clamp-2">${escapeHtml(item.anime.title)}</h4>
+            <button type="button" class="av-player-poster-card group" data-anime-id="${escapeHtml(item.anime.id)}" title="${escapeHtml(item.anime.title)}">
+                <div class="av-player-poster-media">
+                    <img src="${escapeHtml(window.AnivoidUI.imageUrl(item.anime.coverUrl))}" alt="${escapeHtml(item.anime.title)}" loading="lazy">
+                    <div class="av-player-poster-tint"></div>
+                    <span class="av-player-poster-score" style="color:${color.text}; border-color:${color.text}44; box-shadow:0 0 16px ${color.glow}">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                        <span>${item.overall.toFixed(1)}</span>
+                    </span>
+                    <div class="av-player-poster-info">
+                        <h4 class="av-player-poster-title">${escapeHtml(item.anime.title)}</h4>
+                    </div>
                 </div>
             </button>
         `;
     }).join('');
 
-    const achievementCards = [
-        { icon: 'lucide:clapperboard', label: 'Maratonista', value: `${stats.totalEpisodes} eps`, active: stats.totalEpisodes >= 50 },
-        { icon: 'lucide:star', label: 'Cr\u00edtico', value: `${stats.ratingCount} notas`, active: stats.ratingCount >= 10 },
-        { icon: 'lucide:message-square', label: 'Voz do grupo', value: `${stats.commentsCount} reviews`, active: stats.commentsCount >= 3 },
-        { icon: 'lucide:trophy', label: 'Finalizador', value: `${completed} completos`, active: completed >= 5 }
-    ].map(card => `
-        <div class="achievement-card rounded-2xl border p-4 ${card.active ? 'is-active' : ''}">
-            <div class="flex items-center justify-between gap-3">
-                <iconify-icon icon="${card.icon}" class="text-xl"></iconify-icon>
-                <span class="text-[9px] font-mono uppercase tracking-widest">${card.active ? 'desbloqueado' : 'em progresso'}</span>
-            </div>
-            <h4 class="mt-4 text-sm font-serif text-white">${escapeHtml(card.label)}</h4>
-            <p class="text-[11px] text-gray-500 font-mono mt-1">${escapeHtml(card.value)}</p>
-        </div>
-    `).join('');
-
-    const genreRows = stats.topGenres.length ? stats.topGenres.map(genre => `
-        <div class="profile-meter-row">
-            <div class="flex justify-between text-[10px] font-mono">
-                <span class="text-white/75">${escapeHtml(genre.name)}</span>
-                <span style="color:${getScoreColor(genre.avg).text}">${genre.avg.toFixed(1)}</span>
-            </div>
-            <div class="profile-meter-track"><span style="width:${Math.min(100, genre.avg * 10)}%; background:${getScoreColor(genre.avg).text}"></span></div>
-        </div>
-    `).join('') : `<p class="text-[11px] text-gray-500 italic">Sem g\u00eaneros fortes ainda.</p>`;
-
-    const studioRows = stats.topStudios.length ? stats.topStudios.map(studio => `
-        <button class="profile-studio-row rounded-xl border border-white/5 bg-white/[0.03] p-3 flex justify-between items-center hover:bg-white/[0.055] transition-colors" data-studio="${escapeHtml(studio.name)}">
-            <span class="text-[11px] text-white font-mono truncate">${escapeHtml(studio.name)}</span>
-            <span class="text-[11px] font-mono font-bold" style="color:${getScoreColor(studio.avg).text}">★ ${studio.avg.toFixed(1)}</span>
-        </button>
-    `).join('') : `<p class="text-[11px] text-gray-500 italic">Sem est\u00fadios favoritos ainda.</p>`;
-
-    const activityRows = stats.recentActivities.length ? stats.recentActivities.map(activity => {
-        const meta = getActivityMeta(activity);
+    // Genre meters (Top 4)
+    const genreRows = stats.topGenres.length ? stats.topGenres.slice(0, 4).map(genre => {
+        const color = getScoreColor(genre.avg);
+        const percent = Math.min(100, Math.max(10, genre.avg * 10));
         return `
-            <button class="profile-activity-row rounded-xl border border-white/5 bg-white/[0.03] p-3 flex gap-3 items-center text-left hover:bg-white/[0.055] transition-colors" data-anime-id="${escapeHtml(activity.animeId || '')}">
-                <span class="w-8 h-8 rounded-xl bg-black/40 border border-white/10 flex items-center justify-center shrink-0" style="color:${meta.color}">
-                    <iconify-icon icon="${meta.icon}" class="text-sm"></iconify-icon>
-                </span>
-                <span class="min-w-0 flex-grow">
-                    <span class="block text-[11px] text-white/75 font-mono truncate">${escapeHtml(activity.details || 'acao')}</span>
-                    <span class="block text-[10px] text-gray-500 truncate">${escapeHtml(activity.animeTitle || '')}</span>
-                </span>
+            <div class="av-genre-meter-item">
+                <div class="av-genre-meter-header">
+                    <span class="av-genre-meter-name">${escapeHtml(genre.name)}</span>
+                    <span class="av-genre-meter-score" style="color:${color.text}">${genre.avg.toFixed(1)}</span>
+                </div>
+                <div class="av-genre-meter-track">
+                    <span class="av-genre-meter-bar" style="width:${percent}%; background:${color.text}; box-shadow:0 0 10px ${color.glow}"></span>
+                </div>
+            </div>
+        `;
+    }).join('') : `<p class="av-player-empty-text">Sem gêneros registrados ainda.</p>`;
+
+    // Studio rows (Top 4)
+    const studioRows = stats.topStudios.length ? stats.topStudios.slice(0, 4).map(studio => {
+        const color = getScoreColor(studio.avg);
+        return `
+            <button type="button" class="av-studio-pill-item group" data-studio="${escapeHtml(studio.name)}" title="Ver animes do estúdio ${escapeHtml(studio.name)}">
+                <div class="av-studio-pill-left">
+                    <span class="av-studio-pill-dot"></span>
+                    <span class="av-studio-pill-name">${escapeHtml(studio.name)}</span>
+                </div>
+                <div class="av-studio-pill-right">
+                    <span class="av-studio-pill-score" style="color:${color.text}">★ ${studio.avg.toFixed(1)}</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="av-studio-pill-arrow"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+                </div>
             </button>
         `;
-    }).join('') : `<p class="text-[11px] text-gray-500 italic">Sem atividade recente visivel.</p>`;
+    }).join('') : `<p class="av-player-empty-text">Sem estúdios favoritos ainda.</p>`;
 
-    const bannerStyle = user.banner 
-        ? `background-image: linear-gradient(to bottom, rgba(18,21,16,0.3) 0%, rgba(18,21,16,0.95) 100%), url('${escapeHtml(user.banner)}'); background-size: cover; background-position: center;`
-        : '';
+    // Activity timeline (Top 5)
+    const activityRows = stats.recentActivities.length ? stats.recentActivities.slice(0, 5).map(activity => {
+        const meta = getActivityMeta(activity);
+        return `
+            <button type="button" class="av-activity-timeline-row group" data-anime-id="${escapeHtml(activity.animeId || '')}">
+                <div class="av-activity-icon-badge" style="color:${meta.color}; border-color:${meta.color}40; background:${meta.color}14">
+                    <iconify-icon icon="${meta.icon}"></iconify-icon>
+                </div>
+                <div class="av-activity-row-body">
+                    <p class="av-activity-details-text">${escapeHtml(activity.details || 'Atividade')}</p>
+                    <span class="av-activity-anime-name">${escapeHtml(activity.animeTitle || '')}</span>
+                </div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="av-activity-row-arrow"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+        `;
+    }).join('') : `<p class="av-player-empty-text">Sem atividade recente visível.</p>`;
 
     content.innerHTML = `
-        <div class="profile-hero-game relative overflow-hidden p-6 md:p-8" style="--profile-accent:${user.color}">
-            <div class="profile-hero-bg" style="${bannerStyle}"></div>
-            <div class="relative z-10 flex items-start justify-between gap-4">
-                <div class="flex items-center gap-5 min-w-0">
-                    <div class="profile-avatar-ring" style="--profile-accent:${user.color}">
-                        ${avatarMarkup(user, 'w-20 h-20 md:w-24 md:h-24', user.username?.[0] || 'U')}
-                    </div>
-                    <div class="min-w-0">
-                        <p class="text-[10px] font-mono uppercase tracking-[0.35em] text-white/45">Perfil do usuario</p>
-                        <h2 class="text-3xl md:text-5xl font-serif font-black text-white leading-none truncate mt-2">${escapeHtml(user.username)}${badges}</h2>
-                        <div class="mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest" style="color:${user.color}; border-color:${user.color}55; background:${user.color}14; box-shadow:0 0 22px ${user.color}20">
-                            <iconify-icon icon="lucide:sparkles" class="text-sm"></iconify-icon>
-                            Perfil publico &middot; ${stats.ratingCount} notas
-                        </div>
-                    </div>
-                </div>
-                <button id="close-player-profile" class="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors text-gray-400 hover:text-white border border-white/10">
-                    <iconify-icon icon="lucide:x" class="text-lg"></iconify-icon>
+        <!-- HERO SECTION (Cinematic Banner & Profile Identity) -->
+        <div class="av-player-hero av-player-stagger-1" style="--profile-accent:${user.color}">
+            <div class="av-player-hero-banner" style="${bannerStyle}">
+                <div class="av-player-hero-tint"></div>
+                <button type="button" id="close-player-profile" class="av-stats-close-btn av-player-close-btn" aria-label="Fechar perfil">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6 6 18M6 6l12 12"/>
+                    </svg>
                 </button>
             </div>
 
-            <div class="relative z-10 mt-8 grid grid-cols-1 lg:grid-cols-[1.25fr_0.75fr] gap-6">
-                <div class="space-y-5">
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div class="profile-stat-card"><span>M&eacute;dia</span><b style="color:${scoreColor.text}; text-shadow:0 0 16px ${scoreColor.glow}">${stats.avgScore > 0 ? stats.avgScore.toFixed(1) : '-'}</b></div>
-                        <div class="profile-stat-card"><span>Animes</span><b>${stats.ratingCount}</b></div>
-                        <div class="profile-stat-card"><span>Epis&oacute;dios</span><b>${stats.totalEpisodes}</b></div>
-                        <div class="profile-stat-card"><span>Conclu&iacute;dos</span><b>${completed}</b></div>
-                    </div>
-
-                    <div class="profile-level-card rounded-3xl border border-white/10 bg-black/30 p-5">
-                        <div class="flex items-center justify-between gap-3 mb-3">
-                            <div>
-                                <p class="text-[9px] font-mono uppercase tracking-widest text-white/40">Resumo de atividade</p>
-                                <h3 class="text-xl font-serif text-white">${completed} concluidos &middot; ${watching} assistindo</h3>
-                            </div>
-                            <div class="text-right">
-                                <p class="text-[9px] font-mono uppercase tracking-widest text-white/40">Reviews</p>
-                                <b class="text-sm font-mono text-white">${stats.commentsCount}</b>
-                            </div>
-                        </div>
-                        <div class="h-3 rounded-full bg-white/5 overflow-hidden border border-white/5">
-                            <div class="h-full rounded-full" style="width:${Math.min(100, Math.max(8, stats.avgScore * 10))}%; background:linear-gradient(90deg, ${user.color}, ${scoreColor.text}); box-shadow:0 0 20px ${scoreColor.glow}"></div>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        ${achievementCards}
+            <!-- Identity Row -->
+            <div class="av-player-identity-strip">
+                <div class="av-player-avatar-box">
+                    <div class="av-player-avatar-ring" style="--profile-accent:${user.color}">
+                        ${avatarMarkup(user, 'w-20 h-20 md:w-24 md:h-24', user.username?.[0] || 'U')}
                     </div>
                 </div>
-
-                <div class="profile-public-card rounded-3xl border border-white/10 bg-black/35 p-5 space-y-4">
-                    <div class="flex items-center justify-between">
-                        <h3 class="text-xs font-mono uppercase tracking-widest text-white/65">Resumo publico</h3>
-                        <iconify-icon icon="lucide:user-round-check" class="text-brand"></iconify-icon>
+                <div class="av-player-identity-meta">
+                    <div class="av-stats-eyebrow">
+                        <span class="av-stats-dot" style="background:${user.color}; box-shadow:0 0 8px ${user.color}"></span>
+                        <span>Perfil Oficial &middot; ANIVØID Collective</span>
                     </div>
-                    <div class="grid grid-cols-2 gap-3 text-center">
-                        <div class="rounded-2xl bg-white/[0.04] border border-white/5 p-3"><b class="block text-lg text-white">${watching}</b><span class="text-[9px] text-gray-500 font-mono uppercase">assistindo</span></div>
-                        <div class="rounded-2xl bg-white/[0.04] border border-white/5 p-3"><b class="block text-lg text-white">${completed}</b><span class="text-[9px] text-gray-500 font-mono uppercase">concluidos</span></div>
+                    <div class="av-player-title-row">
+                        <h2 class="av-player-name">${escapeHtml(user.username)}</h2>
+                        <div class="av-player-badges">${badges}</div>
                     </div>
-                    <p class="text-[11px] text-gray-400 leading-relaxed">Vis&atilde;o r&aacute;pida do gosto, das notas e do hist&oacute;rico vis&iacute;vel deste usu&aacute;rio.</p>
+                    <div class="av-player-meta-chips">
+                        <span class="av-player-chip">
+                            <span class="av-chip-label">Nível</span>
+                            <b class="text-white">${stats.level}</b>
+                        </span>
+                        <span class="av-player-chip">
+                            <span class="av-chip-label">Catálogo</span>
+                            <b class="text-white">${stats.ratingCount} títulos</b>
+                        </span>
+                        <span class="av-player-chip">
+                            <span class="av-chip-label">Total Assistido</span>
+                            <b class="text-white">${stats.totalEpisodes} eps</b>
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6">
-            <section class="space-y-4">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-xs font-mono uppercase tracking-widest text-white/70">Top obras</h3>
-                    <span class="text-[9px] text-gray-500 font-mono uppercase">notas mais altas</span>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    ${favoriteAnimeCards || '<p class="text-[11px] text-gray-500 italic col-span-full">Sem obras avaliadas ainda.</p>'}
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="rounded-3xl border border-white/8 bg-white/[0.025] p-5 space-y-3">
-                        <h3 class="text-xs font-mono uppercase tracking-widest text-white/70">Assinatura de genero</h3>
-                        ${genreRows}
+        <!-- SCROLLABLE BODY (HUD, Trophies, Top Animes, DNA & History) -->
+        <div class="av-player-scroll-body">
+            
+            <!-- SECTION 1: KEY METRIC HUD -->
+            <div class="av-player-hud-grid av-player-stagger-2">
+                <div class="av-player-hud-card">
+                    <div class="av-hud-card-top">
+                        <span class="av-hud-eyebrow">Média Geral</span>
+                        <span class="av-hud-badge-dot" style="background:${scoreColor.text}; box-shadow:0 0 8px ${scoreColor.glow}"></span>
                     </div>
-                    <div class="rounded-3xl border border-white/8 bg-white/[0.025] p-5 space-y-3">
-                        <h3 class="text-xs font-mono uppercase tracking-widest text-white/70">Studios fortes</h3>
-                        ${studioRows}
+                    <div class="av-hud-card-val" style="color:${scoreColor.text}; text-shadow:0 0 20px ${scoreColor.glow}">
+                        ${stats.avgScore > 0 ? stats.avgScore.toFixed(1) : '-'}
                     </div>
+                    <p class="av-hud-card-sub">Padrão de rigor avaliativo</p>
                 </div>
-            </section>
 
-            <aside class="space-y-4">
-                <div class="rounded-3xl border border-white/8 bg-white/[0.025] p-5 space-y-3">
-                    <div class="flex items-center justify-between">
-                        <h3 class="text-xs font-mono uppercase tracking-widest text-white/70">Hist&oacute;rico recente</h3>
-                        <iconify-icon icon="lucide:activity" class="text-brand"></iconify-icon>
+                <div class="av-player-hud-card">
+                    <div class="av-hud-card-top">
+                        <span class="av-hud-eyebrow">Obras Avaliadas</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="av-hud-icon"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 8 6 4-6 4Z"/></svg>
                     </div>
-                    ${activityRows}
+                    <div class="av-hud-card-val text-white">
+                        ${stats.ratingCount}
+                    </div>
+                    <p class="av-hud-card-sub">${completed} concluídos &middot; ${watching} em andamento</p>
                 </div>
-                <div class="rounded-3xl border border-white/8 bg-white/[0.025] p-5 space-y-3">
-                    <h3 class="text-xs font-mono uppercase tracking-widest text-white/70">Distribui&ccedil;&atilde;o</h3>
-                    <div class="profile-style-grid">
-                        <span>Assistindo <b>${watching}</b></span>
-                        <span>Concluidos <b>${completed}</b></span>
-                        <span>Reviews <b>${stats.commentsCount}</b></span>
+
+                <div class="av-player-hud-card">
+                    <div class="av-hud-card-top">
+                        <span class="av-hud-eyebrow">Episódios Vistos</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="av-hud-icon"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </div>
+                    <div class="av-hud-card-val text-white">
+                        ${stats.totalEpisodes}
+                    </div>
+                    <p class="av-hud-card-sub">~${Math.round(stats.totalEpisodes * 23 / 60)}h estimadas em tela</p>
+                </div>
+
+                <div class="av-player-hud-card">
+                    <div class="av-hud-card-top">
+                        <span class="av-hud-eyebrow">Taxa de Conclusão</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="av-hud-icon"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    </div>
+                    <div class="av-hud-card-val text-white">
+                        ${completionRate}%
+                    </div>
+                    <div class="av-hud-mini-progress">
+                        <span style="width:${completionRate}%; background:var(--av-accent)"></span>
                     </div>
                 </div>
-            </aside>
+            </div>
+
+            <!-- SECTION 2: CONQUISTAS & DISTINÇÕES -->
+            <div class="av-player-trophies-grid av-player-stagger-3">
+                ${achievementCards}
+            </div>
+
+            <!-- SECTION 3: TOP OBRAS + DNA + HISTÓRICO -->
+            <div class="av-player-content-grid av-player-stagger-4">
+                
+                <!-- Left Column (60%): Top Obras + Gêneros + Estúdios -->
+                <div class="av-player-main-col">
+                    
+                    <!-- Top Obras -->
+                    <div class="av-player-section-card">
+                        <div class="av-section-card-header">
+                            <div>
+                                <span class="av-eyebrow">Curadoria Pessoal</span>
+                                <h3 class="av-section-title">Obras Mais Bem Avaliadas</h3>
+                            </div>
+                            <span class="av-section-badge">Top 3 Notas</span>
+                        </div>
+                        <div class="av-player-posters-grid">
+                            ${favoriteAnimeCards || '<p class="av-player-empty-text">Nenhuma obra avaliada com nota ainda.</p>'}
+                        </div>
+                    </div>
+
+                    <!-- DNA Gêneros & Estúdios -->
+                    <div class="av-player-dna-grid">
+                        
+                        <!-- Assinatura de Gênero -->
+                        <div class="av-player-sub-card">
+                            <div class="av-section-card-header">
+                                <div>
+                                    <span class="av-eyebrow">Preferências</span>
+                                    <h4 class="av-sub-title">Gêneros Fortes</h4>
+                                </div>
+                            </div>
+                            <div class="av-genre-meters-list">
+                                ${genreRows}
+                            </div>
+                        </div>
+
+                        <!-- Estúdios Fortes -->
+                        <div class="av-player-sub-card">
+                            <div class="av-section-card-header">
+                                <div>
+                                    <span class="av-eyebrow">Produção</span>
+                                    <h4 class="av-sub-title">Estúdios Fortes</h4>
+                                </div>
+                            </div>
+                            <div class="av-studios-pills-list">
+                                ${studioRows}
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Right Column (40%): Atividade Recente + Distribuição -->
+                <div class="av-player-side-col">
+                    
+                    <!-- Atividade Recente -->
+                    <div class="av-player-section-card">
+                        <div class="av-section-card-header">
+                            <div>
+                                <span class="av-eyebrow">Timeline</span>
+                                <h3 class="av-section-title">Histórico Recente</h3>
+                            </div>
+                            <span class="av-pulse-indicator">
+                                <span class="av-live-pulse"></span>
+                                Ativo
+                            </span>
+                        </div>
+                        <div class="av-activity-list">
+                            ${activityRows}
+                        </div>
+                    </div>
+
+                    <!-- Distribuição do Acervo -->
+                    <div class="av-player-sub-card">
+                        <div class="av-section-card-header">
+                            <div>
+                                <span class="av-eyebrow">Acervo</span>
+                                <h4 class="av-sub-title">Distribuição</h4>
+                            </div>
+                        </div>
+                        <div class="av-status-distrib-grid">
+                            <div class="av-distrib-item">
+                                <span class="av-distrib-label">Assistindo</span>
+                                <b class="av-distrib-val text-emerald-400">${watching}</b>
+                            </div>
+                            <div class="av-distrib-item">
+                                <span class="av-distrib-label">Concluídos</span>
+                                <b class="av-distrib-val text-white">${completed}</b>
+                            </div>
+                            <div class="av-distrib-item">
+                                <span class="av-distrib-label">Na Fila</span>
+                                <b class="av-distrib-val text-white/70">${stats.statusCounts['Plan to Watch'] || 0}</b>
+                            </div>
+                            <div class="av-distrib-item">
+                                <span class="av-distrib-label">Reviews</span>
+                                <b class="av-distrib-val text-white">${stats.commentsCount}</b>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
         </div>
     `;
 
-    content.querySelector('#close-player-profile')?.addEventListener('click', () => {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-    });
+    // Modal listeners
+    const closeModal = () => {
+        closePlayerProfileModal();
+    };
+
+    content.querySelector('#close-player-profile')?.addEventListener('click', closeModal);
+
     content.querySelectorAll('[data-anime-id]').forEach(item => {
         item.addEventListener('click', () => {
             const id = item.dataset.animeId;
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
+            closeModal();
             if (id) openAnimeDetail(id);
         });
     });
+
     content.querySelectorAll('[data-studio]').forEach(item => {
         item.addEventListener('click', () => {
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-            window.switchTabToStudio(item.dataset.studio);
+            const studio = item.dataset.studio;
+            closeModal();
+            if (studio) window.switchTabToStudio(studio);
         });
     });
-    modal.classList.remove('hidden');
+
+    // Backdrop click listener
+    if (!modal.dataset.profileBackdropHooked) {
+        modal.dataset.profileBackdropHooked = 'true';
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+    }
+
+    // Escape key listener
+    if (!modal.dataset.profileEscapeHooked) {
+        modal.dataset.profileEscapeHooked = 'true';
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+                closeModal();
+            }
+        });
+    }
+
+    // Open modal with entrance animation
+    modal.classList.remove('hidden', 'is-closing');
     modal.classList.add('flex');
+    document.body.classList.add('overflow-hidden');
 }
 
 function setupUtilityModals() {
