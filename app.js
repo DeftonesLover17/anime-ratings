@@ -8195,8 +8195,252 @@ function initAddFriendModalOptions() {
             return '';
         }
 
+        const fetchWithTimeout = async (url, timeoutMs = 3200) => {
+            const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+            const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+            try {
+                const response = await fetch(url, controller ? { signal: controller.signal } : {});
+                if (timer) clearTimeout(timer);
+                return response;
+            } catch (err) {
+                if (timer) clearTimeout(timer);
+                throw err;
+            }
+        };
+
+        const CANONICAL_SEARCH_CATALOG = [
+            {
+                mal_id: 48583,
+                title: 'Shingeki no Kyojin: The Final Season Part 2',
+                title_english: 'Attack on Titan: The Final Season Part 2',
+                title_japanese: '進撃の巨人 The Final Season Part 2',
+                images: {
+                    webp: { large_image_url: 'https://cdn.myanimelist.net/images/anime/1988/119963l.jpg' },
+                    jpg: { large_image_url: 'https://cdn.myanimelist.net/images/anime/1988/119963l.jpg' }
+                },
+                type: 'TV',
+                episodes: 12,
+                year: 2022,
+                season: 'winter',
+                score: 8.8,
+                studios: [{ name: 'MAPPA' }],
+                genres: [{ name: 'Ação' }, { name: 'Drama' }, { name: 'Fantasia' }, { name: 'Militar' }],
+                synopsis: 'Virando-se contra seus antigos aliados e inimigos, Eren Yeager coloca em prática um plano devastador. Sob a liderança do Titã Fundador, o avanço colossal ameaça varrer toda a civilização além das muralhas de Paradis.'
+            },
+            {
+                mal_id: 40028,
+                title: 'Shingeki no Kyojin: The Final Season',
+                title_english: 'Attack on Titan: The Final Season',
+                title_japanese: '進撃の巨人 The Final Season',
+                images: {
+                    webp: { large_image_url: 'https://cdn.myanimelist.net/images/anime/1000/110531l.jpg' },
+                    jpg: { large_image_url: 'https://cdn.myanimelist.net/images/anime/1000/110531l.jpg' }
+                },
+                type: 'TV',
+                episodes: 16,
+                year: 2020,
+                season: 'fall',
+                score: 8.8,
+                studios: [{ name: 'MAPPA' }],
+                genres: [{ name: 'Ação' }, { name: 'Drama' }, { name: 'Fantasia' }, { name: 'Militar' }],
+                synopsis: 'Gabi Braun e Falco Grice treinaram suas vidas inteiras para herdar um dos Titãs sob o controle de Marley. Enquanto as tensões com Paradis chegam ao ápice, uma nova e mortal guerra se inicia.'
+            },
+            {
+                mal_id: 51535,
+                title: 'Shingeki no Kyojin: The Final Season - Kanketsu-hen',
+                title_english: 'Attack on Titan: The Final Season - The Final Chapters',
+                title_japanese: '進撃の巨人 The Final Season 完結編',
+                images: {
+                    webp: { large_image_url: 'https://cdn.myanimelist.net/images/anime/1279/131078l.jpg' },
+                    jpg: { large_image_url: 'https://cdn.myanimelist.net/images/anime/1279/131078l.jpg' }
+                },
+                type: 'TV',
+                episodes: 2,
+                year: 2023,
+                season: 'spring',
+                score: 8.9,
+                studios: [{ name: 'MAPPA' }],
+                genres: [{ name: 'Ação' }, { name: 'Drama' }, { name: 'Fantasia' }, { name: 'Militar' }],
+                synopsis: 'O Rugido da Terra avança implacável em direção a Marley, esmagando incontáveis vidas sob os passos dos Titãs Colossais. Mikasa, Armin e seus aliados restantes reúnem as últimas forças para tentar deter Eren.'
+            },
+            {
+                mal_id: 38524,
+                title: 'Shingeki no Kyojin Season 3 Part 2',
+                title_english: 'Attack on Titan Season 3 Part 2',
+                title_japanese: '進撃の巨人 Season 3 Part 2',
+                images: {
+                    webp: { large_image_url: 'https://cdn.myanimelist.net/images/anime/1517/100633l.jpg' },
+                    jpg: { large_image_url: 'https://cdn.myanimelist.net/images/anime/1517/100633l.jpg' }
+                },
+                type: 'TV',
+                episodes: 10,
+                year: 2019,
+                season: 'spring',
+                score: 9.0,
+                studios: [{ name: 'Wit Studio' }],
+                genres: [{ name: 'Ação' }, { name: 'Drama' }, { name: 'Fantasia' }, { name: 'Militar' }],
+                synopsis: 'Buscando recuperar a Muralha Maria e descobrir a verdade oculta no porão da família Yeager, a Divisão de Reconhecimento parte para o Distrito de Shiganshina.'
+            },
+            {
+                mal_id: 35760,
+                title: 'Shingeki no Kyojin Season 3',
+                title_english: 'Attack on Titan Season 3',
+                title_japanese: '進撃の巨人 Season 3',
+                images: {
+                    webp: { large_image_url: 'https://cdn.myanimelist.net/images/anime/1173/92110l.jpg' },
+                    jpg: { large_image_url: 'https://cdn.myanimelist.net/images/anime/1173/92110l.jpg' }
+                },
+                type: 'TV',
+                episodes: 12,
+                year: 2018,
+                season: 'summer',
+                score: 8.6,
+                studios: [{ name: 'Wit Studio' }],
+                genres: [{ name: 'Ação' }, { name: 'Drama' }, { name: 'Fantasia' }, { name: 'Militar' }],
+                synopsis: 'A Divisão de Reconhecimento enfrenta agora uma ameaça humana interna vinda da Polícia Militar e do governo secreto que governa as muralhas.'
+            },
+            {
+                mal_id: 25777,
+                title: 'Shingeki no Kyojin Season 2',
+                title_english: 'Attack on Titan Season 2',
+                title_japanese: '進撃の巨人 Season 2',
+                images: {
+                    webp: { large_image_url: 'https://cdn.myanimelist.net/images/anime/4/84177l.jpg' },
+                    jpg: { large_image_url: 'https://cdn.myanimelist.net/images/anime/4/84177l.jpg' }
+                },
+                type: 'TV',
+                episodes: 12,
+                year: 2017,
+                season: 'spring',
+                score: 8.5,
+                studios: [{ name: 'Wit Studio' }],
+                genres: [{ name: 'Ação' }, { name: 'Drama' }, { name: 'Fantasia' }, { name: 'Militar' }],
+                synopsis: 'Com a quebra misteriosa da Muralha Rose e a revelação de traidores dentro de suas próprias fileiras, o Corpo de Exploração é levado ao limite.'
+            },
+            {
+                mal_id: 16498,
+                title: 'Shingeki no Kyojin',
+                title_english: 'Attack on Titan',
+                title_japanese: '進撃の巨人',
+                images: {
+                    webp: { large_image_url: 'https://cdn.myanimelist.net/images/anime/10/47347l.jpg' },
+                    jpg: { large_image_url: 'https://cdn.myanimelist.net/images/anime/10/47347l.jpg' }
+                },
+                type: 'TV',
+                episodes: 25,
+                year: 2013,
+                season: 'spring',
+                score: 8.5,
+                studios: [{ name: 'Wit Studio' }],
+                genres: [{ name: 'Ação' }, { name: 'Drama' }, { name: 'Fantasia' }, { name: 'Militar' }],
+                synopsis: 'Após testemunhar a destruição de sua cidade natal e a morte de sua mãe por um Titã, Eren Yeager jura erradicar todos os Titãs da face da Terra.'
+            },
+            {
+                mal_id: 40456,
+                title: 'Kimetsu no Yaiba Movie: Mugen Ressha-hen',
+                title_english: 'Demon Slayer: Kimetsu no Yaiba - The Movie: Mugen Train',
+                title_japanese: '劇場版 鬼滅の刃 無限列車編',
+                images: {
+                    webp: { large_image_url: 'https://cdn.myanimelist.net/images/anime/1704/106947l.jpg' },
+                    jpg: { large_image_url: 'https://cdn.myanimelist.net/images/anime/1704/106947l.jpg' }
+                },
+                type: 'Filme',
+                episodes: 1,
+                year: 2020,
+                season: 'fall',
+                score: 8.6,
+                studios: [{ name: 'ufotable' }],
+                genres: [{ name: 'Ação' }, { name: 'Fantasia' }, { name: 'Histórico' }],
+                synopsis: 'Tanjiro, Nezuko, Zenitsu e Inosuke juntam-se ao Hashira das Chamas, Kyojuro Rengoku, a bordo do misterioso Trem Infinito.'
+            },
+            {
+                mal_id: 47778,
+                title: 'Kimetsu no Yaiba: Yuukaku-hen',
+                title_english: 'Demon Slayer: Kimetsu no Yaiba Entertainment District Arc',
+                title_japanese: '鬼滅の刃 遊郭編',
+                images: {
+                    webp: { large_image_url: 'https://cdn.myanimelist.net/images/anime/1908/120036l.jpg' },
+                    jpg: { large_image_url: 'https://cdn.myanimelist.net/images/anime/1908/120036l.jpg' }
+                },
+                type: 'TV',
+                episodes: 11,
+                year: 2021,
+                season: 'winter',
+                score: 8.8,
+                studios: [{ name: 'ufotable' }],
+                genres: [{ name: 'Ação' }, { name: 'Fantasia' }, { name: 'Histórico' }],
+                synopsis: 'Acompanhados pelo extravagante Hashira do Som, Tengen Uzui, os Caçadores de Onis infiltram-se no radiante Distrito da Luz Vermelha.'
+            },
+            {
+                mal_id: 51009,
+                title: 'Jujutsu Kaisen 2nd Season',
+                title_english: 'Jujutsu Kaisen Season 2',
+                title_japanese: '呪術廻戦 懐玉・玉折 / 渋谷事変',
+                images: {
+                    webp: { large_image_url: 'https://cdn.myanimelist.net/images/anime/1792/138022l.jpg' },
+                    jpg: { large_image_url: 'https://cdn.myanimelist.net/images/anime/1792/138022l.jpg' }
+                },
+                type: 'TV',
+                episodes: 23,
+                year: 2023,
+                season: 'summer',
+                score: 8.8,
+                studios: [{ name: 'MAPPA' }],
+                genres: [{ name: 'Ação' }, { name: 'Sobrenatural' }],
+                synopsis: 'A narrativa explora o passado de Satoru Gojo e Suguru Geto durante seus dias de escola, culminando no desastroso e épico Incidente de Shibuya.'
+            }
+        ];
+
+        function scoreAnimeRelevance(anime, rawQuery) {
+            const q = normalizeAnimeSearchText(rawQuery);
+            const tEn = normalizeAnimeSearchText(anime.title_english || '');
+            const tJp = normalizeAnimeSearchText(anime.title || '');
+            const allText = tEn + ' ' + tJp;
+            
+            let pts = 0;
+            const qHasPart1 = /(part|parte)s*1/.test(q);
+            const qHasPart2 = /(part|parte)s*2/.test(q);
+            const qHasPart3 = /(part|parte)s*3/.test(q) || q.includes('kanketsu') || q.includes('final chapters');
+            const qHasFinal = q.includes('final season') || q.includes('temporada final') || q.includes('season 4') || q.includes('temporada 4');
+            
+            // Exact query match boost
+            if (tEn === q || tJp === q) pts += 500;
+
+            // Specific Part matching
+            if (qHasPart2) {
+                if (/(part|parte)s*2/.test(allText)) pts += 450;
+                else pts -= 200;
+            }
+            if (qHasPart1) {
+                if (/(part|parte)s*1/.test(allText) || (!allText.includes('part') && allText.includes('final season'))) pts += 350;
+                if (/(part|parte)s*2/.test(allText)) pts -= 250;
+            }
+            if (qHasPart3) {
+                if (allText.includes('kanketsu') || allText.includes('final chapters') || /(part|parte)s*3/.test(allText)) pts += 450;
+            }
+
+            // Final season matching
+            if (qHasFinal) {
+                if (allText.includes('final season') || allText.includes('the final season')) pts += 350;
+                if (allText.includes('season 3') || allText.includes('season 2') || allText.includes('season 1')) pts -= 300;
+            }
+
+            // Substring inclusion
+            const words = q.split(' ').filter(w => w.length > 2);
+            words.forEach(w => {
+                if (allText.includes(w)) pts += 30;
+            });
+
+            // Score bonus
+            if (anime.score && !isNaN(anime.score)) {
+                pts += Math.min(25, Number(anime.score) * 2.5);
+            }
+
+            return pts;
+        }
+
         const fetchAnimeMAL = async (query) => {
-            const response = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=12`);
+            const response = await fetchWithTimeout(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=12`, 3000);
             if (!response.ok) throw new Error('API request failed');
             const json = await response.json();
             const list = json.data || [];
@@ -8210,7 +8454,7 @@ function initAddFriendModalOptions() {
         };
 
         const fetchAnimeMALById = async (malId) => {
-            const response = await fetch(`https://api.jikan.moe/v4/anime/${malId}`);
+            const response = await fetchWithTimeout(`https://api.jikan.moe/v4/anime/${malId}`, 2800);
             if (!response.ok) throw new Error('API request failed');
             const json = await response.json();
             const anime = json.data || null;
@@ -8223,7 +8467,7 @@ function initAddFriendModalOptions() {
 
         const fetchAnimeKitsu = async (query) => {
             try {
-                const response = await fetch(`https://kitsu.io/api/edge/anime?filter[text]=${encodeURIComponent(query)}&page[limit]=10&include=animeProductions.producer,genres`);
+                const response = await fetchWithTimeout(`https://kitsu.io/api/edge/anime?filter[text]=${encodeURIComponent(query)}&page[limit]=10&include=animeProductions.producer,genres`, 3500);
                 if (!response.ok) throw new Error('Kitsu request failed');
                 const json = await response.json();
                 
@@ -8301,58 +8545,69 @@ function initAddFriendModalOptions() {
             }
         };
 
-        // Fetch anime data from Jikan with a few smart aliases for titles MAL stores differently.
+        // Intelligent resilient multi-provider search (Canonical + Jikan + Kitsu with Relevance Sorting)
         const searchAnimeMAL = async (query) => {
             try {
                 const seen = new Set();
                 const mergedResults = [];
-                const queries = buildAnimeSearchQueries(query);
-                const pinnedIds = getPinnedAnimeIdsForSearch(query);
                 const addResult = (anime) => {
                     if (!anime) return;
-                    const key = anime.mal_id || `${anime.title}-${anime.url}`;
+                    const key = anime.mal_id || anime.kitsuId || `${anime.title}-${anime.title_english}`;
                     if (!seen.has(key)) {
                         seen.add(key);
                         mergedResults.push(anime);
                     }
                 };
 
-                for (const malId of pinnedIds) {
-                    try {
-                        addResult(await fetchAnimeMALById(malId));
-                    } catch (pinError) {
-                        console.warn('MAL pinned anime lookup failed:', malId, pinError);
+                // 1. Instant match from verified canonical catalog
+                const normQuery = normalizeAnimeSearchText(query);
+                const queryWords = normQuery.split(' ').filter(w => w.length > 2);
+                CANONICAL_SEARCH_CATALOG.forEach(item => {
+                    const fullText = normalizeAnimeSearchText((item.title_english || '') + ' ' + (item.title || '') + ' ' + (item.title_japanese || ''));
+                    if (queryWords.some(w => fullText.includes(w))) {
+                        addResult(item);
                     }
-                }
+                });
 
-                for (const searchQuery of queries) {
-                    let results = [];
-                    try {
-                        results = await fetchAnimeMAL(searchQuery);
-                    } catch (queryError) {
-                        console.warn('MAL search fallback failed:', searchQuery, queryError);
-                        continue;
+                // 2. Fetch live Jikan and Kitsu in parallel
+                const queries = buildAnimeSearchQueries(query);
+                const pinnedIds = getPinnedAnimeIdsForSearch(query);
+
+                const jikanTasks = [
+                    ...pinnedIds.map(id => fetchAnimeMALById(id).catch(() => null)),
+                    ...queries.map(q => fetchAnimeMAL(q).catch(() => []))
+                ];
+
+                const kitsuTasks = [
+                    fetchAnimeKitsu(query).catch(() => []),
+                    ...(queries[0] && queries[0] !== query ? [fetchAnimeKitsu(queries[0]).catch(() => [])] : [])
+                ];
+
+                const [jikanOutputs, kitsuOutputs] = await Promise.all([
+                    Promise.allSettled(jikanTasks),
+                    Promise.allSettled(kitsuTasks)
+                ]);
+
+                jikanOutputs.forEach(r => {
+                    if (r.status === 'fulfilled' && r.value) {
+                        if (Array.isArray(r.value)) r.value.forEach(addResult);
+                        else addResult(r.value);
                     }
-                    results.forEach(addResult);
-                    if (mergedResults.length >= 10) break;
-                }
+                });
 
-                // Fallback to Kitsu if no results from Jikan
-                if (mergedResults.length === 0) {
-                    console.log('Jikan returned no results, falling back to Kitsu for:', query);
-                    const kitsuResults = await fetchAnimeKitsu(query);
-                    kitsuResults.forEach(addResult);
-                }
+                kitsuOutputs.forEach(r => {
+                    if (r.status === 'fulfilled' && r.value && Array.isArray(r.value)) {
+                        r.value.forEach(addResult);
+                    }
+                });
 
-                return mergedResults.slice(0, 10);
+                // 3. Smart Relevance Re-ranking
+                mergedResults.sort((a, b) => scoreAnimeRelevance(b, query) - scoreAnimeRelevance(a, query));
+
+                return mergedResults.slice(0, 12);
             } catch (e) {
-                console.error('Error fetching from MAL:', e);
-                try {
-                    return await fetchAnimeKitsu(query);
-                } catch (kitsuError) {
-                    console.error('Final Kitsu fallback failed:', kitsuError);
-                    return [];
-                }
+                console.error('Error fetching anime search:', e);
+                return CANONICAL_SEARCH_CATALOG.filter(c => scoreAnimeRelevance(c, query) > 0).slice(0, 10);
             }
         };
 
