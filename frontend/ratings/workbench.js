@@ -32,8 +32,8 @@ function createWorkbench(host, initialModel, shared) {
         return { update() {}, destroy() {} };
     }
     const root =
-        element(`<div class="av-workbench ${total === 1 ? 'av-workbench-film' : ''}">
-        <aside class="av-episode-index" aria-label="Selecionar episódio"><div class="av-rail-heading"><h3>Episódios</h3><span>${String(total).padStart(2, '0')}</span></div><div class="av-episode-buttons" role="group" aria-label="Índice de episódios"></div><label class="av-mobile-picker">Selecionar episódio<select aria-label="Selecionar episódio para avaliar"></select></label><div class="av-episode-pagination"><button type="button" data-page="-1" aria-label="Episódios anteriores">${arrow('left')}</button><span></span><button type="button" data-page="1" aria-label="Próximos episódios">${arrow('right')}</button></div><p class="av-quiet">Uma nota por episódio.<br>Uma leitura que é só sua.</p></aside>
+        element(`<div class="av-workbench ${total === 1 ? 'av-workbench-film' : ''}" data-lenis-prevent="true">
+        <aside class="av-episode-index" aria-label="Selecionar episódio" data-lenis-prevent="true"><div class="av-rail-heading"><h3>Episódios</h3><span>${String(total).padStart(2, '0')}</span></div><div class="av-episode-buttons" role="group" aria-label="Índice de episódios" data-lenis-prevent="true"></div><label class="av-mobile-picker">Selecionar episódio<select aria-label="Selecionar episódio para avaliar"></select></label><div class="av-episode-pagination"><button type="button" data-page="-1" aria-label="Episódios anteriores">${arrow('left')}</button><span></span><button type="button" data-page="1" aria-label="Próximos episódios">${arrow('right')}</button></div><p class="av-quiet">Uma nota por episódio.<br>Uma leitura que é só sua.</p></aside>
         <div class="av-rating-editor"><div class="av-editor-heading"><div><p class="av-eyebrow">${total === 1 ? 'Registro de filme' : 'Registro de episódio'}</p><h3 id="av-editor-title"></h3></div><label class="av-watched"><input type="checkbox"><span>Assistido</span></label></div>
         <form class="av-rating-form" novalidate><label for="av-score-input" class="av-score-label"></label><div class="av-score-row"><div><input id="av-score-input" name="score" type="text" inputmode="decimal" autocomplete="off" maxlength="5" placeholder="—" aria-describedby="av-score-help av-score-error"><span>/ 10</span></div><div class="av-step-buttons"><button type="button" data-step="-.1" aria-label="Diminuir nota em 0,1">−</button><button type="button" data-step=".1" aria-label="Aumentar nota em 0,1">+</button></div></div><input class="av-score-range" type="range" min=".1" max="10" step=".1" aria-label="Ajustar a nota"><div class="av-scale-labels"><span>0,1</span><span>Escala / 10</span><span>10</span></div><p id="av-score-help" class="av-quiet">Digite com vírgula ou ponto. Ajustes em passos de 0,1.</p><p id="av-score-error" class="av-field-error" role="alert"></p><div class="av-editor-actions"><button type="submit" class="av-button av-button-accent">Salvar nota ${arrow()}</button><button type="button" class="av-button av-button-outline" data-next>Próximo episódio ${arrow('right')}</button></div></form>
         <div class="av-save-feedback" role="status" aria-live="polite">${model.readOnly ? 'Você está consultando as notas de ' + e(model.profileName) + '.' : 'Sua avaliação fica vinculada à sua conta.'}</div><button class="av-text-link av-retry" type="button" hidden>Tentar sincronizar novamente</button>
@@ -119,6 +119,10 @@ function createWorkbench(host, initialModel, shared) {
         $('[data-page="1"]').disabled = page.end >= total;
         $('.av-episode-pagination span').textContent =
             `${page.start}–${page.end} / ${total}`;
+        const activeBtn = rail.querySelector(`[data-episode="${selected}"]`);
+        if (activeBtn) {
+            activeBtn.scrollIntoView({ block: 'nearest' });
+        }
     }
 
     function refreshEditor() {
@@ -251,6 +255,18 @@ function createWorkbench(host, initialModel, shared) {
         const button = event.target.closest('[data-episode]');
         if (button) select(button.dataset.episode, event.detail > 0);
     });
+    rail.addEventListener('wheel', (e) => {
+        if (rail.scrollHeight > rail.clientHeight) {
+            e.stopPropagation();
+            const delta = e.deltaY;
+            const atTop = rail.scrollTop <= 0 && delta < 0;
+            const atBottom = Math.ceil(rail.scrollTop + rail.clientHeight) >= rail.scrollHeight && delta > 0;
+            if (!atTop && !atBottom) {
+                rail.scrollTop += delta;
+                e.preventDefault();
+            }
+        }
+    }, { passive: false });
     picker.addEventListener('change', () => select(picker.value, false));
     root.querySelectorAll('[data-page]').forEach((button) =>
         button.addEventListener('click', () =>

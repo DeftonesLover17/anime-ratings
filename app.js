@@ -4181,7 +4181,14 @@ function initMotionSuite() {
         '.av-stats-shell',
         '.av-studio-layout',
         '.av-player-scroll-body',
-        '.av-stats-scroll-content'
+        '.av-stats-scroll-content',
+        '.av-episode-buttons',
+        '.av-episode-index',
+        '.av-workbench',
+        '#av-rating-workbench',
+        '#av-notes',
+        '.av-account-scroll',
+        '.av-sug-list'
     ];
     preventSelectors.forEach(sel => {
         document.querySelectorAll(sel).forEach(el => {
@@ -4200,7 +4207,20 @@ function initMotionSuite() {
                 smoothWheel: true,
                 wheelMultiplier: 1.0,
                 touchMultiplier: 1.5,
-                infinite: false
+                infinite: false,
+                prevent: (node) => {
+                    if (!node || typeof node.closest !== 'function') return false;
+                    return Boolean(
+                        node.hasAttribute('data-lenis-prevent') ||
+                        node.closest('[data-lenis-prevent]') ||
+                        node.closest('.av-episode-buttons') ||
+                        node.closest('.av-episode-index') ||
+                        node.closest('.av-workbench') ||
+                        node.closest('#av-rating-workbench') ||
+                        node.closest('.av-sug-list') ||
+                        node.closest('.av-account-scroll')
+                    );
+                }
             });
 
             // Connect Lenis to GSAP ticker if available, or fallback to requestAnimationFrame

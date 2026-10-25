@@ -4,7 +4,29 @@
 .av-rail-heading { display: flex; justify-content: space-between; align-items: center; padding-bottom: 24px; }
 .av-rail-heading h3 { font: 600 20px/1.3 var(--av-display); letter-spacing: -.03em; }
 .av-rail-heading > span { font-size: 11px; color: var(--av-muted); }
-.av-episode-buttons { max-height: 470px; overflow-y: auto; overscroll-behavior: contain; }
+.av-episode-buttons {
+    max-height: 470px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+}
+.av-episode-buttons::-webkit-scrollbar {
+    width: 6px;
+}
+.av-episode-buttons::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+}
+.av-episode-buttons::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.22);
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.av-episode-buttons::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.45);
+}
 .av-episode-buttons > button { display: grid; grid-template-columns: 22px 1fr auto; gap: 9px; align-items: center; width: 100%; text-align: left; padding: 17px 12px; min-height: 75px; border: 0; border-top: 1px solid var(--av-line); border-left: 1px solid transparent; background: transparent; color: var(--av-ink); font-size: 12px; }
 .av-episode-buttons > button[aria-pressed=true] { background: var(--av-surface); border-left-color: var(--av-accent); }
 .av-episode-buttons > button > span:first-child { font-size: 10px; color: var(--av-muted); }
