@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="assets/ui.5b7ca580e7f9.js"></script>
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <script src="assets/ui.a92307189956.js"></script>
     <title>ANIVØID | Season Ratings</title>
     <!-- Favicon / Logo -->
     <link rel="icon" type="image/png" href="favicon.png">
     <!-- EmailJS SDK for real email delivery (optional) -->
     <script defer src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <link rel="stylesheet" href="assets/tailwind.84f809918fc2.css">
+    <link rel="stylesheet" href="assets/tailwind.669799d9ef22.css">
     <!-- Iconify Icons CDN -->
     <script defer src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
     <!-- GSAP 3 & ScrollTrigger (Awwwards Creative Motion) -->
@@ -24,7 +26,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syncopate:wght@700&family=Syne:wght@800&family=Lexend+Tera:wght@900&display=swap" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="assets/styles.ff10fb061198.css">
+    <link rel="stylesheet" href="assets/styles.b21ed646f7a7.css">
     
     <meta name="theme-color" content="#050505">
     <script>
@@ -137,7 +139,7 @@
                         
                         <div class="md:col-span-6 space-y-2">
                             <label for="reg-password" class="text-gray-400 uppercase tracking-wider block font-semibold">Senha</label>
-                            <input type="password" id="reg-password" name="password" autocomplete="new-password" minlength="10" required placeholder="••••••••" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 transition-colors">
+                            <input type="password" id="reg-password" name="password" autocomplete="new-password" minlength="10" required placeholder="••••••••" spellcheck="false" autocorrect="off" autocapitalize="off" data-lpignore="true" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 transition-colors">
                         </div>
                         
                         <div class="md:col-span-6 space-y-2">
@@ -243,7 +245,7 @@
                     </div>
                     <div class="space-y-2">
                         <label for="login-password" class="text-gray-400 uppercase tracking-wider block font-semibold">Senha</label>
-                        <input type="password" id="login-password" name="password" autocomplete="current-password" required placeholder="••••••••" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 transition-colors">
+                        <input type="password" id="login-password" name="password" autocomplete="current-password" required placeholder="••••••••" spellcheck="false" autocorrect="off" autocapitalize="off" data-lpignore="true" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-brand/50 transition-colors">
                     </div>
                     <div class="rounded-xl border border-brand/25 bg-brand/5 px-4 py-3 text-[10px] leading-relaxed text-gray-300">
                         <p class="text-brand font-bold uppercase tracking-[0.18em] mb-1">Atualizacao de seguranca</p>
@@ -678,61 +680,135 @@
     </div>
 
 
-    <!-- 7. MODAL: CENTRAL DE AMIGOS -->
-    <div id="add-friend-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-[50] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
-        <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl p-6 md:p-8 space-y-6">
-            <div class="flex justify-between items-center">
-                <h3 class="text-lg font-serif">Central de <span class="italic text-brand font-light">Amigos</span></h3>
-                <button id="close-add-friend" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors">
-                    <iconify-icon icon="lucide:x" class="text-white text-sm"></iconify-icon>
-                </button>
-            </div>
+    <!-- 7. MODAL: CENTRAL DE AMIGOS (AWWWARDS SOCIAL STUDIO) -->
+    <div id="add-friend-modal" data-lenis-prevent="true" class="fixed inset-0 bg-black/85 backdrop-blur-2xl z-[9998] hidden items-center justify-center p-3 sm:p-5 md:p-8 overflow-y-auto">
+        <div class="av-friends-shell" data-lenis-prevent="true">
             
-            <!-- Search for registered users -->
-            <div class="space-y-2 font-mono text-xs">
-                <label class="text-gray-400 uppercase tracking-wider block font-semibold">Adicionar Amigo</label>
-                <div class="relative">
-                    <iconify-icon icon="lucide:search" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></iconify-icon>
-                    <input type="text" id="form-friend-search" placeholder="Digite o nome de usuário ou e-mail..." class="w-full bg-white/5 border border-white/10 rounded-full py-2.5 pl-11 pr-4 text-xs font-light focus:outline-none focus:border-brand/50 transition-colors text-white">
+            <!-- Ambient Top Highlight -->
+            <div class="av-friends-ambient-tint" aria-hidden="true"></div>
+
+            <!-- Modal Header -->
+            <div class="av-friends-header">
+                <div class="av-friends-header-info">
+                    <div class="av-stats-eyebrow">
+                        <span class="av-stats-dot"></span>
+                        <span>Rede &amp; Coletivo / Social Hub</span>
+                    </div>
+                    <h2 class="av-stats-title">Central de Amigos<span>.</span></h2>
+                    <p class="av-stats-subtitle">Conecte-se com outros críticos, compare notas em tempo real e compartilhe resenhas cinematográficas no coletivo.</p>
                 </div>
-                <!-- Suggested users list -->
-                <div id="registered-users-list" class="space-y-1.5 max-h-44 overflow-y-auto pr-1 pt-1.5 hidden">
-                    <!-- Populated in JS -->
+
+                <div class="av-friends-header-aside">
+                    <!-- User Identity Pill -->
+                    <div class="av-friends-identity-pill">
+                        <span id="friends-modal-my-avatar" class="av-friends-identity-avatar">👤</span>
+                        <div class="av-friends-identity-text">
+                            <span class="av-friends-identity-label">Sua Conta</span>
+                            <b id="friends-modal-my-name" class="av-friends-identity-name">Membro</b>
+                        </div>
+                    </div>
+
+                    <!-- Close Button -->
+                    <button type="button" id="close-add-friend" class="av-stats-close-btn" aria-label="Fechar Central de Amigos">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 6 6 18M6 6l12 12"/>
+                        </svg>
+                    </button>
                 </div>
             </div>
 
-            <!-- Incoming Requests Section -->
-            <div id="pending-requests-section" class="space-y-3 hidden">
-                <div class="h-px bg-white/10"></div>
-                <h4 class="text-xs uppercase tracking-wider font-semibold text-brand font-mono flex items-center gap-1.5">
-                    <iconify-icon icon="lucide:bell" class="animate-pulse"></iconify-icon>
-                    <span>Solicitações Recebidas</span>
-                </h4>
-                <div id="pending-requests-list" class="space-y-2 max-h-40 overflow-y-auto pr-1">
-                    <!-- Dynamically populated in JS -->
-                </div>
+            <!-- Studio 2-Column Layout -->
+            <div class="av-friends-studio-layout">
+                
+                <!-- Left Column: Search & Add + Requests Center -->
+                <aside class="av-friends-left-col">
+                    
+                    <!-- Search Card -->
+                    <div class="av-friends-card">
+                        <div class="av-friends-card-header">
+                            <span class="av-eyebrow">Conexão Direta</span>
+                            <h3 class="av-friends-card-title">Adicionar Amigo</h3>
+                            <p class="av-friends-card-sub">Encontre outros membros por nome de usuário ou e-mail cadastrado.</p>
+                        </div>
+
+                        <!-- Search Input Wrapper -->
+                        <div class="av-friends-search-wrapper">
+                            <div class="av-friends-search-box">
+                                <svg class="av-friends-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="11" cy="11" r="8"/>
+                                    <path d="m21 21-4.3-4.3"/>
+                                </svg>
+                                <input type="text" id="form-friend-search" placeholder="Digite o nome de usuário ou e-mail..." class="av-friends-search-input" autocomplete="off" spellcheck="false">
+                                <button type="button" id="clear-friend-search" class="av-friends-clear-btn hidden" aria-label="Limpar busca">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                                </button>
+                            </div>
+                            <div class="av-friends-search-hint">
+                                <span class="av-hint-dot"></span>
+                                <span>Busca instantânea de membros no coletivo ANIVØID.</span>
+                            </div>
+                        </div>
+
+                        <!-- Suggested & Matched Users List -->
+                        <div id="registered-users-list" class="av-friends-suggestions-list hidden">
+                            <!-- Populated in JS -->
+                        </div>
+                    </div>
+
+                    <!-- Incoming Requests Section -->
+                    <div id="pending-requests-section" class="av-friends-card av-requests-card hidden">
+                        <div class="av-friends-card-header">
+                            <div class="av-requests-title-row">
+                                <span class="av-eyebrow text-emerald-400">Solicitações Recebidas</span>
+                                <span id="pending-requests-count-badge" class="av-requests-badge">0</span>
+                            </div>
+                            <h3 class="av-friends-card-title">Convites de Conexão</h3>
+                        </div>
+                        <div id="pending-requests-list" class="av-requests-list">
+                            <!-- Populated in JS -->
+                        </div>
+                    </div>
+
+                    <!-- Outgoing Requests Section -->
+                    <div id="sent-requests-section" class="av-friends-card av-sent-card hidden">
+                        <div class="av-friends-card-header">
+                            <div class="av-requests-title-row">
+                                <span class="av-eyebrow text-amber-300">Solicitações Enviadas</span>
+                                <span id="sent-requests-count-badge" class="av-requests-badge is-amber">0</span>
+                            </div>
+                            <h3 class="av-friends-card-title">Aguardando Resposta</h3>
+                        </div>
+                        <div id="sent-requests-list" class="av-requests-list">
+                            <!-- Populated in JS -->
+                        </div>
+                    </div>
+
+                </aside>
+
+                <!-- Right Column: Current Friends Roster Hub -->
+                <main class="av-friends-right-col">
+                    <div class="av-friends-roster-card">
+                        <div class="av-roster-header">
+                            <div>
+                                <span class="av-eyebrow">Rede Ativa</span>
+                                <h3 class="av-friends-card-title">Seus Amigos</h3>
+                                <p class="av-friends-card-sub">Críticos conectados com quem você compartilha notas e impressões.</p>
+                            </div>
+                            <div class="av-roster-stat-pill">
+                                <span class="av-roster-stat-dot"></span>
+                                <span id="friends-roster-count-badge">0 amigos</span>
+                            </div>
+                        </div>
+
+                        <!-- Friends List / Grid -->
+                        <div id="modal-friends-list" class="av-friends-roster-list">
+                            <!-- Populated in JS -->
+                        </div>
+                    </div>
+                </main>
+
             </div>
 
-            <!-- Outgoing Requests Section -->
-            <div id="sent-requests-section" class="space-y-3 hidden">
-                <div class="h-px bg-white/10"></div>
-                <h4 class="text-xs uppercase tracking-wider font-semibold text-amber-300 font-mono flex items-center gap-1.5">
-                    <iconify-icon icon="lucide:send"></iconify-icon>
-                    <span>Solicita&ccedil;&otilde;es Enviadas</span>
-                </h4>
-                <div id="sent-requests-list" class="space-y-2 max-h-36 overflow-y-auto pr-1">
-                    <!-- Dynamically populated in JS -->
-                </div>
-            </div>
-
-            <!-- Current Friends List Section -->
-            <div class="space-y-3">
-                <div class="h-px bg-white/10"></div>
-                <h4 class="text-xs uppercase tracking-wider font-semibold text-gray-400 font-mono">Seus Amigos</h4>
-                <div id="modal-friends-list" class="space-y-2 max-h-60 overflow-y-auto pr-1 text-gray-400 text-xs font-mono">
-                    <!-- Dynamically populated in JS -->
-                </div>
-            </div>
         </div>
     </div>
 
@@ -925,16 +1001,16 @@
                                         <span class="av-preset-tag">Cyberpunk</span>
                                     </button>
                                     <button type="button" class="av-banner-preset-btn" data-banner="covers/a1.jpg">
-                                        <img src="covers/a1.jpg" alt="Attack on Titan">
-                                        <span class="av-preset-tag">Shingeki</span>
+                                        <img src="covers/a1.jpg" alt="Demon Slayer">
+                                        <span class="av-preset-tag">Demon Slayer</span>
                                     </button>
                                     <button type="button" class="av-banner-preset-btn" data-banner="covers/a3.jpg">
-                                        <img src="covers/a3.jpg" alt="Steins;Gate">
-                                        <span class="av-preset-tag">Steins;Gate</span>
+                                        <img src="covers/a3.jpg" alt="Kaiju No. 8">
+                                        <span class="av-preset-tag">Kaiju No. 8</span>
                                     </button>
                                     <button type="button" class="av-banner-preset-btn" data-banner="covers/a5.jpg">
-                                        <img src="covers/a5.jpg" alt="Hunter x Hunter">
-                                        <span class="av-preset-tag">Hunter x Hunter</span>
+                                        <img src="covers/a5.jpg" alt="Frieren">
+                                        <span class="av-preset-tag">Frieren</span>
                                     </button>
                                 </div>
                             </div>
@@ -1070,10 +1146,10 @@
                                 <div class="av-security-content">
                                     <div class="av-studio-fields-grid">
                                         <div class="av-field-box">
-                                            <input type="password" id="edit-profile-current-password" placeholder="Senha atual" class="av-input">
+                                            <input type="password" id="edit-profile-current-password" autocomplete="current-password" placeholder="Senha atual" spellcheck="false" autocorrect="off" autocapitalize="off" data-lpignore="true" class="av-input">
                                         </div>
                                         <div class="av-field-box">
-                                            <input type="password" id="edit-profile-new-password" placeholder="Nova senha (mínimo 6 caracteres)" class="av-input">
+                                            <input type="password" id="edit-profile-new-password" autocomplete="new-password" placeholder="Nova senha (mínimo 10 caracteres)" spellcheck="false" autocorrect="off" autocapitalize="off" data-lpignore="true" class="av-input">
                                         </div>
                                     </div>
                                     <div class="av-security-actions">
@@ -1280,25 +1356,69 @@
         </div>
     </div>
 
-    <!-- NOTIFICATIONS MODAL -->
-    <div id="notifications-modal" data-lenis-prevent="true" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
-        <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl p-6 md:p-8 space-y-5 my-auto relative">
-            <div class="flex items-center justify-between border-b border-white/5 pb-4">
-                <div class="flex items-center gap-2 text-xs font-mono text-gray-400">
-                    <iconify-icon icon="lucide:bell-ring" class="text-brand text-base"></iconify-icon>
-                    <span class="tracking-widest uppercase text-[10px]">Central de Notifica&ccedil;&otilde;es</span>
+    <!-- NOTIFICATIONS MODAL (AWWWARDS SOCIAL EDITION) -->
+    <div id="notifications-modal" data-lenis-prevent="true" class="fixed inset-0 bg-black/85 backdrop-blur-2xl z-[9998] hidden items-center justify-center p-3 sm:p-5 md:p-8 overflow-y-auto">
+        <div class="av-notifications-shell" data-lenis-prevent="true">
+            
+            <!-- Ambient Top Highlight -->
+            <div class="av-notifications-ambient-tint" aria-hidden="true"></div>
+
+            <!-- Modal Header -->
+            <div class="av-notifications-header">
+                <div class="av-notifications-header-info">
+                    <div class="av-stats-eyebrow">
+                        <span class="av-stats-dot"></span>
+                        <span>Pulso &amp; Atividade / Alertas</span>
+                    </div>
+                    <h2 class="av-stats-title">Central de Notificações<span>.</span></h2>
+                    <p class="av-stats-subtitle">Acompanhe novos comentários, convites de amizade, avaliações em tempo real e atualizações no acervo.</p>
                 </div>
-                <button id="close-notifications" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors text-gray-400 hover:text-white border-0">
-                    <iconify-icon icon="lucide:x" class="text-lg"></iconify-icon>
-                </button>
+
+                <div class="av-notifications-header-aside">
+                    <!-- Unread Count Pill -->
+                    <div class="av-notifications-counter-pill">
+                        <span class="av-notifications-pulse-dot"></span>
+                        <span id="notifications-modal-unread-count">0 não lidas</span>
+                    </div>
+
+                    <!-- Close Button -->
+                    <button type="button" id="close-notifications" class="av-stats-close-btn" aria-label="Fechar Central de Notificações">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 6 6 18M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
-            <div class="flex flex-wrap gap-3">
-                <button id="mark-notifications-read" class="px-4 py-2 rounded-full bg-white text-black text-[10px] font-mono uppercase tracking-widest font-bold">Marcar lidas</button>
-                <button id="clear-notifications" class="px-4 py-2 rounded-full border border-white/10 text-white/60 hover:text-white hover:bg-white/5 text-[10px] font-mono uppercase tracking-widest">Limpar</button>
+
+            <!-- Toolbar Actions -->
+            <div class="av-notifications-toolbar">
+                <div class="av-notif-toolbar-left">
+                    <span class="av-eyebrow">Feed de Alertas</span>
+                </div>
+                <div class="av-notif-toolbar-actions">
+                    <button type="button" id="mark-notifications-read" class="av-button-notif-solid" title="Marcar todas as notificações como lidas">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 6 7 17l-5-5"/>
+                            <path d="m22 10-7.5 7.5L13 16"/>
+                        </svg>
+                        <span>Marcar Lidas</span>
+                    </button>
+                    <button type="button" id="clear-notifications" class="av-button-notif-ghost" title="Limpar todas as notificações">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                        </svg>
+                        <span>Limpar</span>
+                    </button>
+                </div>
             </div>
-            <div id="notifications-list" class="space-y-3 max-h-[55vh] overflow-y-auto pr-1">
-                <!-- JS populated -->
+
+            <!-- Notifications Scrollable Body -->
+            <div class="av-notifications-body">
+                <div id="notifications-list" class="av-notifications-list">
+                    <!-- Populated in JS -->
+                </div>
             </div>
+
         </div>
     </div>
 
@@ -1446,7 +1566,7 @@
     </div>
 
     <!-- Scripts Integration -->
-    <script src="assets/sync-state.9868559c480c.js"></script>
-    <script src="assets/app.08558efa8fda.js"></script>
+    <script src="assets/sync-state.cf8c4191aba9.js"></script>
+    <script src="assets/app.0175dce5e426.js"></script>
 </body>
 </html>

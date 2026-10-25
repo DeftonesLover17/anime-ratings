@@ -7,6 +7,27 @@ const {
     attachImageFallbacks,
 } = require('../shared/dom');
 
+function resolveStatusKind(rawKey, rawLabel) {
+    const text = String(rawKey || rawLabel || '').toLowerCase().trim();
+    if (text.includes('complet') || text === 'completed') return 'completed';
+    if (text.includes('assist') || text.includes('watch')) return 'watching';
+    if (text.includes('espera') || text.includes('hold') || text.includes('paus')) return 'onhold';
+    if (text.includes('abandon') || text.includes('drop')) return 'dropped';
+    return 'plantowatch';
+}
+
+function statusFallbackLabel(kind) {
+    switch (kind) {
+        case 'completed': return 'Completo';
+        case 'watching': return 'Assistindo';
+        case 'onhold': return 'Em Espera';
+        case 'dropped': return 'Abandonado';
+        case 'plantowatch':
+        default: return 'Planejo assistir';
+    }
+}
+
+
 function renderFeatured(container, model, actions) {
     const {
         anime,
@@ -18,6 +39,8 @@ function renderFeatured(container, model, actions) {
     } = model;
     const watched = Number(rating?.episodesWatched) || 0;
     const total = Number(anime.episodes) || 0;
+    const heroStatusKey = resolveStatusKind(rating?.status, statusLabel);
+    const heroDisplayStatus = statusLabel || statusFallbackLabel(heroStatusKey);
     const root = element(`<div class="av-hero av-wrap">
         <div class="av-hero-topline"><span>Anime. Visto de outro jeito.</span><span>Seu acervo em movimento <i aria-hidden="true"></i></span></div>
         <div class="av-hero-copy">
@@ -26,7 +49,7 @@ function renderFeatured(container, model, actions) {
             <div class="av-hero-subline"><span>${e(anime.studio || 'Estúdio não informado')}</span><span>${total === 1 ? 'Filme' : total ? total + ' episódios' : 'Em lançamento'}</span></div>
             <p class="av-hero-synopsis">${e(anime.synopsis || '')}</p>
             <div class="av-hero-actions"><a class="av-button av-button-solid" href="#obra/${encodeURIComponent(anime.id)}" data-open>Entrar na obra ${arrow()}</a><a class="av-text-link" href="#anime-grid-section" data-catalog>Explorar acervo <span>↓</span></a></div>
-            <div class="av-hero-rating"><div>${scoreMarkup(rating?.overall)}<span>${e(model.ratingLabel || 'Sua nota')}</span></div><span class="av-vertical-line"></span><div>${scoreMarkup(groupScore)}<span>Média do grupo</span></div><p>${e(statusLabel)}<span>${watched} de ${total || '?'} ${total === 1 ? 'filme' : 'episódios'}</span></p></div>
+            <div class="av-hero-rating"><div>${scoreMarkup(rating?.overall)}<span>${e(model.ratingLabel || 'Sua nota')}</span></div><span class="av-vertical-line"></span><div>${scoreMarkup(groupScore)}<span>Média do grupo</span></div><p><span class="av-card-status-badge av-status-${heroStatusKey}"><span class="av-status-dot${heroStatusKey === 'watching' ? ' av-status-dot-pulse' : ''}" aria-hidden="true"></span><span class="av-status-text">${e(heroDisplayStatus)}</span></span><span>${watched} de ${total || '?'} ${total === 1 ? 'filme' : 'episódios'}</span></p></div>
         </div>
         <div class="av-hero-art">
             <div class="av-art-frame" data-av-reveal><span class="av-art-corner" aria-hidden="true">↗</span><a href="#obra/${encodeURIComponent(anime.id)}" data-open aria-label="Abrir ${e(anime.title)}"><img data-av-cover="${e(anime.id)}" src="${e(imageUrl(anime.coverUrl))}" width="600" height="900" fetchpriority="high" alt="Capa de ${e(anime.title)}"></a><span class="av-art-index" aria-hidden="true">01 — ANIVØID</span></div>
@@ -53,6 +76,8 @@ function renderFeatured(container, model, actions) {
 
 function createCatalogCard(model, actions, index) {
     const { anime, rating, groupScore, statusLabel } = model;
+    const statusKey = resolveStatusKind(model.statusKey || rating?.status, statusLabel);
+    const displayStatus = statusLabel || statusFallbackLabel(statusKey);
     const root =
         element(`<article class="av-anime-card" data-anime-id="${e(anime.id)}" data-av-reveal>
         <a class="av-card-poster av-poster-surface" href="#obra/${encodeURIComponent(anime.id)}" aria-label="Abrir ${e(anime.title)}">
@@ -63,7 +88,16 @@ function createCatalogCard(model, actions, index) {
         <h3><a href="#obra/${encodeURIComponent(anime.id)}">${e(anime.title)}</a></h3>
         <button class="av-card-studio" aria-label="Explorar estúdio ${e(anime.studio || 'Desconhecido')}">${e(anime.studio || 'Estúdio não informado')} <span aria-hidden="true">↗</span></button>
         <p class="av-card-synopsis">${e(anime.synopsis || '')}</p>
-        <div class="av-card-personal"><span>${e(statusLabel)}</span><span>${e(model.ratingLabel || 'Sua nota')} ${scoreMarkup(rating?.overall)}</span></div>${model.ownRating ? '<div class="av-card-comparison">Sua nota ' + scoreMarkup(model.ownRating.overall) + '</div>' : ''}
+        <div class="av-card-personal" data-status="${statusKey}">
+            <div class="av-card-status-badge av-status-${statusKey}">
+                <span class="av-status-dot${statusKey === 'watching' ? ' av-status-dot-pulse' : ''}" aria-hidden="true"></span>
+                <span class="av-status-text">${e(displayStatus)}</span>
+            </div>
+            <div class="av-card-score-chip" title="${e(model.ratingLabel || 'Sua nota')}">
+                <span class="av-card-score-label">${e(model.ratingLabel || 'Sua nota')}</span>
+                <span class="av-card-score-value">${scoreMarkup(rating?.overall)}</span>
+            </div>
+        </div>${model.ownRating ? `<div class="av-card-comparison"><span class="av-card-comparison-label">Sua nota</span><span class="av-card-score-value">${scoreMarkup(model.ownRating.overall)}</span></div>` : ''}
     </article>`);
     root.querySelectorAll('a').forEach((link) =>
         link.addEventListener('click', (event) => {

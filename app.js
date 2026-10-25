@@ -1,13 +1,48 @@
 // --- EMAILJS CONFIGURATION (OPTIONAL FOR REAL EMAILS) ---
 // Se você quiser que o site envie e-mails reais de boas-vindas aos usuários,
 // registre-se gratuitamente em https://www.emailjs.com/ e preencha as chaves abaixo:
-const EMAILJS_CONFIG = {
-    publicKey: '6qFuSGQ8aUf6zFsbY',    // Cole sua Public Key aqui (ex: 'user_xyz...')
-    serviceId: 'service_c57m7os',    // Cole seu Service ID aqui (ex: 'service_abc...')
-    templateId: 'template_w7b4c1j'    // Cole seu Template ID aqui (ex: 'template_123...')
+const EMAILJS_CONFIG = (typeof window !== 'undefined' && window.__ANIVOID_EMAILJS_CONFIG) ? window.__ANIVOID_EMAILJS_CONFIG : {
+    publicKey: '',
+    serviceId: '',
+    templateId: ''
 };
 
 const DEFAULT_AVATAR_SVG = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjI1KSI+PHBhdGggZD0iTTEyIDEyYTUgNSAwIDEgMCAwLTEwIDUgNSAwIDAgMCAwIDEwek0xMiAxNGMtMy43MyAwLTExIDEuODYtMTEgNS41VjIwSDIzdi0xYy0xLjEtMy42NC03LjI3LTUuNS0xMS01LjV6Ii8+PC9zdmc+';
+
+// --- DEVTOOLS & CONSOLE SECURITY DEFENSE (ANTI-SELF-XSS) ---
+(function installDevToolsSecurityBanner() {
+    if (typeof window === 'undefined' || typeof console === 'undefined') return;
+    try {
+        const titleStyle = 'color: #ff3b30; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 24px; font-weight: 900; -webkit-text-stroke: 1px black; text-shadow: 0 0 10px rgba(255,59,48,0.4);';
+        const warnBadgeStyle = 'background: #ff3b30; color: #ffffff; font-family: monospace; font-size: 11px; font-weight: bold; padding: 3px 8px; border-radius: 4px;';
+        const bodyStyle = 'color: #e5e7eb; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; line-height: 1.6; font-weight: 500;';
+        const alertBoxStyle = 'color: #fbbf24; font-family: monospace; font-size: 12px; background: rgba(251,191,36,0.08); padding: 6px 12px; border-left: 3px solid #fbbf24; border-radius: 4px; margin: 4px 0;';
+        const tipStyle = 'color: #9ca3af; font-family: monospace; font-size: 11px;';
+
+        console.log('%c🛑 ÁREA DE SEGURANÇA DO ANIVOID %cDEVTOOLS', titleStyle, warnBadgeStyle);
+        console.log(
+            '%cATENÇÃO: Esta é uma ferramenta técnica de depuração do navegador destinada exclusivamente a desenvolvedores.\n\n' +
+            'Se alguém instruiu você a copiar e colar qualquer código ou script aqui prometendo "acesso de admin", "desbloquear títulos" ou "ver notas secretas", NÃO FAÇA ISSO.\n' +
+            'Trata-se de um ataque conhecido como Self-XSS (Scam) para comprometer sua sessão e seus dados.',
+            bodyStyle
+        );
+        console.log('%c🔒 Defesa Ativa: Sessões criptografadas com cookies HttpOnly, isolamento de escopo e proteção anti-tampering.', alertBoxStyle);
+        console.log('%cSaiba mais sobre segurança web em https://owasp.org/www-community/attacks/xss/#self-xss', tipStyle);
+    } catch (_) {}
+})();
+
+// --- CLICKJACKING & IFRAME ISOLATION DEFENSE ---
+(function enforceFrameIsolation() {
+    if (typeof window === 'undefined') return;
+    try {
+        if (window.top !== window.self) {
+            window.top.location = window.self.location;
+        }
+    } catch (_) {
+        try { document.documentElement.style.display = 'none'; window.top.location = window.location; } catch (__) {}
+    }
+})();
+
 
 (function installAvatarImageFallback() {
     if (typeof document === 'undefined' || window.__anivoidAvatarFallbackInstalled) return;
@@ -1003,8 +1038,14 @@ function stripSensitiveUserFields(user) {
         passwordSalt,
         passwordIterations,
         passwordDigest,
+        passwordResetRequired,
         ...safeUser
     } = user;
+    const currentUsername = (typeof localStorage !== 'undefined' && localStorage.getItem('anivoid_logged_in_username')) || '';
+    if (safeUser.username && currentUsername && safeUser.username.toLowerCase() !== currentUsername.toLowerCase()) {
+        delete safeUser.email;
+        delete safeUser.notifications;
+    }
     return safeUser;
 }
 
@@ -3259,11 +3300,36 @@ function renderNotificationsModal() {
     const list = document.getElementById('notifications-list');
     if (!list) return;
     const items = getStoredNotifications();
+
+    const unread = items.filter(item => !item.read).length;
+    const countBadge = document.getElementById('notifications-modal-unread-count');
+    if (countBadge) {
+        if (unread > 0) {
+            countBadge.textContent = `${unread} não lida${unread === 1 ? '' : 's'}`;
+            countBadge.classList.remove('is-empty');
+        } else {
+            countBadge.textContent = 'Todas lidas';
+            countBadge.classList.add('is-empty');
+        }
+    }
+
     if (items.length === 0) {
         list.innerHTML = `
-            <div class="rounded-2xl border border-white/5 bg-white/[0.03] p-8 text-center">
-                <iconify-icon icon="lucide:bell-off" class="text-2xl text-white/25"></iconify-icon>
-                <p class="mt-3 text-[11px] text-gray-500 font-mono uppercase tracking-widest">Nenhuma notificacao ainda</p>
+            <div class="av-notif-empty">
+                <div class="av-notif-empty-glow" aria-hidden="true"></div>
+                <div class="av-notif-empty-emblem">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                        <line x1="2" y1="2" x2="22" y2="22"/>
+                    </svg>
+                </div>
+                <h4 class="av-notif-empty-title">Nenhuma notificação por enquanto</h4>
+                <p class="av-notif-empty-sub">Você está completamente em dia! Quando outros críticos interagirem com seu acervo, você verá os alertas aqui.</p>
+                <div class="av-notif-empty-status">
+                    <span class="av-notif-status-dot"></span>
+                    <span>Coletivo Ativo &middot; Feed Sincronizado</span>
+                </div>
             </div>
         `;
         return;
@@ -3274,23 +3340,45 @@ function renderNotificationsModal() {
         let timeText = '';
         try {
             const date = new Date(item.timestamp);
-            timeText = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            timeText = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' às ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         } catch (err) {}
-        const icon = item.type === 'friend_request' ? 'lucide:user-plus' : item.type === 'friend_accept' ? 'lucide:handshake' : item.type === 'rating' ? 'lucide:star' : 'lucide:zap';
+
+        let iconSvg = '';
+        if (item.type === 'friend_request') {
+            iconSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>`;
+        } else if (item.type === 'friend_accept') {
+            iconSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m11 17 2 2a1 1 0 0 0 1.4 0l4.6-4.6a2 2 0 0 0 0-2.8l-1.4-1.4a2 2 0 0 0-2.8 0L13 12"/><path d="m3 11 2.6-2.6a2 2 0 0 1 2.8 0l1.4 1.4a2 2 0 0 1 0 2.8L7 15"/></svg>`;
+        } else if (item.type === 'rating') {
+            iconSvg = `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+        } else {
+            iconSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+        }
+
         const actionAttr = item.animeId ? `data-anime-id="${escapeHtml(item.animeId)}"` : '';
+        const linkHint = item.animeId ? `
+            <span class="av-notif-action-tag">
+                <span>Ver obra no acervo</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>
+            </span>
+        ` : '';
+
         return `
-            <button class="notification-row w-full text-left rounded-2xl border p-4 flex gap-3 transition-all hover:scale-[1.01] ${item.read ? 'bg-white/[0.025] border-white/5' : 'bg-white/[0.055] border-white/10'}" style="--note-color:${color}" ${actionAttr}>
-                <div class="w-10 h-10 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center shrink-0" style="color:${color}; box-shadow:0 0 18px ${color}22">
-                    <iconify-icon icon="${icon}" class="text-lg"></iconify-icon>
+            <button type="button" class="notification-row av-notification-card ${item.read ? 'is-read' : 'is-unread'}" style="--note-color:${color}" ${actionAttr}>
+                <div class="av-notif-icon-box" style="color:${color}; border-color:${color}44; box-shadow:0 0 16px ${color}22">
+                    ${iconSvg}
                 </div>
-                <div class="min-w-0 flex-grow">
-                    <div class="flex items-center justify-between gap-3">
-                        <h4 class="text-xs font-mono font-bold uppercase tracking-wider text-white truncate">${escapeHtml(item.title)}</h4>
-                        <span class="text-[9px] text-gray-500 font-mono shrink-0">${escapeHtml(timeText)}</span>
+                <div class="av-notif-content">
+                    <div class="av-notif-top-row">
+                        <h4 class="av-notif-title">${escapeHtml(item.title)}</h4>
+                        <span class="av-notif-time-badge">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            <span>${escapeHtml(timeText)}</span>
+                        </span>
                     </div>
-                    <p class="text-[11px] text-gray-400 mt-1 leading-relaxed">${escapeHtml(item.message)}</p>
+                    <p class="av-notif-message">${escapeHtml(item.message)}</p>
+                    ${linkHint}
                 </div>
-                ${item.read ? '' : '<span class="w-2 h-2 rounded-full shrink-0 mt-2" style="background:var(--note-color); box-shadow:0 0 12px var(--note-color)"></span>'}
+                ${item.read ? '' : `<span class="av-notif-unread-dot" style="background:${color}; box-shadow:0 0 10px ${color}"></span>`}
             </button>
         `;
     }).join('');
@@ -3298,10 +3386,14 @@ function renderNotificationsModal() {
     list.querySelectorAll('.notification-row[data-anime-id]').forEach(row => {
         row.addEventListener('click', () => {
             const animeId = row.dataset.animeId;
-            const modal = document.getElementById('notifications-modal');
-            if (modal) {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
+            if (window.closeNotificationsModal) {
+                window.closeNotificationsModal();
+            } else {
+                const modal = document.getElementById('notifications-modal');
+                if (modal) {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                }
             }
             if (animeId) openAnimeDetail(animeId);
         });
@@ -4013,9 +4105,23 @@ function setupUtilityModals() {
         closeDropdown();
         renderPlayerProfileModal(state.currentFriendId);
     });
+    function closeNotificationsModal() {
+        const modal = document.getElementById('notifications-modal');
+        if (!modal || modal.classList.contains('hidden') || modal.classList.contains('is-closing')) return;
+        if (window.lenisStart) window.lenisStart();
+        modal.classList.add('is-closing');
+        setTimeout(() => {
+            modal.classList.remove('is-closing');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }, 220);
+    }
+    window.closeNotificationsModal = closeNotificationsModal;
+
     bindOnce('open-notifications', 'click', (event) => {
         event.stopPropagation();
         closeDropdown();
+        if (window.lenisStop) window.lenisStop();
         renderNotificationsModal();
         const modal = document.getElementById('notifications-modal');
         if (modal) {
@@ -4024,12 +4130,24 @@ function setupUtilityModals() {
         }
     });
     bindOnce('close-notifications', 'click', () => {
-        const modal = document.getElementById('notifications-modal');
-        if (modal) {
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }
+        closeNotificationsModal();
     });
+    const notifModal = document.getElementById('notifications-modal');
+    if (notifModal) {
+        bindElementOnce(notifModal, 'backdropNotif', 'click', (e) => {
+            if (e.target === notifModal) {
+                closeNotificationsModal();
+            }
+        });
+        if (!document.documentElement.dataset.notifEscHooked) {
+            document.documentElement.dataset.notifEscHooked = 'true';
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && !notifModal.classList.contains('hidden')) {
+                    closeNotificationsModal();
+                }
+            });
+        }
+    }
     bindOnce('mark-notifications-read', 'click', markNotificationsRead);
     bindOnce('clear-notifications', 'click', clearNotifications);
     bindOnce('open-activity-history', 'click', () => {
@@ -4193,6 +4311,9 @@ function initMotionSuite() {
         '#admin-modal',
         '#backup-modal',
         '#add-anime-modal',
+        '#add-friend-modal',
+        '.av-friends-shell',
+        '.av-friends-studio-layout',
         '.av-player-modal-shell',
         '.av-stats-scroll-content',
         '.av-account-scroll',
@@ -4219,7 +4340,7 @@ function initMotionSuite() {
                 prevent: (node) => {
                     if (!node || typeof node.closest !== 'function') return false;
                     const activeModal = node.closest(
-                        '#edit-profile-modal:not(.hidden), #player-profile-modal:not(.hidden), #group-stats-modal:not(.hidden), #notifications-modal:not(.hidden), #activity-history-modal:not(.hidden), #admin-modal:not(.hidden), #backup-modal:not(.hidden), #security-notice-modal:not(.hidden), #add-anime-modal:not(.hidden)'
+                        '#edit-profile-modal:not(.hidden), #player-profile-modal:not(.hidden), #group-stats-modal:not(.hidden), #notifications-modal:not(.hidden), #activity-history-modal:not(.hidden), #admin-modal:not(.hidden), #backup-modal:not(.hidden), #security-notice-modal:not(.hidden), #add-anime-modal:not(.hidden), #add-friend-modal:not(.hidden)'
                     );
                     if (activeModal) return true;
                     return Boolean(
@@ -4623,14 +4744,27 @@ function initUI() {
         });
     }
 
-    // Modal Control: Add Friend Modal
+    // Modal Control: Add Friend Modal (Awwwards Studio)
     const addFriendModal = document.getElementById('add-friend-modal');
     const openAddFriendBtn = document.getElementById('open-add-friend');
     const closeAddFriendBtn = document.getElementById('close-add-friend');
     const logoutBtn = document.getElementById('logout-btn');
 
+    function closeAddFriendModal() {
+        if (!addFriendModal || addFriendModal.classList.contains('hidden') || addFriendModal.classList.contains('is-closing')) return;
+        if (window.lenisStart) window.lenisStart();
+        addFriendModal.classList.add('is-closing');
+        setTimeout(() => {
+            addFriendModal.classList.remove('is-closing');
+            addFriendModal.classList.add('hidden');
+            addFriendModal.classList.remove('flex');
+        }, 220);
+    }
+    window.closeAddFriendModal = closeAddFriendModal;
+
     if (openAddFriendBtn && addFriendModal) {
         bindElementOnce(openAddFriendBtn, 'openAddFriend', 'click', async () => {
+            if (window.lenisStop) window.lenisStop();
             addFriendModal.classList.remove('hidden');
             addFriendModal.classList.add('flex');
             renderCentralDeAmigos();
@@ -4652,9 +4786,23 @@ function initUI() {
     }
     if (closeAddFriendBtn && addFriendModal) {
         bindElementOnce(closeAddFriendBtn, 'closeAddFriend', 'click', () => {
-            addFriendModal.classList.add('hidden');
-            addFriendModal.classList.remove('flex');
+            closeAddFriendModal();
         });
+    }
+    if (addFriendModal) {
+        bindElementOnce(addFriendModal, 'backdropAddFriend', 'click', (e) => {
+            if (e.target === addFriendModal) {
+                closeAddFriendModal();
+            }
+        });
+        if (!document.documentElement.dataset.addFriendEscHooked) {
+            document.documentElement.dataset.addFriendEscHooked = 'true';
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && !addFriendModal.classList.contains('hidden')) {
+                    closeAddFriendModal();
+                }
+            });
+        }
     }
 
     // Setup MAL style tabs click listeners
@@ -4950,11 +5098,15 @@ function isFelipe(nameOrUser) {
 
 function getUserDisplayNameColor(nameOrUser, customColor = null) {
     if (isFelipe(nameOrUser)) {
-        return '#ffffff';
+        return 'var(--av-ink)';
     }
     const color = customColor || (typeof nameOrUser === 'object' ? nameOrUser.color : null);
     if (!color || color === '#0000ff' || color.toLowerCase() === 'blue' || color === '#0000EE') {
-        return '#ffffff';
+        return 'var(--av-ink)';
+    }
+    const isLight = typeof document !== 'undefined' && document.documentElement?.getAttribute('data-color-scheme') === 'light';
+    if (isLight && (color.toLowerCase() === '#ffffff' || color.toLowerCase() === '#fff' || color.toLowerCase() === 'white')) {
+        return 'var(--av-ink)';
     }
     return color;
 }
@@ -6756,6 +6908,8 @@ function initRegistrationOptions() {
     const regHeaderDesc = document.getElementById('reg-header-desc');
 
     const showLoginView = () => {
+        const regPasswordInput = document.getElementById('reg-password');
+        if (regPasswordInput) regPasswordInput.value = '';
         if (regForm && loginForm) {
             regForm.classList.add('hidden');
             loginForm.classList.remove('hidden');
@@ -6772,6 +6926,8 @@ function initRegistrationOptions() {
     };
 
     const showRegisterView = () => {
+        const loginPasswordInput = document.getElementById('login-password');
+        if (loginPasswordInput) loginPasswordInput.value = '';
         if (regForm && loginForm) {
             loginForm.classList.add('hidden');
             regForm.classList.remove('hidden');
@@ -6829,10 +6985,11 @@ function initRegistrationOptions() {
         }
         document.body.classList.remove('overflow-hidden');
 
-        if (passwordToRemember) {
-            const passwordInput = document.getElementById('login-password');
-            if (passwordInput) passwordInput.value = passwordToRemember;
-        }
+        // Clean password inputs from memory and DOM immediately after authentication
+        const loginPasswordInput = document.getElementById('login-password');
+        if (loginPasswordInput) loginPasswordInput.value = '';
+        const regPasswordInput = document.getElementById('reg-password');
+        if (regPasswordInput) regPasswordInput.value = '';
 
         initUI();
         checkAndShowSecurityModal();
@@ -7338,7 +7495,7 @@ function triggerSimulatedWelcomeEmail(user) {
             favorite_studios: studiosStr,
             reply_to: "no-reply@anivoid.anime"
         }).then(() => {
-            console.log('Real email welcome template dispatched successfully to:', user.email);
+            console.log('Real email welcome template dispatched successfully.');
         }).catch(err => {
             console.error('Failed to send real welcome email via EmailJS:', err);
         });
@@ -7626,6 +7783,8 @@ function setupEditProfileModal() {
     if (!modal || !form) return;
 
     const closeModal = () => {
+        if (currentPasswordInput) currentPasswordInput.value = '';
+        if (newPasswordInput) newPasswordInput.value = '';
         modal.classList.add('hidden');
         modal.classList.remove('flex');
         document.body.classList.remove('overflow-hidden');
@@ -8038,24 +8197,47 @@ function setupEditProfileModal() {
 
 function initAddFriendModalOptions() {
     const searchInput = document.getElementById('form-friend-search');
+    const clearBtn = document.getElementById('clear-friend-search');
     if (!searchInput) return;
+
+    const handleSearchInput = () => {
+        const hasText = Boolean(searchInput.value && searchInput.value.trim());
+        if (clearBtn) {
+            if (hasText) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+        }
+        renderRegisteredUsersSuggestions();
+    };
 
     // Search query listener
     bindElementOnce(searchInput, 'friendSearchInput', 'input', () => {
-        renderRegisteredUsersSuggestions();
+        handleSearchInput();
         refreshRegisteredUsersFromServer().then((refreshed) => {
             if (refreshed) renderRegisteredUsersSuggestions();
         });
     });
 
-    // Reset suggestion list on click-outside search input
+    if (clearBtn) {
+        bindElementOnce(clearBtn, 'clearFriendSearchBtn', 'click', () => {
+            searchInput.value = '';
+            handleSearchInput();
+            searchInput.focus();
+        });
+    }
+
+    // Reset suggestion list on click-outside search input if empty
     if (!document.documentElement.dataset.friendSearchDismissHooked) {
         document.documentElement.dataset.friendSearchDismissHooked = 'true';
         document.addEventListener('click', (e) => {
-        const listContainer = document.getElementById('registered-users-list');
-        if (listContainer && !listContainer.contains(e.target) && e.target !== searchInput) {
-            listContainer.classList.add('hidden');
-        }
+            const listContainer = document.getElementById('registered-users-list');
+            if (listContainer && !listContainer.contains(e.target) && e.target !== searchInput && (!clearBtn || e.target !== clearBtn)) {
+                if (!searchInput.value.trim()) {
+                    listContainer.classList.add('hidden');
+                }
+            }
         });
     }
 }
@@ -8980,7 +9162,41 @@ function initAddFriendModalOptions() {
         });
     }
 
+function updateCentralDeAmigosMeta() {
+    let registeredUsers = [];
+    try {
+        registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+    } catch (err) {}
+
+    const loggedInUsername = localStorage.getItem('anivoid_logged_in_username') || '';
+    const curUser = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === loggedInUsername.toLowerCase()) || {
+        username: loggedInUsername || 'Membro',
+        avatar: '👤',
+        friends: [],
+        friendRequests: []
+    };
+
+    const nameEl = document.getElementById('friends-modal-my-name');
+    if (nameEl) nameEl.textContent = curUser.username;
+
+    const avatarEl = document.getElementById('friends-modal-my-avatar');
+    if (avatarEl) {
+        if (curUser.avatar && (curUser.avatar.startsWith('data:') || curUser.avatar.startsWith('http'))) {
+            avatarEl.innerHTML = `<img src="${escapeHtml(curUser.avatar)}" alt="" class="w-full h-full object-cover">`;
+        } else {
+            avatarEl.textContent = curUser.avatar || '👤';
+        }
+    }
+
+    const friendsCount = Array.isArray(curUser.friends) ? curUser.friends.length : 0;
+    const countBadge = document.getElementById('friends-roster-count-badge');
+    if (countBadge) {
+        countBadge.textContent = `${friendsCount} ${friendsCount === 1 ? 'amigo' : 'amigos'}`;
+    }
+}
+
 function renderCentralDeAmigos() {
+    updateCentralDeAmigosMeta();
     renderRegisteredUsersSuggestions();
     renderPendingRequests();
     renderSentRequests();
@@ -9028,7 +9244,12 @@ function renderRegisteredUsersSuggestions() {
     listContainer.classList.remove('hidden');
 
     if (matched.length === 0) {
-        listContainer.innerHTML = `<p class="text-gray-500 italic text-[11px] py-2 text-center w-full">Nenhum usuário correspondente encontrado.</p>`;
+        listContainer.innerHTML = `
+            <div class="av-friends-no-match">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="m9 9 4 4m0-4-4 4"/></svg>
+                <p>Nenhum usuário correspondente encontrado.</p>
+            </div>
+        `;
         return;
     }
 
@@ -9036,11 +9257,11 @@ function renderRegisteredUsersSuggestions() {
         const item = document.createElement('div');
         const isUserAdmin = user.username && user.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
         const adminBadge = getUserBadgesHtml(user);
-        item.className = `flex items-center justify-between p-2 rounded-xl gap-3 animate-[fadeIn_0.2s_ease-out] ${isUserAdmin ? 'bg-brand/[0.03] border border-brand/35 shadow-[0_0_12px_rgba(255,69,0,0.08)]' : 'bg-white/5 border border-white/10'}`;
+        item.className = `av-friend-suggestion-card ${isUserAdmin ? 'is-admin' : ''}`;
         
         const avatarHtml = user.avatar && (user.avatar.startsWith('data:') || user.avatar.startsWith('http'))
-            ? `<img src="${user.avatar}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">`
-            : `<span class="text-xl shrink-0">${user.avatar || '👤'}</span>`;
+            ? `<img src="${escapeHtml(user.avatar)}" class="w-full h-full object-cover" alt="">`
+            : `<span>${user.avatar || '👤'}</span>`;
 
         // Determine status and button
         let actionBtnHtml = '';
@@ -9049,33 +9270,39 @@ function renderRegisteredUsersSuggestions() {
         const hasReceivedRequest = curUser.friendRequests && curUser.friendRequests.some(r => r.from && user && user.username && r.from.toLowerCase() === user.username.toLowerCase());
 
         if (isFriend) {
-            actionBtnHtml = `<span class="text-[10px] text-gray-500 font-mono uppercase tracking-wider font-semibold">Amigos</span>`;
+            actionBtnHtml = `<span class="av-status-chip is-friend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Amigos</span>`;
         } else if (hasReceivedRequest) {
             actionBtnHtml = `
-                <button type="button" class="btn-accept px-2.5 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg text-[10px] font-mono font-semibold flex items-center justify-center transition-all shrink-0">
-                    Aceitar
+                <button type="button" class="btn-accept av-btn-pill-green">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+                    <span>Aceitar</span>
                 </button>
             `;
         } else if (hasSentRequest) {
-            actionBtnHtml = `<span class="text-[10px] text-amber-500/70 font-mono uppercase tracking-wider font-semibold flex items-center gap-1"><iconify-icon icon="lucide:clock" class="text-xs"></iconify-icon> Pendente</span>`;
+            actionBtnHtml = `<span class="av-status-chip is-pending"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Pendente</span>`;
         } else {
             actionBtnHtml = `
-                <button type="button" class="btn-add px-2.5 py-1 bg-brand text-white hover:bg-brand/80 rounded-lg text-[10px] font-mono font-semibold flex items-center gap-1 transition-all shrink-0">
-                    <iconify-icon icon="lucide:plus" class="text-xs"></iconify-icon>
+                <button type="button" class="btn-add av-btn-pill-accent">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
                     <span>Adicionar</span>
                 </button>
             `;
         }
 
         item.innerHTML = `
-            <div class="flex items-center gap-2 min-w-0">
-                ${avatarHtml}
-                <div class="min-w-0 flex-grow">
-                    <p class="font-bold text-white text-[11.5px] truncate leading-tight">${user.username}${adminBadge}</p>
-                    <p class="text-[9px] text-gray-500 font-mono truncate">${user.email || 'Sem e-mail'}</p>
+            <div class="av-friend-card-main">
+                <div class="av-friend-avatar-wrap">
+                    ${avatarHtml}
+                </div>
+                <div class="av-friend-info">
+                    <div class="av-friend-name-row">
+                        <span class="av-friend-name">${escapeHtml(user.username)}</span>
+                        ${adminBadge}
+                    </div>
+                    <span class="av-friend-sub">${escapeHtml(user.email || 'Membro do Coletivo')}</span>
                 </div>
             </div>
-            <div class="flex items-center gap-1.5 shrink-0">
+            <div class="av-friend-actions">
                 ${actionBtnHtml}
             </div>
         `;
@@ -9137,6 +9364,7 @@ function renderRegisteredUsersSuggestions() {
 function renderPendingRequests() {
     const section = document.getElementById('pending-requests-section');
     const container = document.getElementById('pending-requests-list');
+    const badge = document.getElementById('pending-requests-count-badge');
     if (!section || !container) return;
 
     let registeredUsers = [];
@@ -9154,11 +9382,13 @@ function renderPendingRequests() {
     if (!curUser || !curUser.friendRequests || curUser.friendRequests.length === 0) {
         section.classList.add('hidden');
         container.innerHTML = '';
+        if (badge) badge.textContent = '0';
         return;
     }
 
     section.classList.remove('hidden');
     container.innerHTML = '';
+    if (badge) badge.textContent = String(curUser.friendRequests.length);
 
     curUser.friendRequests.forEach(req => {
         const sender = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === req.from.toLowerCase()) || {
@@ -9168,26 +9398,29 @@ function renderPendingRequests() {
         };
 
         const item = document.createElement('div');
-        item.className = 'flex items-center justify-between p-2.5 bg-white/5 border border-white/10 rounded-2xl gap-3 animate-[fadeIn_0.2s_ease-out]';
+        item.className = 'av-friend-request-card is-incoming';
         
         const avatarHtml = sender.avatar && (sender.avatar.startsWith('data:') || sender.avatar.startsWith('http'))
-            ? `<img src="${sender.avatar}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">`
-            : `<span class="text-xl shrink-0">${sender.avatar || '👤'}</span>`;
+            ? `<img src="${escapeHtml(sender.avatar)}" class="w-full h-full object-cover" alt="">`
+            : `<span>${sender.avatar || '👤'}</span>`;
 
         item.innerHTML = `
-            <div class="flex items-center gap-2 min-w-0 flex-grow">
-                ${avatarHtml}
-                <div class="min-w-0">
-                    <p class="font-bold text-white text-[11.5px] truncate leading-tight">${sender.username}</p>
-                    <p class="text-[9px] text-gray-500 font-mono font-semibold text-brand/90">Quer ser seu amigo!</p>
+            <div class="av-friend-card-main">
+                <div class="av-friend-avatar-wrap">
+                    ${avatarHtml}
+                    <span class="av-request-alert-dot"></span>
+                </div>
+                <div class="av-friend-info">
+                    <span class="av-friend-name">${escapeHtml(sender.username)}</span>
+                    <span class="av-friend-request-tag">Deseja se conectar com você</span>
                 </div>
             </div>
-            <div class="flex items-center gap-1.5 shrink-0">
-                <button type="button" class="btn-accept w-8 h-8 bg-green-600 hover:bg-green-700 text-white rounded-xl flex items-center justify-center transition-colors" title="Aceitar Solicitação">
-                    <iconify-icon icon="lucide:check" class="text-sm"></iconify-icon>
+            <div class="av-request-buttons">
+                <button type="button" class="btn-accept av-btn-icon-green" title="Aceitar Solicitação">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
                 </button>
-                <button type="button" class="btn-decline w-8 h-8 bg-red-600/25 hover:bg-red-600/50 text-red-500 hover:text-white rounded-xl flex items-center justify-center transition-colors" title="Recusar Solicitação">
-                    <iconify-icon icon="lucide:x" class="text-sm"></iconify-icon>
+                <button type="button" class="btn-decline av-btn-icon-muted" title="Recusar Solicitação">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
                 </button>
             </div>
         `;
@@ -9210,6 +9443,190 @@ function renderPendingRequests() {
             } else {
                 state.save();
                 renderCentralDeAmigos();
+            }
+        });
+
+        container.appendChild(item);
+    });
+}
+
+function renderSentRequests() {
+    const section = document.getElementById('sent-requests-section');
+    const container = document.getElementById('sent-requests-list');
+    const badge = document.getElementById('sent-requests-count-badge');
+    if (!section || !container) return;
+
+    let registeredUsers = [];
+    try {
+        registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+    } catch (err) {}
+
+    const loggedInUsername = localStorage.getItem('anivoid_logged_in_username') || '';
+    if (!loggedInUsername) {
+        section.classList.add('hidden');
+        return;
+    }
+
+    const sent = registeredUsers
+        .filter(user => user && user.username && Array.isArray(user.friendRequests))
+        .filter(user => user.friendRequests.some(req => req && req.from && req.from.toLowerCase() === loggedInUsername.toLowerCase()));
+
+    if (sent.length === 0) {
+        section.classList.add('hidden');
+        container.innerHTML = '';
+        if (badge) badge.textContent = '0';
+        return;
+    }
+
+    section.classList.remove('hidden');
+    container.innerHTML = '';
+    if (badge) badge.textContent = String(sent.length);
+
+    sent.forEach(target => {
+        const item = document.createElement('div');
+        item.className = 'av-friend-request-card is-outgoing';
+        const avatarHtml = target.avatar && (target.avatar.startsWith('data:') || target.avatar.startsWith('http'))
+            ? `<img src="${escapeHtml(target.avatar)}" class="w-full h-full object-cover" alt="">`
+            : `<span>${target.avatar || '👤'}</span>`;
+        item.innerHTML = `
+            <div class="av-friend-card-main">
+                <div class="av-friend-avatar-wrap">
+                    ${avatarHtml}
+                </div>
+                <div class="av-friend-info">
+                    <span class="av-friend-name">${escapeHtml(target.username)}</span>
+                    <span class="av-friend-pending-tag">Aguardando resposta</span>
+                </div>
+            </div>
+            <button type="button" class="btn-cancel-request av-btn-cancel-tag">
+                Cancelar
+            </button>
+        `;
+        item.querySelector('.btn-cancel-request').addEventListener('click', async () => {
+            const res = await state.cancelFriendRequest(target.username);
+            if (res.error) {
+                alert(res.error);
+                return;
+            }
+            state.save();
+            renderCentralDeAmigos();
+        });
+        container.appendChild(item);
+    });
+}
+
+function renderModalFriendsList() {
+    const container = document.getElementById('modal-friends-list');
+    if (!container) return;
+
+    let registeredUsers = [];
+    try {
+        registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+    } catch (err) {}
+
+    const loggedInUsername = localStorage.getItem('anivoid_logged_in_username') || '';
+    if (!loggedInUsername) {
+        container.innerHTML = `<p class="text-gray-500 italic text-[11px] py-4 text-center w-full">Faça login para ver seus amigos.</p>`;
+        return;
+    }
+
+    const curUser = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === loggedInUsername.toLowerCase());
+    if (!curUser || !curUser.friends || curUser.friends.length === 0) {
+        container.innerHTML = `
+            <div class="av-friends-empty">
+                <div class="av-friends-empty-glow" aria-hidden="true"></div>
+                <div class="av-friends-empty-emblem">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                </div>
+                <h4 class="av-friends-empty-title">Nenhum amigo adicionado ainda</h4>
+                <p class="av-friends-empty-sub">Conecte-se com outros críticos para comparar pontuações, ver resenhas nos animes e acompanhar as maratonas do grupo.</p>
+                <button type="button" id="empty-search-focus-btn" class="av-friends-empty-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    <span>Buscar membros no coletivo</span>
+                </button>
+            </div>
+        `;
+        const focusBtn = container.querySelector('#empty-search-focus-btn');
+        if (focusBtn) {
+            focusBtn.addEventListener('click', () => {
+                const searchInput = document.getElementById('form-friend-search');
+                if (searchInput) {
+                    searchInput.focus();
+                    searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            });
+        }
+        return;
+    }
+
+    container.innerHTML = '';
+
+    curUser.friends.forEach(fUsername => {
+        const friend = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === fUsername.toLowerCase());
+        if (!friend) return;
+
+        const item = document.createElement('div');
+        const isFriendAdmin = friend.username && friend.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
+        const adminBadge = getUserBadgesHtml(friend);
+        item.className = `av-friend-card ${isFriendAdmin ? 'is-admin' : ''}`;
+        
+        const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
+            ? `<img src="${escapeHtml(friend.avatar)}" class="w-full h-full object-cover" alt="">`
+            : `<span>${friend.avatar || '👤'}</span>`;
+
+        item.innerHTML = `
+            <div class="av-friend-card-main">
+                <div class="av-friend-avatar-wrap">
+                    ${avatarHtml}
+                    <span class="av-friend-online-dot"></span>
+                </div>
+                <div class="av-friend-info">
+                    <div class="av-friend-name-row">
+                        <span class="av-friend-name">${escapeHtml(friend.username)}</span>
+                        ${adminBadge}
+                    </div>
+                    <span class="av-friend-sub">${escapeHtml(friend.email || 'Membro do Coletivo')}</span>
+                </div>
+            </div>
+            <div class="av-friend-actions">
+                <button type="button" class="av-friend-view-profile-btn" title="Ver perfil de ${escapeHtml(friend.username)}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <span>Perfil</span>
+                </button>
+                <button type="button" class="btn-remove av-friend-remove-btn" title="Desfazer Amizade">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                    <span>Remover</span>
+                </button>
+            </div>
+        `;
+
+        const viewProfileBtn = item.querySelector('.av-friend-view-profile-btn');
+        if (viewProfileBtn) {
+            viewProfileBtn.addEventListener('click', () => {
+                if (window.closeAddFriendModal) window.closeAddFriendModal();
+                const playerModal = document.getElementById('player-profile-modal');
+                if (playerModal) {
+                    playerModal.classList.remove('hidden');
+                    playerModal.classList.add('flex');
+                    renderPlayerProfileModal(friend.username);
+                }
+            });
+        }
+
+        item.querySelector('.btn-remove').addEventListener('click', async () => {
+            if (confirm(`Deseja desfazer a amizade com ${friend.username}?`)) {
+                const res = await state.removeFriend(friend.username);
+                if (res.error) {
+                    alert(res.error);
+                } else {
+                    state.save();
+                    renderCentralDeAmigos();
+                }
             }
         });
 

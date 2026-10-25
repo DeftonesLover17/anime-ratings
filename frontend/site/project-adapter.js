@@ -39,6 +39,7 @@ function createProjectAdapter(project, site) {
             anime,
             rating,
             groupScore: state.calculateAverageScore(anime.id),
+            statusKey: rating.status || 'Plan to Watch',
             statusLabel:
                 statuses[rating.status || 'Plan to Watch']?.label ||
                 'Planejo assistir',

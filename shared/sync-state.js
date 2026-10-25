@@ -149,7 +149,7 @@
         return next;
     }
 
-    const api = { applyChanges, clientSnapshot, mergeClientState, equal, commentMetadata };
+    const api = Object.freeze({ applyChanges, clientSnapshot, mergeClientState, equal, commentMetadata });
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.AnivoidSync = api;
 })(typeof globalThis === 'object' ? globalThis : this);

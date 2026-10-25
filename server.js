@@ -14,6 +14,14 @@ const DATABASE_URL = process.env.DATABASE_URL || '';
 const PASSWORD_ITERATIONS = parseInt(process.env.PASSWORD_ITERATIONS, 10) || 500000;
 const PASSWORD_KEY_LENGTH = 32;
 const MIN_PASSWORD_LENGTH = 10;
+
+function passwordPolicyError(password) {
+    const value = String(password || '');
+    if (value.length < MIN_PASSWORD_LENGTH || !/\d/.test(value) || !/[a-zA-Z]/.test(value)) {
+        return `A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres, contendo letras e numeros.`;
+    }
+    return '';
+}
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const MAX_EXTERNAL_IMAGE_URL_LENGTH = 4096;
 const MAX_DATA_IMAGE_LENGTH = 2 * 1024 * 1024;
@@ -499,21 +507,26 @@ function createSession(username, res) {
         expiresAt: Date.now() + SESSION_TTL_MS
     });
     if (res) {
-        res.setHeader('Set-Cookie', `auth_token=${token}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`);
+        res.setHeader('Set-Cookie', `anivoid_auth_token=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`);
+    }
+    return token;
+}
+
+function extractAuthToken(req) {
+    let token = '';
+    const authHeader = req.headers.authorization || '';
+    const match = authHeader.match(/^Bearer\s+(.+)$/i);
+    if (match) token = match[1].trim();
+
+    if (!token && req.headers.cookie) {
+        const cookieMatch = req.headers.cookie.match(/(?:^|;\s*)(?:anivoid_auth_token|auth_token)=([^;]+)/);
+        if (cookieMatch) token = cookieMatch[1].trim();
     }
     return token;
 }
 
 function getAuthenticatedUser(req, state) {
-    let token = '';
-    const authHeader = req.headers.authorization || '';
-    const match = authHeader.match(/^Bearer\s+(.+)$/i);
-    if (match) token = match[1];
-    
-    if (!token && req.headers.cookie) {
-        const cookieMatch = req.headers.cookie.match(/auth_token=([^;]+)/);
-        if (cookieMatch) token = cookieMatch[1];
-    }
+    const token = extractAuthToken(req);
     if (!token) return null;
 
     const session = sessions.get(token);
@@ -1215,11 +1228,27 @@ function mergeStates(localState, serverState, loggedInUser, canEditCatalog = fal
     };
 }
 
-function corsHeaders() {
+function getSafeCorsHeaders(req) {
+    const rawAllowed = process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGIN || DEFAULT_ALLOWED_ORIGIN;
+    const allowedList = rawAllowed
+        .split(',')
+        .map(origin => origin.trim().toLowerCase())
+        .filter(Boolean);
+
+    const requestOrigin = String(req?.headers?.origin || '').trim();
+    let selectedOrigin = DEFAULT_ALLOWED_ORIGIN;
+
+    if (requestOrigin) {
+        const lowerOrigin = requestOrigin.toLowerCase();
+        if (allowedList.includes(lowerOrigin) || allowedList.includes('*')) {
+            selectedOrigin = requestOrigin;
+        }
+    }
+
     return {
-        origin: process.env.ALLOWED_ORIGIN || DEFAULT_ALLOWED_ORIGIN,
+        origin: selectedOrigin,
         methods: 'GET, POST, OPTIONS',
-        headers: 'X-Requested-With,content-type,Authorization'
+        headers: 'X-Requested-With,Content-Type,Authorization'
     };
 }
 
@@ -1251,22 +1280,22 @@ function enforceRateLimit(req, res, bucket, maxAttempts, windowMs, discriminator
 }
 
 const server = http.createServer((req, res) => {
-    const cors = corsHeaders();
+    const cors = getSafeCorsHeaders(req);
     res.setHeader('Access-Control-Allow-Origin', cors.origin);
     res.setHeader('Access-Control-Allow-Methods', cors.methods);
     res.setHeader('Access-Control-Allow-Headers', cors.headers);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Vary', 'Origin');
-    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('Permissions-Policy', 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()');
 
-    // Security Headers
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('X-XSS-Protection', '1; mode=block');
+    // Security Headers (OWASP A05 Hardening)
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Security-Policy', "default-src 'self' data: https: 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: https:;");
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+    res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('Permissions-Policy', 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()');
+    res.setHeader('Content-Security-Policy', "default-src 'self' data: https: 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: blob: https:; frame-ancestors 'none';");
 
     if (req.method === 'OPTIONS') {
         res.statusCode = 204;
@@ -1424,8 +1453,9 @@ const server = http.createServer((req, res) => {
                     sendJson(res, 400, { error: 'username, email and password required' });
                     return;
                 }
-                if (String(newUser.password).length < MIN_PASSWORD_LENGTH) {
-                    sendJson(res, 400, { error: `A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.` });
+                const policyError = passwordPolicyError(newUser.password);
+                if (policyError) {
+                    sendJson(res, 400, { error: policyError });
                     return;
                 }
                 if (enforceRateLimit(req, res, 'register', 5, 1000 * 60 * 30, newUser.email || newUser.username)) return;
@@ -1995,7 +2025,7 @@ const server = http.createServer((req, res) => {
             } else {
                 res.statusCode = 500;
                 res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-                res.end('Internal Server Error: ' + statErr.code);
+                res.end('Internal Server Error');
             }
             return;
         }
@@ -2029,7 +2059,7 @@ const server = http.createServer((req, res) => {
                 } else {
                     res.statusCode = 500;
                     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-                    res.end('Internal Server Error: ' + err.code);
+                    res.end('Internal Server Error');
                 }
             } else {
                 res.statusCode = 200;
