@@ -814,7 +814,9 @@ body.av-app { background: var(--av-bg) !important; }
     .av-app #main-nav > div { gap: 6px; }
     .av-app #main-nav > div > a { font-size: 16px; letter-spacing: .12em; }
     .av-app #main-nav .nav-theme-slot { gap: 6px; }
-    .av-app #av-score-input { font-size: 74px; width: 3.4ch; }
+    .av-app #av-score-input,
+.av-app #av-global-score-input,
+#av-global-score-input { font-size: 74px !important; width: 3.4ch !important; }
     .av-step-buttons button { min-width: 44px; }
 }
 

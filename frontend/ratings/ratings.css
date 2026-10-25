@@ -46,8 +46,28 @@
 .av-score-label { display: block; font-size: 12px; color: var(--av-muted); margin-bottom: 10px; }
 .av-score-row { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
 .av-score-row > div:first-child { min-width: 0; display: flex; align-items: baseline; gap: 12px; }
-.av-app #av-score-input { width: 3.7ch; min-width: 0; border: 0; border-radius: 0; padding: 0; margin: 0; background: transparent; color: var(--av-rating-color,var(--score-neutral)); font: 500 clamp(80px,8.5vw,132px)/1.2 var(--av-body); font-variant-numeric: tabular-nums; letter-spacing: -.085em; }
-.av-app #av-score-input::placeholder { color: var(--score-neutral); }
+.av-app #av-score-input,
+.av-app #av-global-score-input,
+#av-global-score-input {
+    width: 3.7ch !important;
+    min-width: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    color: var(--av-rating-color, var(--score-neutral)) !important;
+    font: 500 clamp(80px, 8.5vw, 132px)/1.2 var(--av-body) !important;
+    font-variant-numeric: tabular-nums !important;
+    letter-spacing: -.085em !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+.av-app #av-score-input::placeholder,
+.av-app #av-global-score-input::placeholder,
+#av-global-score-input::placeholder {
+    color: var(--score-neutral) !important;
+}
 .av-score-row > div > span { color: var(--av-muted); font-size: 13px; }
 .av-step-buttons { display: flex; gap: 8px; }
 .av-step-buttons button { min-width: 44px; height: 44px; border: 1px solid var(--av-line); border-radius: 3px; background: transparent; font-size: 20px; color: var(--av-ink); }
@@ -88,7 +108,9 @@ input.av-score-range::-moz-range-thumb { width: 11px; height: 11px; background: 
     .av-editor-heading h3 { font-size: 27px; }
     .av-editor-heading .av-eyebrow { font-size: 9px; }
     .av-watched { font-size: 10px; }
-    .av-app #av-score-input { font-size: clamp(78px,21vw,105px); width: 3.6ch; }
+    .av-app #av-score-input,
+.av-app #av-global-score-input,
+#av-global-score-input { font-size: clamp(78px,21vw,105px) !important; width: 3.6ch !important; }
     .av-score-row { gap: 10px; }
     .av-score-row > div:first-child { gap: 9px; }
     .av-score-row > div > span { font-size: 11px; }
