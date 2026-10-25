@@ -46,7 +46,7 @@
     animation: avDetailLineIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.38s both;
 }
 .av-detail-entering #detail-studio {
-    animation: avDetailLineIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.46s both;
+    animation: avDetailLineIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.24s both;
 }
 .av-detail-entering #av-notes {
     animation: avDetailLineIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.54s both;
