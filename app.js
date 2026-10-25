@@ -6977,14 +6977,14 @@ window.selectAdminTitle = function(title) {
         const checkCircle = card.querySelector('.title-check-icon');
         card.classList.toggle('is-selected', isActive);
         if (isActive) {
-            card.style.transform = 'scale(1.01)';
+            card.style.transform = '';
             card.style.opacity = '1';
             card.style.borderColor = 'var(--av-accent)';
             if (checkMark) checkMark.classList.remove('hidden');
             if (checkCircle) checkCircle.style.borderColor = 'var(--av-accent)';
         } else {
-            card.style.transform = 'scale(1)';
-            card.style.opacity = '0.55';
+            card.style.transform = '';
+            card.style.opacity = '0.65';
             card.style.borderColor = '';
             if (checkMark) checkMark.classList.add('hidden');
             if (checkCircle) checkCircle.style.borderColor = '';
