@@ -47,7 +47,7 @@ body.av-app { background: var(--av-bg) !important; }
 .av-skip:focus { top: 14px; }
 .av-eyebrow { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .13em; line-height: 1.6; color: var(--av-muted); }
 .av-quiet { color: var(--av-muted); font-size: 12px; line-height: 1.65; }
-.av-score { color: var(--av-score,var(--score-neutral)); font-variant-numeric: tabular-nums; font-weight: 600; }
+.av-score { color: var(--av-score,var(--score-neutral)); font-variant-numeric: tabular-nums; font-weight: 600; display: inline-block; overflow: visible; }
 .av-button { min-height: 48px; display: inline-flex; justify-content: center; align-items: center; gap: 28px; padding: 14px 23px; font-size: 13px; font-weight: 600; line-height: 1.4; border: 1px solid transparent; border-radius: 3px; text-decoration: none; transition: background-color .2s ease,color .2s ease,border-color .2s ease,transform .16s var(--av-ease); }
 .av-button svg,.av-text-link svg { width: 20px; height: 20px; flex: 0 0 auto; }
 .av-button-solid { background: var(--av-ink); color: var(--av-bg); }
@@ -136,18 +136,18 @@ body.av-app { background: var(--av-bg) !important; }
 .av-card-position { display: none !important; }
 .av-card-invitation { display: flex; justify-content: space-between; align-items: center; position: absolute; left: 0; right: 0; bottom: 0; padding: 17px; background: #f1f0e8; color: #1d271c; font-size: 12px; transform: translateY(102%); transition: transform .4s var(--av-ease); }
 .av-card-invitation svg { width: 22px; height: 22px; }
-.av-card-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 17px; font-size: 9px; color: var(--av-muted); text-transform: uppercase; letter-spacing: .06em; }
-.av-card-meta .av-score { font-size: 20px; line-height: 1; letter-spacing: -.04em; }
-.av-anime-card h3 { font-family: var(--av-display); font-size: clamp(16px,1.5vw,22px); font-weight: 600; letter-spacing: -.035em; line-height: 1.25; margin-top: 9px; padding-bottom: 0.08em; overflow-wrap: anywhere; overflow: visible; }
+.av-card-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 17px; padding-inline: 6px; font-size: 9px; color: var(--av-muted); text-transform: uppercase; letter-spacing: .06em; }
+.av-card-meta .av-score { font-size: 20px; line-height: 1; letter-spacing: -.02em; padding-right: 4px; margin-right: 1px; overflow: visible; }
+.av-anime-card h3 { font-family: var(--av-display); font-size: clamp(16px,1.5vw,22px); font-weight: 600; letter-spacing: -.035em; line-height: 1.25; margin-top: 9px; padding-bottom: 0.08em; padding-inline: 6px; overflow-wrap: anywhere; overflow: visible; }
 .av-anime-card h3 a { color: var(--av-ink); text-decoration: none; }
-.av-card-studio { display: inline-flex; gap: 10px; min-height: 44px; align-items: center; color: var(--av-muted); font-size: 11px; background: none; border: 0; text-align: left; }
+.av-card-studio { display: inline-flex; gap: 10px; min-height: 44px; align-items: center; color: var(--av-muted); font-size: 11px; background: none; border: 0; text-align: left; padding-inline: 6px; }
 .av-card-studio:hover { color: var(--av-ink); }
-.av-card-synopsis { font-size: 12px; color: var(--av-muted); line-height: 1.7; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 3px !important; }
-.av-card-personal { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid var(--av-line); margin-top: 15px; padding-top: 12px; font-size: 9px; color: var(--av-muted); }
-.av-card-personal > span:last-child { text-align: right; }
-.av-card-personal .av-score { font-size: 12px; padding-left: 5px; }
-.av-card-comparison { font-size: 10px; padding-top: 8px; text-align: right; }
-.av-card-comparison .av-score { font-size: 13px; }
+.av-card-synopsis { font-size: 12px; color: var(--av-muted); line-height: 1.7; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 3px !important; padding-inline: 6px; }
+.av-card-personal { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid var(--av-line); margin-top: 15px; padding: 12px 6px 0 6px; font-size: 9px; color: var(--av-muted); }
+.av-card-personal > span:last-child { text-align: right; padding-right: 2px; }
+.av-card-personal .av-score { font-size: 12px; padding-left: 5px; padding-right: 3px; overflow: visible; }
+.av-card-comparison { font-size: 10px; padding: 8px 6px 0 6px; text-align: right; }
+.av-card-comparison .av-score { font-size: 13px; padding-right: 3px; overflow: visible; }
 .av-app #recommendations-rail { margin-top: 85px; margin-bottom: 70px; }
 .av-app #recommendations-rail > div:first-child { border-top: 1px solid var(--av-line); padding-top: 32px; margin-bottom: 25px; }
 .av-app #recommendations-rail h3 { font: 600 24px/1.25 var(--av-display); letter-spacing: -.04em; color: var(--av-ink) !important; text-transform: none; padding-bottom: 0.06em; }
@@ -185,7 +185,7 @@ body.av-app { background: var(--av-bg) !important; }
 .av-detail-totals { display: flex; align-items: start; gap: 36px; margin-top: 30px; }
 .av-detail-totals > div { display: flex; flex-direction: column; gap: 8px; }
 .av-detail-totals small { font-size: 10px; color: var(--av-muted); text-transform: uppercase; letter-spacing: .08em; }
-.av-total-score { font: 600 42px/1 var(--av-display); letter-spacing: -.06em; }
+.av-total-score { font: 600 42px/1 var(--av-display); letter-spacing: -.05em; padding-right: 3px; overflow: visible; display: inline-block; }
 .av-detail-utilities { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 25px; }
 .av-app .av-detail-utilities :is(#detail-set-featured-btn,#detail-edit-anime-btn,#detail-delete-anime-btn) { margin: 0; border: 0; padding: 8px 0; min-height: 44px; border-radius: 0; background: transparent !important; box-shadow: none !important; text-shadow: none; font: 11px/1.5 var(--av-body); text-transform: none; letter-spacing: 0; color: var(--av-muted) !important; }
 .av-app .av-detail-utilities #detail-delete-anime-btn { color: var(--score-low) !important; }
@@ -732,13 +732,13 @@ body.av-app { background: var(--av-bg) !important; }
     .av-app #grid-header-section h2 { font-size: clamp(24px, 6.8vw, 36px) !important; line-height: 1.12 !important; padding-bottom: 0.12em; }
     .av-app #grid-header-section .mal-tab { font-size: 11px; padding-inline: 8px; }
     .av-app #anime-grid-container,.av-studio-catalog { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 34px 17px; }
-    .av-card-meta { font-size: 8px; margin-top: 12px; align-items: start; }
-    .av-card-meta .av-score { font-size: 17px; }
-    .av-anime-card h3 { font-size: 17px; }
-    .av-card-studio { font-size: 10px; min-height: 44px; }
-    .av-card-synopsis { font-size: 11px; line-height: 1.7; }
-    .av-card-personal { flex-direction: column; align-items: start; gap: 5px; font-size: 9px; margin-top: 12px; }
-    .av-card-personal > span:last-child { text-align: left; }
+    .av-card-meta { font-size: 8px; margin-top: 12px; align-items: start; padding-inline: 4px; }
+    .av-card-meta .av-score { font-size: 17px; padding-right: 3px; }
+    .av-anime-card h3 { font-size: 17px; padding-inline: 4px; }
+    .av-card-studio { font-size: 10px; min-height: 44px; padding-inline: 4px; }
+    .av-card-synopsis { font-size: 11px; line-height: 1.7; padding-inline: 4px; }
+    .av-card-personal { flex-direction: column; align-items: start; gap: 5px; font-size: 9px; margin-top: 12px; padding: 12px 4px 0 4px; }
+    .av-card-personal > span:last-child { text-align: left; padding-right: 0; }
     .av-card-invitation { transform: none; padding: 9px 11px; background: rgb(18 21 16/.86); color: #f1f0e8; font-size: 9px; }
     .av-card-invitation svg { width: 15px; height: 15px; }
     .av-app #recommendations-rail { margin-top: 55px; margin-bottom: 45px; }
@@ -752,7 +752,7 @@ body.av-app { background: var(--av-bg) !important; }
     .av-detail-title-block > .av-eyebrow { gap: 8px; font-size: 9px; }
     .av-app #detail-japanese-title { font-size: 10px; }
     .av-detail-totals { gap: 24px; margin-top: 23px; }
-    .av-total-score { font-size: 30px; }
+    .av-total-score { font-size: 30px; padding-right: 2px; }
     .av-detail-totals small { font-size: 8px; letter-spacing: 0; }
     .av-detail-utilities { grid-column: 1/-1; margin-top: 20px; gap: 8px; }
     .av-detail-utilities #detail-admin-actions { padding-left: 8px; gap: 8px; }
