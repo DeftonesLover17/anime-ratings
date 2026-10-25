@@ -23,7 +23,17 @@ As regras de sincronização verificam a autoria atual de cada ID de publicaçã
 
 O servidor Node mantém sessões e provas pendentes em memória. Reiniciar esse servidor invalida essas sessões e links pendentes. Instalações Node com múltiplos processos precisam de um armazenamento compartilhado de sessão antes de escalar. A produção Cloudflare usa D1 e não tem essa limitação de processo.
 
-Os formatos de hash existentes são preservados. Credenciais em texto legado são convertidas ao validar um login. Não elevar cegamente a contagem PBKDF2 da produção Cloudflare: o runtime tem restrições próprias e os fluxos legados já possuem uma política de recuperação administrativa. O backend Node usa seu parâmetro próprio; migração de credenciais entre runtimes precisa ser validada.
+Os formatos de hash existentes são preservados. Credenciais em texto legado são convertidas ao validar um login. `passwordSaltEncoding` explicita a interpretação do salt nas novas credenciais; registros antigos são conferidos nas duas interpretações históricas, bytes base64 e texto UTF-8. A suíte valida a compatibilidade entre Node e Cloudflare com o mesmo número de iterações. O Cloudflare usa 100.000 iterações PBKDF2; credenciais legadas acima desse teto precisam do reset administrativo já existente, em vez de produzir erro 500. O Node mantém seu parâmetro próprio (500.000 por padrão); importar esses hashes para Cloudflare continua exigindo recuperação administrativa. Não reduzir o fator de trabalho de um hash existente ou redefinir contas em massa para migrá-las.
+
+## Entrada e restauração no navegador
+
+Senhas são transmitidas exatamente como digitadas, inclusive espaços. O identificador pode ser aparado e não diferencia maiúsculas/minúsculas na resolução do servidor. A API rejeita cadastros e mudanças de e-mail que colidam com o identificador de outra conta.
+
+O formulário bloqueia envios concorrentes e limita cada requisição a 20 segundos, incluindo a leitura do corpo. Erros de rede, servidor, credencial, limite de tentativas e cookie recusado têm mensagens próprias. A senha não é apagada após uma tentativa incorreta. Quando a troca obrigatória é necessária, o formulário apresenta dois campos mascarados e exige confirmação; não usa `prompt()` para a nova senha. Após a troca, uma falha na entrada informa que a nova senha já está em vigor.
+
+O sucesso de `/api/login` é seguido por `/api/users` para confirmar o cookie HttpOnly. O cache não comprova autenticação. Na restauração, somente o `viewerUsername` confirmado pelo servidor ativa a identidade; ausência de identidade e 401 reabrem o login. Falhas de transporte e 403 não apagam uma sessão válida. Uma geração local impede que respostas anteriores ao login/logout restaurem uma identidade antiga. O payload de sincronização informa `viewerUsername` esperado; uma divergência retorna `SESSION_CHANGED` antes de gravar dados.
+
+O armazenamento do navegador tem fallback em memória para bloqueio de acesso e falta de quota. Essa proteção mantém o login funcional, mas não garante persistência offline após fechar a aba. Dados já salvos no servidor são recuperados por uma nova leitura autenticada. Recuperação de senha esquecida por e-mail ainda depende de configurar o envio e de implementar esse fluxo específico; a prova de verificação de e-mail existente não redefine senha.
 
 ## Fronteira HTTP
 

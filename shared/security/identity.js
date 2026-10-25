@@ -81,7 +81,9 @@ function registrationError(state, input, env = {}) {
         (state.registeredUsers || []).some(
             (user) =>
                 legacyId(user.username) === id ||
-                emailKey(user.email) === emailKey(input.email)
+                emailKey(user.email) === emailKey(input.email) ||
+                usernameKey(user.username) === emailKey(input.email) ||
+                emailKey(user.email) === usernameKey(input.username)
         )
     ) {
         return 'Nome de usuário ou e-mail indisponível.';

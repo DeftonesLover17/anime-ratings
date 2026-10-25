@@ -11,7 +11,7 @@ const REQUEST_LIMITS = Symbol('requestRateLimits');
 
 const PASSWORD_ITERATIONS = 100000;
 const PASSWORD_KEY_LENGTH_BITS = 256;
-const LEGACY_PASSWORD_RESET_ITERATION_THRESHOLD = 150000;
+const LEGACY_PASSWORD_RESET_ITERATION_THRESHOLD = 100000;
 const MAX_EXTERNAL_IMAGE_URL_LENGTH = 4096;
 const MAX_DATA_IMAGE_LENGTH = 2 * 1024 * 1024;
 const BACKUP_RETENTION = 20;
@@ -522,7 +522,7 @@ function createTemporaryPassword() {
     return `Ani${randomToken().replace(/[^a-zA-Z0-9]/g, '').slice(0, 22)}7`;
 }
 
-async function hashPassword(password, salt = randomBase64(16), iterations = PASSWORD_ITERATIONS) {
+async function hashPassword(password, salt = randomBase64(16), iterations = PASSWORD_ITERATIONS, saltEncoding = 'base64') {
     const key = await crypto.subtle.importKey(
         'raw',
         new TextEncoder().encode(String(password || '')),
@@ -531,7 +531,7 @@ async function hashPassword(password, salt = randomBase64(16), iterations = PASS
         ['deriveBits']
     );
     const bits = await crypto.subtle.deriveBits(
-        { name: 'PBKDF2', salt: base64ToBytes(salt), iterations, hash: 'SHA-256' },
+        { name: 'PBKDF2', salt: saltEncoding === 'utf8' ? new TextEncoder().encode(salt) : base64ToBytes(salt), iterations, hash: 'SHA-256' },
         key,
         PASSWORD_KEY_LENGTH_BITS
     );
@@ -539,7 +539,8 @@ async function hashPassword(password, salt = randomBase64(16), iterations = PASS
         passwordHash: bytesToBase64(new Uint8Array(bits)),
         passwordSalt: salt,
         passwordIterations: iterations,
-        passwordDigest: 'pbkdf2-sha256'
+        passwordDigest: 'pbkdf2-sha256',
+        passwordSaltEncoding: saltEncoding
     };
 }
 
@@ -555,9 +556,17 @@ function timingSafeEqual(a, b) {
 async function verifyPassword(user, password) {
     if (!user || !password) return false;
     if (user.passwordHash && user.passwordSalt) {
-        const iterations = user.passwordIterations || PASSWORD_ITERATIONS;
-        const candidate = await hashPassword(password, user.passwordSalt, iterations);
-        return timingSafeEqual(candidate.passwordHash, user.passwordHash);
+        const iterations = Number(user.passwordIterations) || PASSWORD_ITERATIONS;
+        if (!Number.isInteger(iterations) || iterations < 1 || iterations > LEGACY_PASSWORD_RESET_ITERATION_THRESHOLD) return false;
+        const encodings = user.passwordSaltEncoding ? [user.passwordSaltEncoding] : ['base64', 'utf8'];
+        try {
+            for (const encoding of encodings) {
+                if (!['base64', 'utf8'].includes(encoding)) return false;
+                const candidate = await hashPassword(password, user.passwordSalt, iterations, encoding);
+                if (timingSafeEqual(candidate.passwordHash, user.passwordHash)) return true;
+            }
+        } catch { return false; }
+        return false;
     }
     return typeof user.password === 'string' && user.password === password;
 }
@@ -1112,6 +1121,9 @@ async function handleSyncState(request, env) {
     const serverState = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, serverState);
     if (auth.response) return auth.response;
+    if (body.viewerUsername !== undefined && body.viewerUsername !== auth.user.username) {
+        return json({ error: 'A conta desta aba mudou. Atualize a página antes de salvar.', code: 'SESSION_CHANGED' }, 409);
+    }
     const nextState = mergeStates(localState, serverState, auth.user.username, isAdminUser(auth.user, env, serverState), body.baseState);
     await writeState(env, nextState);
     return json(sanitizeState(nextState, auth.user.username));

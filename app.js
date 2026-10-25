@@ -957,6 +957,7 @@ const DEFAULT_ANIMES = [
 ];
 
 // App State Management
+const localStorage = window.AnivoidUI.storage;
 const currentOrigin = (typeof window !== 'undefined' && window.location && window.location.origin)
     ? window.location.origin
     : 'https://anime-ratings.pages.dev';
@@ -991,10 +992,21 @@ function getAuthToken() {
 }
 
 function hasAuthSession() {
-    return !!localStorage.getItem('anivoid_logged_in_username');
+    return Boolean(window.AnivoidUI.session.username());
 }
 
 function setAuthSession(username, token) {
+    const previousUsername = window.AnivoidUI.session.username();
+    if (previousUsername && previousUsername !== username) {
+        window.AnivoidUI.session.clearCache();
+        const previousState = window.__anivoidState;
+        if (previousState) {
+            previousState.syncBase = null;
+            previousState.currentFriendId = null;
+            previousState.friends = [];
+        }
+    }
+    window.AnivoidUI.session.acceptUsername(username);
     if (username) localStorage.setItem('anivoid_logged_in_username', username);
     const activeState = window.__anivoidState;
     if (activeState) {
@@ -1004,6 +1016,7 @@ function setAuthSession(username, token) {
 }
 
 function clearAuthSession() {
+    window.AnivoidUI.session.acceptUsername('');
     window.AnivoidUI.session.clearCache();
     localStorage.removeItem('anivoid_logged_in_username');
     localStorage.removeItem(AUTH_TOKEN_KEY);
@@ -1011,20 +1024,15 @@ function clearAuthSession() {
     if (activeState) {
         activeState.loggedInUser = null;
         activeState.authToken = '';
+        activeState.syncBase = null;
+        activeState.friends = [];
+        activeState.currentFriendId = null;
     }
 }
 
 function authHeaders(extraHeaders = {}) {
     const token = getAuthToken();
     return token ? { ...extraHeaders, Authorization: `Bearer ${token}` } : extraHeaders;
-}
-
-async function submitLogin(identifier, password) {
-    return fetch(API_BASE_URL + '/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: identifier, identifier, password })
-    });
 }
 
 async function buildRegisterPayload(userRecord, password) {
@@ -1039,6 +1047,7 @@ function stripSensitiveUserFields(user) {
         passwordSalt,
         passwordIterations,
         passwordDigest,
+        passwordSaltEncoding,
         passwordResetRequired,
         ...safeUser
     } = user;
@@ -1105,6 +1114,7 @@ async function refreshRegisteredUsersFromServer({ force = false } = {}) {
     if (registeredUsersRefreshPromise) return registeredUsersRefreshPromise;
 
     registeredUsersRefreshPromise = (async () => {
+        const authVersion = window.AnivoidUI.session.version();
         try {
             let response = await fetch(API_BASE_URL + '/api/users', {
                 method: 'GET',
@@ -1121,8 +1131,12 @@ async function refreshRegisteredUsersFromServer({ force = false } = {}) {
             if (response.status === 401 || response.status === 403) return false;
             if (!response.ok) throw new Error('Failed to refresh registered users');
             const serverState = await response.json();
+            if (!window.AnivoidUI.session.isCurrent(authVersion)) return false;
             if (serverState.viewerUsername) {
                 setAuthSession(serverState.viewerUsername);
+            } else {
+                clearAuthSession();
+                showRegistrationGate();
             }
             if (Array.isArray(serverState.registeredUsers)) {
                 storeRegisteredUsers(serverState.registeredUsers);
@@ -1282,10 +1296,10 @@ function mergeLocalOwnRatings(serverAnimes, localAnimes, userId) {
 
 function applyServerStateSnapshot(serverState) {
     if (!serverState || typeof serverState !== 'object') return;
-    rememberSyncBase(serverState);
     if (serverState.viewerUsername) {
         setAuthSession(serverState.viewerUsername);
     }
+    rememberSyncBase(serverState);
     let previousAnimes = [];
     try {
         previousAnimes = JSON.parse(localStorage.getItem('anivoid_list_v2')) || [];
@@ -1314,7 +1328,7 @@ function readClientState(appState) {
 }
 
 function rememberSyncBase(serverState) {
-    const username = serverState.viewerUsername || localStorage.getItem('anivoid_logged_in_username');
+    const username = serverState.viewerUsername;
     if (!username) return null;
     const snapshot = AnivoidSync.clientSnapshot(serverState, username);
     localStorage.setItem('anivoid_sync_base:' + normalizeProfileId(username), JSON.stringify(snapshot));
@@ -1324,7 +1338,8 @@ function rememberSyncBase(serverState) {
 
 class AppState {
     constructor() {
-        this.loggedInUser = localStorage.getItem('anivoid_logged_in_username') || null;
+        // A cached name is a hint for the form, never proof of authentication.
+        this.loggedInUser = window.AnivoidUI.session.username() || null;
         this.authToken = getAuthToken();
         try { this.syncBase = JSON.parse(localStorage.getItem('anivoid_sync_base:' + normalizeProfileId(this.loggedInUser))); } catch { this.syncBase = null; }
         sanitizeStoredRegisteredUsers();
@@ -1475,7 +1490,7 @@ class AppState {
 
     loadLocalSession() {
         try {
-            this.loggedInUser = localStorage.getItem('anivoid_logged_in_username') || null;
+            this.loggedInUser = window.AnivoidUI.session.username() || null;
             this.authToken = getAuthToken();
             if (this.loggedInUser) {
                 let registeredUsers = [];
@@ -1558,6 +1573,7 @@ class AppState {
     }
 
     async syncWithServerNow() {
+        const authVersion = window.AnivoidUI.session.version();
         this.lastSyncError = null;
         try {
             let registeredUsers = [];
@@ -1593,6 +1609,7 @@ class AppState {
                         'Content-Type': 'application/json'
                     }),
                     body: JSON.stringify({
+                        viewerUsername: this.loggedInUser,
                         localState: sentSnapshot,
                         baseState: this.syncBase
                     })
@@ -1601,30 +1618,41 @@ class AppState {
                     method: 'GET'
                 });
 
-            if (response.status === 401 || response.status === 403) {
+            // A response begun before login/logout cannot overwrite that action.
+            if (!window.AnivoidUI.session.isCurrent(authVersion)) return false;
+            if (response.status === 401) {
                 clearAuthSession();
-                this.loggedInUser = null;
-                this.friends = [];
+                showRegistrationGate();
                 throw new Error('Sessão expirada. Faça login novamente.');
             }
             if (!response.ok) {
                 const failure = await response.json().catch(() => ({}));
+                if (failure.code === 'SESSION_CHANGED') {
+                    clearAuthSession();
+                    this.needsFollowUpSync = true;
+                    showRegistrationGate();
+                    throw new Error('A conta desta aba mudou. Entre novamente para continuar.');
+                }
                 if (response.status === 409) showToast('Sincronizacao pendente', failure.error || 'Tente salvar novamente em instantes.', '↻', '#FF4500');
                 throw new Error(failure.error || 'API sync request failed');
             }
             let serverState = await response.json();
+            if (!window.AnivoidUI.session.isCurrent(authVersion)) return false;
+            const sameViewer = serverState.viewerUsername === this.loggedInUser;
+            if (serverState.viewerUsername) {
+                if (this.loggedInUser && !sameViewer) clearAuthSession();
+                setAuthSession(serverState.viewerUsername);
+            } else {
+                clearAuthSession();
+                if (hasLoginSession) showRegistrationGate();
+            }
             rememberSyncBase(serverState);
             // Keep edits made while the request was in flight; the next sync sends
             // their delta against this response rather than losing them on render.
-            if (hasLoginSession) {
+            if (hasLoginSession && sameViewer) {
                 const currentSnapshot = AnivoidSync.clientSnapshot(readClientState(this), this.loggedInUser);
                 if (!AnivoidSync.equal(sentSnapshot, currentSnapshot)) serverState = AnivoidSync.mergeClientState(currentSnapshot, sentSnapshot, serverState, this.loggedInUser, isCurrentUserAdmin());
             }
-            if (serverState.viewerUsername) {
-                setAuthSession(serverState.viewerUsername);
-                this.loggedInUser = serverState.viewerUsername;
-            }
-
             // Update local memory and localStorage with the merged server state
             if (serverState.animes && Array.isArray(serverState.animes)) {
                 this.animes = serverState.animes;
@@ -4271,6 +4299,7 @@ function showRegistrationGate() {
         regGate.classList.remove('hidden');
         regGate.classList.add('flex');
         initRegistrationOptions();
+        if (window.AnivoidUI.session.needsLogin()) document.getElementById('tab-login')?.click();
         if (!regGate.contains(document.activeElement)) authGateReturnFocus = document.activeElement;
         setAuthBackgroundInert(true);
         if (!regGate.dataset.focusBound) {
@@ -6561,7 +6590,7 @@ function initRegistrationOptions() {
                     // Validate step 1 fields
                     const nameVal = document.getElementById('reg-name').value.trim();
                     const emailVal = document.getElementById('reg-email').value.trim();
-                    const passwordVal = document.getElementById('reg-password').value.trim();
+                    const passwordVal = document.getElementById('reg-password').value;
                     
                     if (!nameVal) {
                         alert('Por favor, preencha o seu nome de usuário/apelido.');
@@ -6941,11 +6970,11 @@ function initRegistrationOptions() {
         }
     };
 
-    const completeAuthenticatedLogin = (loginData, passwordToRemember = '') => {
+    const completeAuthenticatedLogin = (loginData) => {
+        // Set the confirmed owner before projecting private fields from the DTO.
+        setAuthSession(loginData.user.username);
         const matchedUser = stripSensitiveUserFields(loginData.user);
         const userId = normalizeProfileId(matchedUser.username);
-        setAuthSession(matchedUser.username, loginData.token);
-        state.loggedInUser = matchedUser.username;
 
         if (loginData.state) {
             applyServerStateSnapshot(loginData.state);
@@ -6954,22 +6983,15 @@ function initRegistrationOptions() {
                 if (Array.isArray(restoredAnimes)) state.animes = restoredAnimes;
             } catch (err) {}
         }
+        // Keep the authenticated profile available even if an older API omits
+        // the full state or the browser cannot persist its large catalog cache.
+        const users = getCachedRegisteredUsers();
+        const ownerIndex = users.findIndex(user => user.username === matchedUser.username);
+        if (ownerIndex < 0) users.push(matchedUser);
+        else users[ownerIndex] = matchedUser;
+        storeRegisteredUsers(users);
 
-        // Migrate ratings and reviews from key '1' if they exist in localStorage
-        state.animes.forEach(anime => {
-            if (anime.ratings && anime.ratings['1']) {
-                anime.ratings[userId] = { ...anime.ratings['1'] };
-                delete anime.ratings['1'];
-            }
-            if (anime.comments) {
-                anime.comments.forEach(comment => {
-                    if (comment.friendId === '1') {
-                        comment.friendId = userId;
-                        comment.friendName = matchedUser.username;
-                    }
-                });
-            }
-        });
+        // Signing in never transfers historical ratings to the new viewer.
         state.repairDerivedRatings();
         localStorage.setItem('anivoid_list_v2', JSON.stringify(state.animes));
 
@@ -6998,84 +7020,25 @@ function initRegistrationOptions() {
         });
     };
 
-    if (toggleToLogin) {
+    if (toggleToLogin && !toggleToLogin.dataset.viewBound) {
+        toggleToLogin.dataset.viewBound = 'true';
         toggleToLogin.addEventListener('click', showLoginView);
     }
-    if (tabLogin) {
+    if (tabLogin && !tabLogin.dataset.viewBound) {
+        tabLogin.dataset.viewBound = 'true';
         tabLogin.addEventListener('click', showLoginView);
     }
 
-    if (toggleToRegister) {
+    if (toggleToRegister && !toggleToRegister.dataset.viewBound) {
+        toggleToRegister.dataset.viewBound = 'true';
         toggleToRegister.addEventListener('click', showRegisterView);
     }
-    if (tabRegister) {
+    if (tabRegister && !tabRegister.dataset.viewBound) {
+        tabRegister.dataset.viewBound = 'true';
         tabRegister.addEventListener('click', showRegisterView);
     }
 
-    if (loginForm && !loginForm.dataset.listenerHooked) {
-        loginForm.dataset.listenerHooked = 'true';
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const emailVal = document.getElementById('login-email').value.trim();
-            const passwordVal = document.getElementById('login-password').value.trim();
-
-            let loginData = null;
-            try {
-                const loginResp = await submitLogin(emailVal, passwordVal);
-                loginData = await loginResp.json().catch(() => ({}));
-
-                if (loginData.code === 'LEGACY_PASSWORD_RESET_ADMIN_REQUIRED') {
-                    alert(loginData.error || 'Esta conta precisa de reset administrativo antes do login.');
-                    return;
-                }
-
-                if (loginResp.status === 426 || loginData.code === 'PASSWORD_RESET_REQUIRED') {
-                    const resetNotice = [
-                        'Aviso de segurança do AniVoid:',
-                        '',
-                        'Esta conta entrou com uma senha temporária criada durante a migração de segurança.',
-                        'Para continuar, você precisa criar uma senha pessoal agora.',
-                        '',
-                        `Digite sua NOVA senha (mínimo ${MIN_PASSWORD_LENGTH} caracteres, com letras e números):`
-                    ].join('\n');
-                    const newPassword = prompt(resetNotice);
-                    if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH || !/\d/.test(newPassword) || !/[a-zA-Z]/.test(newPassword)) {
-                        alert(`A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres, contendo letras e números. Cancelado.`);
-                        return;
-                    }
-                    const resetResp = await fetch(API_BASE_URL + '/api/account/change-password-forced', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email: emailVal, oldPassword: passwordVal, newPassword: newPassword })
-                    });
-                    const resetData = await resetResp.json().catch(() => ({}));
-                    if (!resetResp.ok) {
-                        alert(resetData.error || 'Falha ao redefinir senha.');
-                        return;
-                    }
-                    const freshLoginResp = await submitLogin(emailVal, newPassword);
-                    const freshLoginData = await freshLoginResp.json().catch(() => ({}));
-                    if (!freshLoginResp.ok || !freshLoginData.user) {
-                        alert('Senha redefinida com sucesso! Entre novamente usando sua nova senha.');
-                        return;
-                    }
-                    completeAuthenticatedLogin(freshLoginData);
-                    return;
-                }
-
-                if (!loginResp.ok || !loginData.user) {
-                    alert(loginData.error || 'E-mail ou senha incorretos! Por favor, tente novamente.');
-                    return;
-                }
-            } catch (err) {
-                console.error('Login request failed:', err);
-                alert(err && err.message ? err.message : 'Nao foi possivel conectar ao servidor de login. Tente novamente em alguns instantes.');
-                return;
-            }
-
-            completeAuthenticatedLogin(loginData);
-        });
-    }
+    window.AnivoidUI.bindLoginForm({ onAuthenticated: completeAuthenticatedLogin });
 
     // 7. Form submission handler
     if (!regForm.dataset.listenerHooked) {
@@ -7086,7 +7049,7 @@ function initRegistrationOptions() {
             const name = document.getElementById('reg-name').value.trim();
             const color = document.getElementById('reg-color').value;
             const email = document.getElementById('reg-email').value.trim();
-            const password = document.getElementById('reg-password').value.trim();
+            const password = document.getElementById('reg-password').value;
             const avatar = regAvatarSelection;
 
             if (!name) return;
@@ -7185,6 +7148,7 @@ function initRegistrationOptions() {
             // Immediately register on the server and get member number
             let assignedMemberNumber = null;
             try {
+                window.AnivoidUI.session.invalidatePending();
                 const registerPayload = await buildRegisterPayload(newUserRecord, password);
                 const regResp = await fetch(API_BASE_URL + '/api/register', {
                     method: 'POST',
@@ -7196,6 +7160,7 @@ function initRegistrationOptions() {
                     alert(regData.error || 'Não foi possível criar sua conta agora.');
                     return;
                 }
+                await window.AnivoidUI.login.confirmSession(regData.user.username);
                 setAuthSession(regData.user.username || name, null);
                 if (regData.state) {
                     applyServerStateSnapshot(regData.state);
@@ -7647,7 +7612,7 @@ window.selectAdminTitle = function(title) {
 };
 
 function getSessionUsername() {
-    return state.loggedInUser || localStorage.getItem('anivoid_logged_in_username') || '';
+    return window.AnivoidUI.session.username();
 }
 
 function getCachedRegisteredUsers() {

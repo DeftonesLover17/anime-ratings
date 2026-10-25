@@ -422,13 +422,14 @@ function sanitizeState(state, viewerUsername = '') {
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString('base64'), iterations = PASSWORD_ITERATIONS) {
     const passwordHash = crypto
-        .pbkdf2Sync(String(password || ''), salt, iterations, PASSWORD_KEY_LENGTH, 'sha256')
+        .pbkdf2Sync(String(password || ''), Buffer.from(salt, 'base64'), iterations, PASSWORD_KEY_LENGTH, 'sha256')
         .toString('base64');
     return {
         passwordHash,
         passwordSalt: salt,
         passwordIterations: iterations,
-        passwordDigest: 'pbkdf2-sha256'
+        passwordDigest: 'pbkdf2-sha256',
+        passwordSaltEncoding: 'base64'
     };
 }
 
@@ -442,9 +443,18 @@ function timingSafeCompare(a, b) {
 function verifyPassword(user, password) {
     if (!user || !password) return false;
     if (user.passwordHash && user.passwordSalt) {
-        const iterations = user.passwordIterations || PASSWORD_ITERATIONS;
-        const candidate = hashPassword(password, user.passwordSalt, iterations).passwordHash;
-        return timingSafeCompare(candidate, user.passwordHash);
+        const iterations = Number(user.passwordIterations) || PASSWORD_ITERATIONS;
+        if (!Number.isSafeInteger(iterations) || iterations < 1) return false;
+        const encodings = user.passwordSaltEncoding ? [user.passwordSaltEncoding] : ['utf8', 'base64'];
+        try {
+            for (const encoding of encodings) {
+                if (!['utf8', 'base64'].includes(encoding)) return false;
+                const salt = encoding === 'base64' ? Buffer.from(user.passwordSalt, 'base64') : user.passwordSalt;
+                const candidate = crypto.pbkdf2Sync(password, salt, iterations, PASSWORD_KEY_LENGTH, 'sha256').toString('base64');
+                if (timingSafeCompare(candidate, user.passwordHash)) return true;
+            }
+        } catch { return false; }
+        return false;
     }
     return typeof user.password === 'string' && user.password === password;
 }
@@ -854,7 +864,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // API Route: Get state
-    if (req.url === '/api/get-state' && req.method === 'GET') {
+    if (['/api/get-state', '/api/users'].includes(req.url) && req.method === 'GET') {
         readState((err, data) => {
             if (err) {
                 sendJson(res, 500, { error: 'Failed to read state' });
@@ -863,6 +873,13 @@ const server = http.createServer(async (req, res) => {
             let state = { friends: [], animes: [], registeredUsers: [], activities: [] };
             try { state = JSON.parse(data); } catch(e) {}
             const authUser = getAuthenticatedUser(req, state);
+            if (req.url === '/api/users') {
+                sendJson(res, 200, {
+                    viewerUsername: authUser ? authUser.username : '',
+                    registeredUsers: (state.registeredUsers || []).map(user => sanitizeUser(user, authUser ? authUser.username : ''))
+                });
+                return;
+            }
             sendJson(res, 200, sanitizeState(state, authUser ? authUser.username : ''));
         });
         return;
@@ -888,8 +905,12 @@ const server = http.createServer(async (req, res) => {
 
                     const user = findRegisteredUserByIdentifier(state, loginIdentifier);
 
-                    if (!user || user.passwordResetRequired || !verifyPassword(user, password)) {
+                    if (!user || !verifyPassword(user, password)) {
                         sendJson(res, 401, { error: 'E-mail ou senha incorretos.' });
+                        return;
+                    }
+                    if (user.passwordResetRequired) {
+                        sendJson(res, 426, { error: 'Crie uma nova senha pessoal para continuar.', code: 'PASSWORD_RESET_REQUIRED' });
                         return;
                     }
 
@@ -1024,6 +1045,10 @@ const server = http.createServer(async (req, res) => {
                     }));
                     const authUser = requireAuthenticatedUser(req, res, serverState);
                     if (!authUser) return;
+                    if (payload.viewerUsername !== undefined && payload.viewerUsername !== authUser.username) {
+                        sendJson(res, 409, { error: 'A conta desta aba mudou. Atualize a página antes de salvar.', code: 'SESSION_CHANGED' });
+                        return;
+                    }
                     const nextState = mergeClientState(payload.localState || payload, payload.baseState, serverState, authUser.username, isAdminUser(authUser, serverState));
                     await new Promise((resolve, reject) => writeState(nextState, error => error ? reject(error) : resolve()));
                     sendJson(res, 200, sanitizeState(nextState, authUser.username));

@@ -180,7 +180,8 @@ function profilePatch(user, fields, users) {
             users.some(
                 (other) =>
                     other !== user &&
-                    emailKey(other.email) === emailKey(fields.email)
+                    (emailKey(other.email) === emailKey(fields.email) ||
+                     usernameKey(other.username) === emailKey(fields.email))
             )
         )
             throw new SecurityError(

@@ -1,5 +1,14 @@
-function createAccountSession(browser) {
+function createAccountSession(browser, storage = browser.localStorage) {
     let leaving = null;
+    let username = '', generation = 0;
+    let knownAccount = false;
+    try { knownAccount = Boolean(storage.getItem?.('anivoid_logged_in_username')); } catch {}
+    function acceptUsername(value) {
+        value = typeof value === 'string' ? value : '';
+        if (username !== value) generation++;
+        username = value;
+        if (value) knownAccount = true;
+    }
     function clearCache() {
         for (const key of [
             'anivoid_registered_users',
@@ -8,8 +17,11 @@ function createAccountSession(browser) {
             'anivoid_auth_token'
         ]) {
             try {
-                browser.localStorage.removeItem(key);
+                storage.removeItem(key);
             } catch {}
+        }
+        for (const key of storage.keys?.() || []) {
+            if (key.startsWith('anivoid_sync_base:')) storage.removeItem(key);
         }
     }
     async function post(path, body = {}) {
@@ -29,8 +41,10 @@ function createAccountSession(browser) {
     }
     function logout(clearLocal) {
         if (leaving) return leaving;
+        generation++;
         leaving = post('/api/logout')
             .then(() => {
+                acceptUsername('');
                 clearLocal();
                 clearCache();
                 browser.location.reload();
@@ -76,6 +90,14 @@ function createAccountSession(browser) {
             }
         });
     }
-    return { logout, consumeVerification, bindVerification, clearCache };
+    return {
+        logout, consumeVerification, bindVerification, clearCache,
+        acceptUsername,
+        username: () => username,
+        version: () => generation,
+        isCurrent: (version) => version === generation,
+        invalidatePending: () => { generation++; },
+        needsLogin: () => knownAccount && !username
+    };
 }
 module.exports = { createAccountSession };

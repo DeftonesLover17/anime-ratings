@@ -28,6 +28,9 @@ npm start
 | `frontend/community/` | Composição e leitura de reviews/comentários, contexto de episódio, spoilers, respostas, edição e curtidas. |
 | `frontend/account/` | Gaveta da conta, seleção de avaliador e transições interrompíveis de abertura, fechamento e passagem às ações existentes. |
 | `frontend/account/session.js` | Logout confirmado pela API, limpeza de cache privado e confirmação de e-mail por prova do servidor. |
+| `frontend/account/login-client.js` | Login com timeout, confirmação do cookie, erros de conexão e troca obrigatória de senha. |
+| `frontend/account/login-form.js` | Campos de login/redefinição, confirmação de senha, feedback acessível e bloqueio de envios duplicados. |
+| `frontend/account/storage.js` | Cache opcional com fallback em memória quando o navegador bloqueia ou esgota o armazenamento. |
 | `frontend/security/dom-actions.js` | Eventos delegados que substituem handlers HTML inline sob CSP restrita. |
 | `frontend/shared/dom.js` | Escape de texto, URLs de mídia e pequenos elementos realmente compartilhados. |
 | `frontend/shared/catalog-media.js` | Substituições de pôsteres do catálogo por arquivos locais, preservando os dados e as avaliações. |
@@ -77,6 +80,10 @@ A área da conta usa um diálogo lateral nativo, com foco contido, Escape, retor
 Permissões são conferidas no servidor. Cada conta recebe um `accountId` estável, atribuído a contas antigas na primeira gravação necessária, sem reescrever dados durante leituras. As referências legadas de notas e publicações são preservadas; nomes equivalentes são rejeitados no cadastro e colisões históricas falham de forma fechada. Nunca fundir ou excluir contas automaticamente para resolver uma colisão.
 
 Sessões novas usam tokens aleatórios, hash no D1, limite de inatividade de 24 horas e prazo absoluto de sete dias. A tabela versionada `auth_sessions` não aceita os tokens legados. Após publicar essa correção, os usuários entram novamente uma vez. Trocas de senha e e-mail exigem a senha atual na API e revogam as sessões anteriores. A sincronização não pode mudar credenciais, e-mail, autoridade administrativa ou verificação de e-mail.
+
+O nome em cache não autentica a interface. A entrada confirma o cookie em `/api/users`; cada carregamento restaura a identidade a partir do servidor. Respostas iniciadas antes de um novo login/logout são descartadas. Uma resposta pública sem `viewerUsername` autenticado encerra a identidade local; falhas de conexão ou permissão não são apresentadas como senha incorreta. A sincronização informa o usuário esperado e recusa troca de conta entre abas antes de aplicar o delta. Senhas preservam todos os caracteres digitados. Login não transfere avaliações históricas de um perfil para outro.
+
+O cache local é uma otimização, não um requisito de autenticação. Quando o navegador recusa a persistência, os dados ficam apenas na memória da aba e são recuperados novamente do servidor ao recarregar. Isso não transforma alterações ainda não sincronizadas em backup persistente.
 
 Mutações do navegador exigem origem permitida e `application/json`; requisições cross-site são recusadas. Clientes de API sem Origin precisam de um Bearer explícito. Corpos JSON têm limite de 12 MiB para preservar os snapshots com mídia já suportados. Limites de tentativa por IP complementam os limites por operação; o contador D1 é incrementado atomicamente.
 
