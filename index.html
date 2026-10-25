@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" href="favicon.png">
     <!-- EmailJS SDK for real email delivery (optional) -->
     <script defer src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <link rel="stylesheet" href="assets/tailwind.9d07e198f1bf.css">
+    <link rel="stylesheet" href="assets/tailwind.e670b4de598b.css">
     <!-- Iconify Icons CDN -->
     <script defer src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
     
@@ -19,7 +19,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syncopate:wght@700&family=Syne:wght@800&family=Lexend+Tera:wght@900&display=swap" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="assets/styles.dab1da05779b.css">
+    <link rel="stylesheet" href="assets/styles.ff857069ba29.css">
     
     <meta name="theme-color" content="#050505">
     <script>
@@ -767,108 +767,166 @@
     </div>
 
     <!-- GROUP STATISTICS MODAL -->
-    <div id="group-stats-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
-        <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl p-6 md:p-8 space-y-6 my-auto relative animate-[scaleUp_0.3s_ease-out]">
-            <!-- Ambient decor -->
-            <div class="absolute -top-40 -left-40 w-80 h-80 rounded-full bg-brand/10 blur-[100px] pointer-events-none"></div>
-            <div class="absolute -bottom-40 -right-40 w-80 h-80 rounded-full bg-brand/5 blur-[100px] pointer-events-none"></div>
+    <div id="group-stats-modal" class="fixed inset-0 bg-black/85 backdrop-blur-2xl z-[9998] hidden items-center justify-center p-4 sm:p-6 md:p-8 overflow-y-auto">
+        <div class="av-stats-shell">
+            <div class="av-stats-ambient-glow" aria-hidden="true"></div>
 
             <!-- Header -->
-            <div class="flex items-center justify-between border-b border-white/5 pb-4 select-none">
-                <div class="flex items-center gap-2 text-xs font-mono text-gray-400">
-                    <iconify-icon icon="lucide:bar-chart-3" class="text-brand text-base"></iconify-icon>
-                    <span class="tracking-widest uppercase text-[10px]">Métricas & Insights do Grupo</span>
+            <div class="av-stats-modal-header">
+                <div class="av-stats-header-info">
+                    <div class="av-stats-eyebrow">
+                        <span class="av-stats-dot"></span>
+                        <span>Coletivo / Pulso & Métricas</span>
+                    </div>
+                    <h2 class="av-stats-title">Métricas do Grupo<span>.</span></h2>
+                    <p class="av-stats-subtitle">Ritmo de maratona, rigor crítico e convergência das avaliações da comunidade.</p>
                 </div>
-                <button id="close-group-stats" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors text-gray-400 hover:text-white cursor-pointer border-0">
-                    <iconify-icon icon="lucide:x" class="text-lg"></iconify-icon>
+                <button type="button" id="close-group-stats" class="av-stats-close-btn" aria-label="Fechar métricas do grupo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6 6 18M6 6l12 12"/>
+                    </svg>
                 </button>
             </div>
 
             <!-- Stats Dashboard Content -->
-            <div class="space-y-8 overflow-y-auto max-h-[70vh] pr-2">
+            <div class="av-stats-scroll-content">
                 
-                <!-- ROW 1: MEDALHAS / CONQUISTAS -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- ROW 1: TROPHY CARDS -->
+                <div class="av-stats-trophies-grid">
                     <!-- Maratonista -->
-                    <div class="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center text-xl shrink-0">🏃‍♂️</div>
-                        <div>
-                            <h4 class="text-[9px] font-mono uppercase tracking-wider text-gray-500">O Maratonista</h4>
-                            <p class="text-xs font-bold text-white mt-0.5 truncate" id="stat-maratonista-name">-</p>
-                            <span class="text-[9px] text-yellow-400 font-mono" id="stat-maratonista-val">0 eps</span>
+                    <div class="av-stats-trophy-card av-trophy-maratonista">
+                        <div class="av-trophy-top">
+                            <span class="av-trophy-category">O Maratonista</span>
+                            <div class="av-trophy-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <polyline points="12 6 12 12 16 14"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="av-trophy-body">
+                            <p class="av-trophy-name" id="stat-maratonista-name">-</p>
+                            <div class="av-trophy-pill">
+                                <span id="stat-maratonista-val">0 eps assistidos</span>
+                            </div>
                         </div>
                     </div>
                     <!-- Crítico Rigoroso -->
-                    <div class="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-xl shrink-0">🧐</div>
-                        <div>
-                            <h4 class="text-[9px] font-mono uppercase tracking-wider text-gray-500">Crítico Rigoroso</h4>
-                            <p class="text-xs font-bold text-white mt-0.5 truncate" id="stat-rigoroso-name">-</p>
-                            <span class="text-[9px] text-purple-400 font-mono" id="stat-rigoroso-val">Média -</span>
+                    <div class="av-stats-trophy-card av-trophy-rigoroso">
+                        <div class="av-trophy-top">
+                            <span class="av-trophy-category">Crítico Rigoroso</span>
+                            <div class="av-trophy-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M6 3h12l4 6-10 12L2 9l4-6Z"/>
+                                    <path d="M11 3 8 9l4 12 4-12-3-6"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="av-trophy-body">
+                            <p class="av-trophy-name" id="stat-rigoroso-name">-</p>
+                            <div class="av-trophy-pill">
+                                <span id="stat-rigoroso-val">Média -</span>
+                            </div>
                         </div>
                     </div>
                     <!-- Mais Empolgado -->
-                    <div class="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center text-xl shrink-0">💖</div>
-                        <div>
-                            <h4 class="text-[9px] font-mono uppercase tracking-wider text-gray-500">Mais Empolgado</h4>
-                            <p class="text-xs font-bold text-white mt-0.5 truncate" id="stat-empolgado-name">-</p>
-                            <span class="text-[9px] text-green-400 font-mono" id="stat-empolgado-val">Média -</span>
+                    <div class="av-stats-trophy-card av-trophy-empolgado">
+                        <div class="av-trophy-top">
+                            <span class="av-trophy-category">Mais Empolgado</span>
+                            <div class="av-trophy-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="av-trophy-body">
+                            <p class="av-trophy-name" id="stat-empolgado-name">-</p>
+                            <div class="av-trophy-pill">
+                                <span id="stat-empolgado-val">Média -</span>
+                            </div>
                         </div>
                     </div>
-                    <!-- O Escritor -->
-                    <div class="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-xl shrink-0">✍️</div>
-                        <div>
-                            <h4 class="text-[9px] font-mono uppercase tracking-wider text-gray-500">Líder de Reviews</h4>
-                            <p class="text-xs font-bold text-white mt-0.5 truncate" id="stat-escritor-name">-</p>
-                            <span class="text-[9px] text-blue-400 font-mono" id="stat-escritor-val">0 reviews</span>
+                    <!-- Líder de Reviews -->
+                    <div class="av-stats-trophy-card av-trophy-escritor">
+                        <div class="av-trophy-top">
+                            <span class="av-trophy-category">Líder de Reviews</span>
+                            <div class="av-trophy-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="m18 2 4 4-12 12H6v-4L18 2Z"/>
+                                    <path d="m15 5 4 4"/>
+                                    <path d="M2 22h20"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="av-trophy-body">
+                            <p class="av-trophy-name" id="stat-escritor-name">-</p>
+                            <div class="av-trophy-pill">
+                                <span id="stat-escritor-val">0 reviews</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- ROW 2: RANKINGS & GÊNEROS -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="av-stats-mid-grid">
                     <!-- Ranking Médias -->
-                    <div class="bg-white/5 border border-white/5 rounded-2xl p-5 space-y-4">
-                        <h3 class="text-xs font-mono uppercase tracking-wider text-gray-400 border-b border-white/5 pb-2 select-none">
-                            Ranking de Avaliações (Média Geral)
-                        </h3>
-                        <div id="stats-ranking-container" class="space-y-3">
+                    <div class="av-stats-panel">
+                        <div class="av-stats-panel-header">
+                            <span class="av-eyebrow">Média Geral / Coletivo</span>
+                            <h3>Ranking de Avaliações</h3>
+                        </div>
+                        <div id="stats-ranking-container" class="av-stats-ranking-list">
                             <!-- JS Populated -->
                         </div>
                     </div>
 
                     <!-- Gêneros Favoritos -->
-                    <div class="bg-white/5 border border-white/5 rounded-2xl p-5 space-y-4">
-                        <h3 class="text-xs font-mono uppercase tracking-wider text-gray-400 border-b border-white/5 pb-2 select-none">
-                            Distribuição de Gêneros Assistidos
-                        </h3>
-                        <div id="stats-genres-container" class="space-y-3">
+                    <div class="av-stats-panel">
+                        <div class="av-stats-panel-header">
+                            <span class="av-eyebrow">Panorama Temático</span>
+                            <h3>Distribuição de Gêneros</h3>
+                        </div>
+                        <div id="stats-genres-container" class="av-stats-genres-list">
                             <!-- JS Populated -->
                         </div>
                     </div>
                 </div>
 
                 <!-- ROW 3: RECOMENDAÇÕES DO GRUPO -->
-                <div class="space-y-4">
-                    <h3 class="text-xs font-mono uppercase tracking-wider text-gray-400 border-b border-white/5 pb-2 select-none">
-                        Sugestões & Recomendações da Galera
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="av-stats-bottom-section">
+                    <div class="av-stats-panel-header">
+                        <span class="av-eyebrow">Curadoria & Convergência</span>
+                        <h3>Sugestões & Recomendações do Coletivo</h3>
+                    </div>
+                    <div class="av-stats-rec-grid">
                         <!-- Consenso do Grupo -->
-                        <div class="bg-brand/5 border border-brand/20 rounded-2xl p-5 flex flex-col justify-between">
-                            <div>
-                                <span class="text-[9px] font-mono uppercase tracking-widest text-brand font-bold block">Consenso do Grupo 🌟</span>
-                                <h4 class="text-sm font-bold text-white mt-1.5" id="rec-consenso-title">Carregando...</h4>
-                                <p class="text-[10px] text-gray-400 mt-1 font-light" id="rec-consenso-desc">O anime mais aclamado pelo grupo com melhor nota média consolidada.</p>
+                        <div id="rec-consenso-card" class="av-stats-consensus-card">
+                            <div class="av-consensus-glow" aria-hidden="true"></div>
+                            <div class="av-consensus-top">
+                                <span class="av-consensus-badge">
+                                    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                    Consenso do Grupo
+                                </span>
+                                <div class="av-consensus-score-pill">
+                                    <span id="rec-consenso-val">- / 10</span>
+                                </div>
                             </div>
-                            <span class="text-xs font-bold text-brand mt-4 font-mono text-right" id="rec-consenso-val">- / 10</span>
+                            <div class="av-consensus-body">
+                                <h4 id="rec-consenso-title" class="av-consensus-title">Carregando...</h4>
+                                <p id="rec-consenso-desc" class="av-consensus-desc">O anime mais aclamado pelo grupo com melhor nota média consolidada.</p>
+                            </div>
+                            <div class="av-consensus-footer">
+                                <span class="av-consensus-action">Explorar obra <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span>
+                            </div>
                         </div>
+
                         <!-- Recomendado para Você -->
-                        <div class="bg-white/5 border border-white/5 rounded-2xl p-5 md:col-span-2 space-y-3">
-                            <span class="text-[9px] font-mono uppercase tracking-widest text-gray-400 font-semibold block">Recomendado para Você 💡</span>
-                            <div id="rec-personalized-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1.5">
+                        <div class="av-stats-panel av-stats-personalized-panel">
+                            <div class="av-stats-panel-header">
+                                <span class="av-eyebrow">Recomendado para Você</span>
+                                <h4>Com base no gosto dos seus amigos</h4>
+                            </div>
+                            <div id="rec-personalized-list" class="av-stats-rec-list">
                                 <!-- JS Populated -->
                             </div>
                         </div>
@@ -1055,6 +1113,6 @@
 
     <!-- Scripts Integration -->
     <script src="assets/sync-state.9868559c480c.js"></script>
-    <script src="assets/app.26e54d50ef8a.js"></script>
+    <script src="assets/app.b12ea70c53a4.js"></script>
 </body>
 </html>

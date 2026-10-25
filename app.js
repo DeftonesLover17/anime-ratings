@@ -3910,10 +3910,17 @@ function startApp() {
     }
     
     if (closeStatsBtn && statsModal) {
-        closeStatsBtn.addEventListener('click', () => {
+        const closeStats = () => {
             statsModal.classList.add('hidden');
             statsModal.classList.remove('flex');
             document.body.classList.remove('overflow-hidden');
+        };
+        closeStatsBtn.addEventListener('click', closeStats);
+        statsModal.addEventListener('click', (e) => {
+            if (e.target === statsModal) closeStats();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !statsModal.classList.contains('hidden')) closeStats();
         });
     }
 
@@ -8720,40 +8727,46 @@ function renderGroupStats() {
         if (statEscVal) statEscVal.innerText = '0 reviews';
     }
 
-    // 3. Render Rankings List
+    // 3. Render Rankings List (Editorial Leaderboard)
     const rankingContainer = document.getElementById('stats-ranking-container');
     if (rankingContainer) {
         rankingContainer.innerHTML = '';
         const sortedRanking = [...userStats].sort((a, b) => b.avgScore - a.avgScore);
         sortedRanking.forEach((u, i) => {
             const row = document.createElement('div');
-            row.className = 'space-y-1';
+            row.className = 'av-stats-rank-item';
             
             const avatarHtml = u.avatar && (u.avatar.startsWith('data:') || u.avatar.startsWith('http'))
-                ? `<img src="${u.avatar}" class="w-6 h-6 rounded-full object-cover shrink-0" alt="">`
-                : `<span class="text-base shrink-0">${u.avatar || '👤'}</span>`;
+                ? `<img src="${u.avatar}" class="av-stats-rank-avatar" alt="">`
+                : `<span class="av-stats-rank-avatar-fallback">${u.avatar || '👤'}</span>`;
                 
-            const pct = u.avgScore * 10; // Out of 100 for width
+            const pct = Math.min(100, Math.max(0, u.avgScore * 10)); // Out of 100 for width
 
             const adminBadgeHtml = getUserBadgesHtml({ username: u.username });
+            const rankFormatted = String(i + 1).padStart(2, '0');
+            const scoreFormatted = u.avgScore > 0 ? u.avgScore.toFixed(1) : '-';
+            
             row.innerHTML = `
-                <div class="flex justify-between items-center text-[10.5px]">
-                    <div class="flex items-center gap-2 min-w-0">
-                        <span class="text-[9px] font-mono text-gray-500 w-3">${i + 1}.</span>
+                <div class="av-stats-rank-header">
+                    <div class="av-stats-rank-user">
+                        <span class="av-stats-rank-num">${rankFormatted}</span>
                         ${avatarHtml}
-                        <span class="font-bold truncate" style="color: ${u.color}">${u.username}${adminBadgeHtml}</span>
+                        <span class="av-stats-rank-name" style="color: ${u.color || 'inherit'}">${escapeHtml(u.username)}</span>
+                        ${adminBadgeHtml}
                     </div>
-                    <span class="font-mono font-bold text-white">${u.avgScore > 0 ? u.avgScore.toFixed(1) : '-'} / 10</span>
+                    <div class="av-stats-rank-score">
+                        <b>${scoreFormatted}</b><span>/ 10</span>
+                    </div>
                 </div>
-                <div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                    <div class="h-full rounded-full transition-all duration-500" style="width: ${pct}%; background-color: ${u.color || '#FF4500'}"></div>
+                <div class="av-stats-progress-track">
+                    <div class="av-stats-progress-fill" style="width: ${pct}%; background: ${u.color ? `linear-gradient(90deg, ${u.color}99, ${u.color})` : 'var(--av-accent)'};"></div>
                 </div>
             `;
             rankingContainer.appendChild(row);
         });
     }
 
-    // 4. Render Genres Distribution
+    // 4. Render Genres Distribution (Architectural Gauges)
     const genresContainer = document.getElementById('stats-genres-container');
     if (genresContainer) {
         genresContainer.innerHTML = '';
@@ -8781,20 +8794,24 @@ function renderGroupStats() {
         const maxCount = sortedGenres[0]?.[1] || 1;
 
         if (sortedGenres.length === 0) {
-            genresContainer.innerHTML = `<p class="text-gray-500 italic text-[10px] py-4 text-center w-full">Nenhum anime avaliado no grupo ainda.</p>`;
+            genresContainer.innerHTML = `<p class="av-stats-empty">Nenhum anime avaliado no grupo ainda.</p>`;
         } else {
-            sortedGenres.forEach(([genre, count]) => {
+            sortedGenres.forEach(([genre, count], idx) => {
                 const row = document.createElement('div');
-                row.className = 'space-y-1';
+                row.className = 'av-stats-genre-item';
                 const pct = (count / maxCount) * 100;
+                const indexFormatted = String(idx + 1).padStart(2, '0');
 
                 row.innerHTML = `
-                    <div class="flex justify-between items-center text-[10.5px]">
-                        <span class="font-mono text-gray-300 font-medium">${genre}</span>
-                        <span class="text-[9px] text-gray-500 font-mono">${count} visualizações</span>
+                    <div class="av-stats-genre-header">
+                        <div class="av-stats-genre-info">
+                            <span class="av-stats-genre-index">${indexFormatted}</span>
+                            <span class="av-stats-genre-name">${escapeHtml(genre)}</span>
+                        </div>
+                        <span class="av-stats-genre-count">${count} <small>obras</small></span>
                     </div>
-                    <div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                        <div class="h-full rounded-full bg-brand/50 transition-all duration-500" style="width: ${pct}%;"></div>
+                    <div class="av-stats-progress-track">
+                        <div class="av-stats-progress-fill av-stats-genre-fill" style="width: ${pct}%;"></div>
                     </div>
                 `;
                 genresContainer.appendChild(row);
@@ -8826,12 +8843,29 @@ function renderGroupStats() {
     const bestConsensus = consensusAnimes.sort((a, b) => b.avg - a.avg)[0];
     const recConsTitle = document.getElementById('rec-consenso-title');
     const recConsVal = document.getElementById('rec-consenso-val');
+    const consensusCard = document.getElementById('rec-consenso-card');
     if (bestConsensus) {
         if (recConsTitle) recConsTitle.innerText = bestConsensus.anime.title;
         if (recConsVal) recConsVal.innerText = `${bestConsensus.avg.toFixed(1)} / 10`;
+        if (consensusCard) {
+            consensusCard.classList.add('is-clickable');
+            consensusCard.onclick = () => {
+                const statsModal = document.getElementById('group-stats-modal');
+                if (statsModal) {
+                    statsModal.classList.add('hidden');
+                    statsModal.classList.remove('flex');
+                    document.body.classList.remove('overflow-hidden');
+                }
+                openAnimeDetail(bestConsensus.anime.id);
+            };
+        }
     } else {
         if (recConsTitle) recConsTitle.innerText = 'Sem consenso ainda';
         if (recConsVal) recConsVal.innerText = '- / 10';
+        if (consensusCard) {
+            consensusCard.classList.remove('is-clickable');
+            consensusCard.onclick = null;
+        }
     }
 
     // B: Recomendado para Você (Personalized)
@@ -8874,18 +8908,26 @@ function renderGroupStats() {
         const topRecs = recommendations.sort((a, b) => b.avg - a.avg).slice(0, 2);
         
         if (topRecs.length === 0) {
-            recList.innerHTML = `<p class="text-gray-500 italic text-[10px] py-4 text-center col-span-full">Nenhuma recomendação disponível. Seus amigos precisam dar mais notas!</p>`;
+            recList.innerHTML = `<p class="av-stats-empty col-span-full">Nenhuma recomendação disponível. Seus amigos precisam avaliar mais obras para cruzamento de dados.</p>`;
         } else {
             topRecs.forEach(rec => {
                 const card = document.createElement('div');
-                card.className = 'p-3 bg-white/5 border border-white/5 hover:border-brand/30 hover:bg-white/10 rounded-xl transition-all duration-300 cursor-pointer flex justify-between items-center gap-3 select-none';
+                card.className = 'av-stats-rec-card select-none';
                 
+                const coverSrc = rec.anime.coverUrl ? window.AnivoidUI.imageUrl(rec.anime.coverUrl) : '';
+                const posterHtml = coverSrc
+                    ? `<img src="${escapeHtml(coverSrc)}" class="av-stats-rec-poster" alt="${escapeHtml(rec.anime.title)}">`
+                    : `<div class="av-stats-rec-poster-placeholder"><span>AV</span></div>`;
+
                 card.innerHTML = `
-                    <div class="min-w-0 flex-grow">
-                        <h5 class="text-[11.5px] font-bold text-white truncate">${rec.anime.title}</h5>
-                        <p class="text-[9px] text-gray-500 truncate mt-0.5">Média dos amigos: <b class="text-brand font-mono font-semibold">${rec.avg.toFixed(1)}</b></p>
+                    ${posterHtml}
+                    <div class="av-stats-rec-body">
+                        <h5 class="av-stats-rec-title">${escapeHtml(rec.anime.title)}</h5>
+                        <p class="av-stats-rec-meta">Média do grupo: <b class="av-stats-rec-score">${rec.avg.toFixed(1)}</b></p>
                     </div>
-                    <iconify-icon icon="lucide:chevron-right" class="text-gray-500 text-xs shrink-0"></iconify-icon>
+                    <span class="av-stats-rec-arrow" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+                    </span>
                 `;
 
                 card.addEventListener('click', () => {
@@ -8895,21 +8937,6 @@ function renderGroupStats() {
                         statsModal.classList.remove('flex');
                         document.body.classList.remove('overflow-hidden');
                     }
-                    
-                    state.activeDetailAnimeId = rec.anime.id;
-                    const banner = document.getElementById('featured-banner-wrapper');
-                    const grid = document.getElementById('anime-grid-section');
-                    const detailPage = document.getElementById('anime-detail-page');
-
-                    if (banner) banner.style.display = 'none';
-                    if (grid) grid.style.display = 'none';
-                    if (detailPage) {
-                        detailPage.classList.remove('hidden');
-                        setTimeout(() => {
-                            detailPage.classList.add('page-transition-active');
-                        }, 50);
-                    }
-
                     openAnimeDetail(rec.anime.id);
                 });
 
