@@ -193,14 +193,12 @@ body.av-app { background: var(--av-bg) !important; }
 .av-detail-synopsis #detail-synopsis { font-size: 17px; line-height: 1.8; color: var(--av-ink); max-width: 72ch; }
 .av-app #detail-genres { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 23px; }
 .av-app #detail-genres span { padding: 0 12px 0 0; border: 0; border-right: 1px solid var(--av-line); border-radius: 0; background: transparent; color: var(--av-muted) !important; font: 11px/1.5 var(--av-body); }
-.av-app #detail-studio.av-studio-credit { display: grid; grid-template-columns: 1fr 120px 2fr 60px; gap: 30px; align-items: center; text-align: left; width: 100%; padding: 27px 0; margin-bottom: 80px; border: 0; border-top: 1px solid var(--av-line); border-bottom: 1px solid var(--av-line); border-radius: 0; color: var(--av-ink); background: transparent; box-shadow: none; }
-.av-credit-label { color: var(--av-muted); font-size: 11px; line-height: 1.6; }
-.av-credit-logo { display: grid; place-items: center; width: 120px; height: 72px; padding: 14px; background: #151713; }
-.av-credit-logo img { width: 100%; height: 100%; object-fit: contain; padding: 0 !important; }
-.av-credit-name { font: 600 clamp(26px,3vw,45px)/1.1 var(--av-display); letter-spacing: -.05em; }
-.av-credit-name small { display: block; font: 11px/1.5 var(--av-body); letter-spacing: 0; color: var(--av-muted); margin-top: 8px; }
-.av-credit-arrow { width: 48px; height: 48px; display: grid; place-items: center; border: 1px solid var(--av-line); border-radius: 50%; }
-.av-credit-arrow svg { width: 22px; height: 22px; transition: transform .25s var(--av-ease); }
+.av-app #detail-studio.av-studio-credit { display: grid; grid-template-columns: 160px minmax(0,1fr); gap: 32px; align-items: center; text-align: left; width: 100%; padding: 16px 0; margin-bottom: 64px; border: 0; border-radius: 0; color: var(--av-ink); background: transparent; box-shadow: none; }
+.av-credit-logo { display: flex; align-items: center; justify-content: center; min-width: 0; width: 100%; height: 100px; }
+.av-credit-logo img { display: block; width: 100%; height: 100%; max-width: 100%; max-height: 100%; object-fit: contain; object-position: center; padding: 0 !important; }
+.av-credit-logo > span { font: 600 32px/1 var(--av-display); color: var(--av-muted); }
+.av-credit-name { min-width: 0; font: 600 clamp(26px,3vw,45px)/1.25 var(--av-display); letter-spacing: -.04em; overflow-wrap: anywhere; text-wrap: balance; }
+.av-studio-credit:is(:hover,:focus-visible) .av-credit-name { text-decoration: underline; text-underline-offset: .2em; text-decoration-thickness: 1px; }
 .av-section-title { display: flex; justify-content: space-between; align-items: end; gap: 30px; margin-bottom: 35px; }
 .av-section-title h2,.av-section-title h3 { font: 600 clamp(30px,4.2vw,58px)/1.08 var(--av-display); letter-spacing: -.055em; text-wrap: balance; }
 .av-section-title > p { max-width: 33ch; font-size: 13px; line-height: 1.7; color: var(--av-muted); }
@@ -355,12 +353,9 @@ body.av-app { background: var(--av-bg) !important; }
     .av-detail-utilities #detail-admin-actions { padding-left: 8px; gap: 8px; }
     .av-detail-synopsis { grid-template-columns: 1fr; gap: 15px; margin: 35px 0 30px; padding-top: 24px; }
     .av-detail-synopsis #detail-synopsis { font-size: 14px; line-height: 1.8; }
-    .av-app #detail-studio.av-studio-credit { grid-template-columns: 70px minmax(0,1fr) 40px; gap: 15px; padding: 22px 0; margin-bottom: 55px; }
-    .av-credit-label { display: none; }
-    .av-credit-logo { width: 70px; height: 59px; padding: 9px; }
-    .av-credit-name { font-size: 25px; }
-    .av-credit-name small { font-size: 10px; }
-    .av-credit-arrow { width: 38px; height: 38px; }
+    .av-app #detail-studio.av-studio-credit { grid-template-columns: 88px minmax(0,1fr); gap: 20px; padding: 12px 0; margin-bottom: 44px; }
+    .av-credit-logo { height: 72px; }
+    .av-credit-name { font-size: 23px; }
     .av-section-title { flex-direction: column; align-items: start; gap: 18px; }
     .av-section-title h2,.av-section-title h3 { font-size: 35px; }
     .av-section-title > p { font-size: 12px; max-width: 42ch; }
@@ -400,7 +395,6 @@ body.av-app { background: var(--av-bg) !important; }
     .av-button-outline:hover { border-color: var(--av-ink); }
     .av-button-solid:hover { background: var(--av-accent); color: var(--av-on-accent); }
     .av-studio-card:hover .av-studio-mark img { transform: scale(1.06); }
-    .av-studio-credit:hover .av-credit-arrow svg { transform: translate(3px,-3px); }
 }
 @media(max-width:380px) {
     :root { --av-page-gutter: 16px; }

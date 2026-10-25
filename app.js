@@ -3488,7 +3488,7 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
         return `
             <button class="profile-fav-card rounded-2xl overflow-hidden border border-white/8 bg-white/[0.035] text-left group" data-anime-id="${escapeHtml(item.anime.id)}">
                 <div class="relative aspect-[3/4]">
-                    <img src="${escapeHtml(item.anime.coverUrl)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="${escapeHtml(item.anime.title)}">
+                    <img src="${escapeHtml(window.AnivoidUI.imageUrl(item.anime.coverUrl))}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="${escapeHtml(item.anime.title)}">
                     <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent"></div>
                     <span class="absolute top-3 right-3 rounded-xl border bg-black/75 px-2 py-1 text-[10px] font-mono font-bold" style="color:${color.text}; border-color:color-mix(in srgb, ${color.text} 33%, transparent); box-shadow:0 0 14px ${color.glow}">★ ${item.overall}</span>
                     <h4 class="absolute bottom-3 left-3 right-3 text-xs font-serif font-bold text-white line-clamp-2">${escapeHtml(item.anime.title)}</h4>
@@ -5279,7 +5279,7 @@ function renderAnimeDetailBody(anime) {
     // Set anime base details
     const detailPoster = document.getElementById('detail-poster');
     if (detailPoster) {
-        detailPoster.src = anime.coverUrl;
+        detailPoster.src = window.AnivoidUI.imageUrl(anime.coverUrl);
         detailPoster.dataset.avCover = anime.id;
         detailPoster.alt = 'Capa de ' + anime.title;
     }
@@ -5415,7 +5415,7 @@ function renderAnimeDetailBody(anime) {
                 const relRow = document.createElement('button');
                 relRow.className = 'w-full text-left p-3 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 transition-all duration-300 flex items-center gap-3 text-xs';
                 relRow.innerHTML = `
-                    <img src="${rel.coverUrl}" class="w-10 h-12 object-cover rounded-md" alt="${rel.title}">
+                    <img src="${escapeHtml(window.AnivoidUI.imageUrl(rel.coverUrl))}" class="w-10 h-12 object-cover rounded-md" alt="${rel.title}">
                     <div class="flex-grow min-w-0">
                         <p class="font-serif font-semibold text-white truncate">${rel.title}</p>
                         <p class="text-[9px] text-gray-500 font-mono uppercase">${rel.season} • ${rel.studio}</p>
@@ -5888,7 +5888,7 @@ function initRegistrationOptions() {
                         <!-- Ambient Studio Brand Glow -->
                         <div class="absolute -right-10 -bottom-10 w-24 h-24 rounded-full filter blur-[20px] opacity-[0.25] pointer-events-none glow-pulse-bg" style="background: radial-gradient(circle, ${glowColor} 0%, transparent 70%);"></div>
                         
-                        <img src="${anime.coverUrl}" class="w-[48px] h-[68px] object-cover rounded-xl border border-white/10 shrink-0 shadow-[0_4px_10px_rgba(0,0,0,0.6)] z-10" alt="">
+                        <img src="${escapeHtml(window.AnivoidUI.imageUrl(anime.coverUrl))}" class="w-[48px] h-[68px] object-cover rounded-xl border border-white/10 shrink-0 shadow-[0_4px_10px_rgba(0,0,0,0.6)] z-10" alt="">
                         
                         <div class="min-w-0 flex-grow z-10 flex flex-col justify-between h-full py-0.5">
                             <div>
@@ -6026,7 +6026,7 @@ function initRegistrationOptions() {
             row.className = 'flex items-center justify-between p-2 bg-white/5 border border-white/10 rounded-xl gap-3 animate-[fadeIn_0.2s_ease-out]';
             row.innerHTML = `
                 <div class="flex items-center gap-2 min-w-0">
-                    <img src="${anime.coverUrl}" class="w-8 h-10 object-cover rounded shrink-0" alt="">
+                    <img src="${escapeHtml(window.AnivoidUI.imageUrl(anime.coverUrl))}" class="w-8 h-10 object-cover rounded shrink-0" alt="">
                     <div class="min-w-0">
                         <p class="font-serif font-bold text-white text-[11px] truncate leading-tight">${anime.title}</p>
                         <p class="text-[9px] text-gray-500 font-mono">${anime.studio}</p>
@@ -6095,7 +6095,7 @@ function initRegistrationOptions() {
             }`;
             item.innerHTML = `
                 <div class="flex items-center gap-2 min-w-0">
-                    <img src="${anime.coverUrl}" class="w-8 h-10 object-cover rounded shrink-0" alt="">
+                    <img src="${escapeHtml(window.AnivoidUI.imageUrl(anime.coverUrl))}" class="w-8 h-10 object-cover rounded shrink-0" alt="">
                     <div class="min-w-0 text-left">
                         <p class="font-serif font-bold text-[11px] truncate leading-tight text-white">${anime.title}</p>
                         <p class="text-[9px] text-white/40 font-mono">${anime.studio} • ${anime.season}</p>

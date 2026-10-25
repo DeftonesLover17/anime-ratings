@@ -1,4 +1,5 @@
 const { scoreColor } = require('../ui/rating-scale');
+const { catalogImageUrl } = require('./catalog-media');
 
 function escapeHtml(value) {
     let text = String(value ?? '');
@@ -44,7 +45,7 @@ function element(markup) {
 }
 
 function imageUrl(value) {
-    const url = String(value || '');
+    const url = catalogImageUrl(String(value || ''));
     return /^(?:https?:\/\/|data:image\/(?:png|jpe?g|webp|gif|svg\+xml)[;,]|(?:\.\/)?(?:covers|logos)\/)/i.test(
         url,
     )

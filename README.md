@@ -27,6 +27,7 @@ npm start
 | `frontend/ratings/workbench.js` | Editor real de notas, progresso, rascunhos, salvamento, desfazer e repetição de sincronização. |
 | `frontend/community/` | Composição e leitura de reviews/comentários, contexto de episódio, spoilers, respostas, edição e curtidas. |
 | `frontend/shared/dom.js` | Escape de texto, URLs de mídia e pequenos elementos realmente compartilhados. |
+| `frontend/shared/catalog-media.js` | Substituições de pôsteres do catálogo por arquivos locais, preservando os dados e as avaliações. |
 | `frontend/ui/index.js` | Inicialização dos módulos de UI e ponte explícita `window.AnivoidUI` usada pelo legado. |
 | `frontend/ui/rating-scale.js` | Regra única de cores das notas; independente de DOM e persistência. |
 | `frontend/ui/theme.js` | Preferência claro/escuro, armazenamento local e controles acessíveis. |

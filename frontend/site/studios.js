@@ -82,7 +82,7 @@ function renderProfile(container, model, actions) {
 function renderCredit(button, { name, logo }, open) {
     button.className = 'av-studio-credit';
     button.setAttribute('aria-label', `Explorar estúdio ${name}`);
-    button.innerHTML = `<span class="av-credit-label">A assinatura<br>por trás da obra</span><span class="av-credit-logo av-poster-surface">${logo ? `<img src="${e(imageUrl(logo))}" data-av-studio="${e(name)}" width="200" height="80" alt="">` : '<span aria-hidden="true">' + e(name.slice(0, 2).toUpperCase()) + '</span>'}</span><span class="av-credit-name">${e(name)}<small>Conhecer o estúdio</small></span><span class="av-credit-arrow">${arrow()}</span>`;
+    button.innerHTML = `<span class="av-credit-logo">${logo ? `<img src="${e(imageUrl(logo))}" data-av-studio="${e(name)}" width="200" height="120" decoding="async" alt="">` : '<span aria-hidden="true">' + e(name.slice(0, 2).toUpperCase()) + '</span>'}</span><span class="av-credit-name">${e(name)}</span>`;
     button.onclick = (event) => open(name, event.detail > 0);
     attachImageFallbacks(button);
 }
