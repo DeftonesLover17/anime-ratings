@@ -8759,7 +8759,7 @@ function renderGroupStats() {
                     </div>
                 </div>
                 <div class="av-stats-progress-track">
-                    <div class="av-stats-progress-fill" style="width: ${pct}%; background: ${u.color ? `linear-gradient(90deg, ${u.color}99, ${u.color})` : 'var(--av-accent)'};"></div>
+                    <div class="av-stats-progress-fill" style="width: ${pct}%; background: ${u.color || 'var(--av-accent)'};"></div>
                 </div>
             `;
             rankingContainer.appendChild(row);

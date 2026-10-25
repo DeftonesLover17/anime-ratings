@@ -872,15 +872,7 @@ body.av-app { background: var(--av-bg) !important; }
 }
 
 .av-stats-ambient-glow {
-    position: absolute;
-    top: -120px;
-    right: -80px;
-    width: 380px;
-    height: 380px;
-    border-radius: 50%;
-    background: radial-gradient(circle, color-mix(in srgb, var(--av-accent) 15%, transparent) 0%, transparent 70%);
-    pointer-events: none;
-    z-index: 0;
+    display: none;
 }
 
 /* Modal Header */
@@ -1295,7 +1287,7 @@ body.av-app { background: var(--av-bg) !important; }
 }
 
 .av-stats-genre-fill {
-    background: linear-gradient(90deg, color-mix(in srgb, var(--av-accent) 60%, transparent), var(--av-accent));
+    background: var(--av-accent);
 }
 
 /* ROW 3: Recommendations */
@@ -1337,14 +1329,7 @@ body.av-app { background: var(--av-bg) !important; }
 }
 
 .av-consensus-glow {
-    position: absolute;
-    top: -50px;
-    right: -50px;
-    width: 180px;
-    height: 180px;
-    border-radius: 50%;
-    background: radial-gradient(circle, color-mix(in srgb, var(--av-accent) 20%, transparent) 0%, transparent 70%);
-    pointer-events: none;
+    display: none;
 }
 
 .av-consensus-top {

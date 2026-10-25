@@ -632,7 +632,7 @@ Notas, comentários e avaliações desta obra também serão removidos. Um backu
                     </div>
                 </div>
                 <div class="av-stats-progress-track">
-                    <div class="av-stats-progress-fill" style="width: ${pct}%; background: ${u.color?`linear-gradient(90deg, ${u.color}99, ${u.color})`:"var(--av-accent)"};"></div>
+                    <div class="av-stats-progress-fill" style="width: ${pct}%; background: ${u.color||"var(--av-accent)"};"></div>
                 </div>
             `,rankingContainer.appendChild(row)}));const genresContainer=document.getElementById("stats-genres-container");if(genresContainer){genresContainer.innerHTML="";const genreCounts={};state.animes.forEach(anime=>{let activeGroupCount=0;anime.ratings&&Object.entries(anime.ratings).forEach(([friendId,r])=>{groupUserIds.has(friendId)&&(r.status==="Watching"||r.status==="Completed")&&activeGroupCount++}),activeGroupCount>0&&anime.genres&&Array.isArray(anime.genres)&&anime.genres.forEach(g=>{genreCounts[g]=(genreCounts[g]||0)+activeGroupCount})});const sortedGenres=Object.entries(genreCounts).sort((a,b)=>b[1]-a[1]).slice(0,5),maxCount=sortedGenres[0]?.[1]||1;sortedGenres.length===0?genresContainer.innerHTML='<p class="av-stats-empty">Nenhum anime avaliado no grupo ainda.</p>':sortedGenres.forEach(([genre,count],idx)=>{const row=document.createElement("div");row.className="av-stats-genre-item";const pct=count/maxCount*100,indexFormatted=String(idx+1).padStart(2,"0");row.innerHTML=`
                     <div class="av-stats-genre-header">
