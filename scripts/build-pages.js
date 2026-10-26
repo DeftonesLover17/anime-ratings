@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const postcss = require('postcss');
 const tailwind = require('tailwindcss');
 const esbuild = require('esbuild');
+const { assertBrowserInputs, assertNoBrowserSecrets } = require('./browser-security');
 
 async function build() {
     const root = path.resolve(__dirname, '..');
@@ -20,14 +21,16 @@ async function build() {
     const config = require(path.join(root, 'tailwind.config.js'));
     config.content = config.content.map(file => path.resolve(root, file));
     const generated = await postcss([tailwind(config)]).process('@tailwind base; @tailwind components; @tailwind utilities;', { from: undefined });
-    const uiBundle = esbuild.buildSync({
+    const uiBuild = esbuild.buildSync({
         entryPoints: [path.join(root, 'frontend/ui/index.js')],
-        bundle: true, write: false, format: 'iife', platform: 'browser', target: 'es2020', loader: { '.html': 'text' }
-    }).outputFiles[0].text;
-    const syncBundle = esbuild.buildSync({
+        bundle: true, write: false, metafile: true, format: 'iife', platform: 'browser', target: 'es2020', loader: { '.html': 'text' }
+    });
+    const syncBuild = esbuild.buildSync({
         entryPoints: [path.join(root, 'shared/sync-state.js')], bundle: true, write: false,
-        format: 'iife', globalName: 'AnivoidSync', platform: 'browser', target: 'es2020'
-    }).outputFiles[0].text;
+        metafile: true, format: 'iife', globalName: 'AnivoidSync', platform: 'browser', target: 'es2020'
+    });
+    assertBrowserInputs(root, { ...uiBuild.metafile.inputs, ...syncBuild.metafile.inputs });
+    const uiBundle = uiBuild.outputFiles[0].text, syncBundle = syncBuild.outputFiles[0].text;
     let html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
     const assets = [
         ['tailwind.css', generated.css, 'css'],
@@ -36,6 +39,8 @@ async function build() {
         ['app.js', fs.readFileSync(path.join(root, 'app.js'), 'utf8'), 'js'],
         ['ui.js', uiBundle, 'js']
     ];
+    for (const [, source] of assets) assertNoBrowserSecrets(source, { root, environment: process.env });
+    assertNoBrowserSecrets(html, { root, environment: process.env });
     for (const [name, source, loader] of assets) {
         const output = esbuild.transformSync(source, { loader, minifyWhitespace: true, minifySyntax: true, minifyIdentifiers: false, charset: 'utf8', target: 'es2020' }).code;
         const hash = crypto.createHash('sha256').update(output).digest('hex').slice(0, 12);

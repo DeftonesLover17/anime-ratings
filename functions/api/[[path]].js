@@ -2,6 +2,7 @@ import syncTools from '../../shared/sync-state.js';
 import studioMetadata from '../../shared/studio-metadata.js';
 import identity from '../../shared/security/identity.js';
 import security from '../../shared/security/policy.js';
+import responseTools from '../../shared/security/responses.js';
 import sessionTools from '../../backend/cloudflare/sessions.js';
 import verificationTools from '../../backend/security/email-verification.js';
 import emailStoreTools from '../../backend/cloudflare/email-store.js';
@@ -457,7 +458,7 @@ function sanitizeStateForStorage(state) {
 }
 
 function sanitizeUser(user, viewerUsername = '') {
-    return security.userResponse(user, viewerUsername);
+    return responseTools.browserUserResponse(user, viewerUsername);
 }
 
 function sanitizeAdminUserSummary(user) {
@@ -476,14 +477,7 @@ function sanitizeAdminUserSummary(user) {
 }
 
 function sanitizeState(state, viewerUsername = '') {
-    const storageSafeState = sanitizeStateForStorage(state);
-    return {
-        ...storageSafeState,
-        viewerUsername: viewerUsername || '',
-        registeredUsers: Array.isArray(storageSafeState.registeredUsers)
-            ? storageSafeState.registeredUsers.map(user => sanitizeUser(user, viewerUsername))
-            : []
-    };
+    return responseTools.stateResponse(sanitizeStateForStorage(state), viewerUsername);
 }
 
 function sanitizeRegisteredUsersOnly(state, viewerUsername = '') {
@@ -1184,8 +1178,8 @@ async function handleAdminUpsertAnime(request, env) {
     const savedState = await writeState(env, state);
     return json({
         success: true,
-        anime: savedState.animes.find(item => item.id === anime.id),
-        activities: savedState.activities
+        anime: responseTools.animeResponse(savedState.animes.find(item => item.id === anime.id)),
+        activities: (savedState.activities || []).map(responseTools.activityResponse)
     });
 }
 
@@ -1220,7 +1214,7 @@ async function handleAdminDeleteAnime(request, env) {
         success: true,
         deletedAnimeId: animeId,
         registeredUsers: sanitizeState(savedState, auth.user.username).registeredUsers,
-        activities: savedState.activities
+        activities: (savedState.activities || []).map(responseTools.activityResponse)
     });
 }
 
@@ -1617,7 +1611,8 @@ async function handleAdminBackupDownload(request, env, backupId) {
         id: row.id,
         createdAt: row.created_at,
         reason: row.reason,
-        state: JSON.parse(row.state)
+        credentialsIncluded: false,
+        state: sanitizeState(JSON.parse(row.state), auth.user.username)
     });
 }
 
@@ -1630,7 +1625,8 @@ async function handleAdminExportState(request, env) {
         app: 'anivoid',
         type: 'server-state-export',
         exportedAt: new Date().toISOString(),
-        state: sanitizeStateForStorage(state)
+        credentialsIncluded: false,
+        state: sanitizeState(state, auth.user.username)
     });
 }
 

@@ -17,17 +17,21 @@ const { bindProfileForm } = require('../account/profile-form');
 const profiles = require('../profiles/model');
 const { createProfileDialogs } = require('../profiles/dialog');
 const { createApiFetch } = require('../security/api-client');
+const { cleanBrowserCache } = require('../security/cache');
+const { cachedUserResponse } = require('../../shared/security/responses');
 
 const theme = createThemeController(window);
 const motion = createMotionController(window);
 const account = createAccountDrawer(window, motion);
 const storage = createAccountStorage(window);
+cleanBrowserCache(storage);
 const session = createAccountSession(window, storage);
 const login = createLoginClient(window, { baseUrl: window.ANIVOID_API_BASE_URL || '' });
 
 // The legacy screen renderer has one explicit bridge; new modules stay independent of it.
 window.AnivoidUI = {
     ...ratings,
+    cachedUserResponse,
     profiles,
     bindProfileForm: options => bindProfileForm(window, { client: createProfileClient(window, { baseUrl: window.ANIVOID_API_BASE_URL || '' }), session, ...options }),
     profileDialogs: createProfileDialogs(window),

@@ -31,14 +31,18 @@ test('published CSP authorizes the unchanged inline script by hash and rejects i
 test('Pages middleware serves only public artifacts and never exposes server, test or environment files', async () => {
     const source = fs
         .readFileSync(path.join(root, 'functions/_middleware.js'), 'utf8')
+        .replace(/^import publicPaths from .*;\r?$/m, '')
         .replace('export async function onRequest', 'async function onRequest');
-    const handle = new Function(source + ';return onRequest;')();
+    const handle = new Function('publicPaths', source + ';return onRequest;')(require('../shared/security/public-paths'));
     for (const resource of [
         '/server.js',
         '/.env',
         '/backend/cloudflare/sessions.js',
         '/tests/security-regressions.test.cjs',
         '/shared/security/policy.js',
+        '/assets/server.js',
+        '/assets/private-config.js',
+        '/assets/app.123.js',
         '/assets/%252e%252e%252fserver.js',
         '/covers/../server.js'
     ]) {
@@ -55,7 +59,7 @@ test('Pages middleware serves only public artifacts and never exposes server, te
     }
     for (const resource of [
         '/',
-        '/assets/app.123.js',
+        '/assets/app.123456789abc.js',
         '/fonts/syne.latin.49726df17069.woff2',
         '/covers/a25.jpg',
         '/api/health'

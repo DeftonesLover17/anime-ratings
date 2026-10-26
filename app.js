@@ -990,23 +990,7 @@ async function buildRegisterPayload(userRecord, password) {
 }
 
 function stripSensitiveUserFields(user) {
-    if (!user || typeof user !== 'object') return user;
-    const {
-        password,
-        passwordHash,
-        passwordSalt,
-        passwordIterations,
-        passwordDigest,
-        passwordSaltEncoding,
-        passwordResetRequired,
-        ...safeUser
-    } = user;
-    const currentUsername = (typeof localStorage !== 'undefined' && localStorage.getItem('anivoid_logged_in_username')) || '';
-    if (safeUser.username && currentUsername && safeUser.username.toLowerCase() !== currentUsername.toLowerCase()) {
-        delete safeUser.email;
-        delete safeUser.notifications;
-    }
-    return safeUser;
+    return window.AnivoidUI.cachedUserResponse(user, window.AnivoidUI.session.username() || localStorage.getItem('anivoid_logged_in_username') || '');
 }
 
 function storeRegisteredUsers(users) {

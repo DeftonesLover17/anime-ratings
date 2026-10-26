@@ -4,6 +4,8 @@ const { mergeClientState } = require('./shared/sync-state');
 const studioMetadata = require('./shared/studio-metadata');
 const identity = require('./shared/security/identity');
 const security = require('./shared/security/policy');
+const responseTools = require('./shared/security/responses');
+const { classifyPublicPath } = require('./shared/security/public-paths');
 const { createNodeSessions } = require('./backend/node/sessions');
 const { createAccountRoutes } = require('./backend/node/account-routes');
 let stateWriteQueue = Promise.resolve();
@@ -408,19 +410,11 @@ function requestHasFreshStaticCache(req, stat, etag) {
 }
 
 function sanitizeUser(user, viewerUsername = '') {
-    return security.userResponse(user, viewerUsername);
+    return responseTools.browserUserResponse(user, viewerUsername);
 }
 
 function sanitizeState(state, viewerUsername = '') {
-    const storageSafeState = sanitizeStateForStorage(state);
-    const safeState = {
-        ...storageSafeState,
-        viewerUsername: viewerUsername || '',
-        registeredUsers: Array.isArray(storageSafeState.registeredUsers)
-            ? storageSafeState.registeredUsers.map(user => sanitizeUser(user, viewerUsername))
-            : []
-    };
-    return safeState;
+    return responseTools.stateResponse(sanitizeStateForStorage(state), viewerUsername);
 }
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString('base64'), iterations = PASSWORD_ITERATIONS) {
@@ -1126,8 +1120,8 @@ const server = http.createServer(async (req, res) => {
                         }
                         sendJson(res, 200, {
                             success: true,
-                            anime: sanitizeAnimeRecord(anime),
-                            activities: state.activities || []
+                            anime: responseTools.animeResponse(sanitizeAnimeRecord(anime)),
+                            activities: (state.activities || []).map(responseTools.activityResponse)
                         });
                     });
                 });
@@ -1493,7 +1487,11 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Static files serving
-    const requestUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    let requestUrl;
+    try { requestUrl = new URL(req.url, 'http://localhost'); }
+    catch { res.statusCode = 404; res.end('Not found'); return; }
+    const publicPath = classifyPublicPath(requestUrl.pathname);
+    if (!publicPath.allowed || publicPath.api) { res.statusCode = 404; res.end('Not found'); return; }
     const pathname = decodeURIComponent(requestUrl.pathname);
     const rootDir = path.resolve(__dirname);
     const filePath = path.resolve(rootDir, pathname === '/' ? 'index.html' : `.${pathname}`);
@@ -1506,23 +1504,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     const relativePath = path.relative(rootDir, filePath);
-    const publicRootFiles = new Set(['index.html', 'favicon.png', 'logo.png']);
-    const publicImageExtensions = new Set(['.png', '.jpg', '.jpeg', '.svg']);
-    const firstSegment = relativePath.split(path.sep)[0];
-    const isPublicAsset =
-        publicRootFiles.has(relativePath) ||
-        (firstSegment === 'assets' && ['.js', '.css'].includes(path.extname(relativePath))) ||
-        (firstSegment === 'fonts' && path.extname(relativePath) === '.woff2') ||
-        ((firstSegment === 'covers' || firstSegment === 'logos') &&
-            publicImageExtensions.has(path.extname(relativePath).toLowerCase()));
-
-    if (!isPublicAsset) {
-        res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-        res.end('404 Not Found');
-        return;
-    }
-    
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
     

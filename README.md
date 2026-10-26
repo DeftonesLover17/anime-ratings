@@ -40,6 +40,7 @@ npm start
 | `scripts/preview-welcome.cjs` | Prévia isolada em loopback; não envia e-mails. |
 | `frontend/profiles/` | Modelo defensivo de perfis e estatísticas, foco e fechamento interrompível das janelas de perfil/amigos. |
 | `frontend/security/api-client.js` | Deduplicação de leituras simultâneas e respeito a Retry-After, sem repetir mutações. |
+| `frontend/security/cache.js` | Limpeza de credenciais legadas do cache, preservando notas e bases de sincronização. |
 | `frontend/security/dom-actions.js` | Eventos delegados que substituem handlers HTML inline sob CSP restrita. |
 | `frontend/shared/dom.js` | Escape de texto, URLs de mídia e pequenos elementos realmente compartilhados. |
 | `frontend/shared/catalog-media.js` | Substituições de pôsteres do catálogo por arquivos locais, preservando os dados e as avaliações. |
@@ -52,6 +53,8 @@ npm start
 | `functions/api/[[path]].js` | API de produção para Cloudflare Pages/D1. |
 | `server.js` | API alternativa Node, com armazenamento em arquivo ou Postgres. |
 | `shared/security/` | Identidade, unicidade, autorização, política de senha, origem, limites JSON e campos editáveis. |
+| `shared/security/responses.js` | Projeções explícitas sem credenciais para API, cache e exportações do navegador. |
+| `shared/security/public-paths.js` | Allowlist comum de arquivos públicos dos servidores; assets compilados identificados por hash. |
 | `shared/security/rate-limits.js` | Orçamentos da API e limitador Node com memória limitada. |
 | `backend/cloudflare/rate-limit.js` | Contadores atômicos D1 e cache limitado de bloqueios já confirmados. |
 | `backend/cloudflare/` | Persistência D1 das sessões e provas de e-mail; tokens armazenados como hash. |
@@ -62,6 +65,7 @@ npm start
 | `docs/security.md` | Operação, migração de sessões, configuração de administradores e envio de e-mail. |
 | `shared/sync-state.js` | Merge de alterações e proteção de dados usados nos dois servidores. |
 | `shared/studio-metadata.js` | Estúdios confirmados por título exato e leitura de créditos da importação, compartilhados entre UI e APIs. |
+| `scripts/browser-security.js` | Impede dependências privadas e valores secretos nos arquivos compilados do navegador. |
 | `scripts/build-pages.js` | Build de CSS/JS, hashes e cópia de mídia. |
 | `tests/` | Regressões de dados, concorrência, autenticação e módulos de UI. |
 | `covers/`, `logos/` | Mídia do catálogo. `sunrise-animation.png` identifica a Sunrise de animação. |
