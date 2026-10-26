@@ -9,6 +9,7 @@ const { createAccountSession } = require('../account/session');
 const { createAccountStorage } = require('../account/storage');
 const { createLoginClient } = require('../account/login-client');
 const { bindLoginForm } = require('../account/login-form');
+const { createWelcomeEmail } = require('../account/welcome-email');
 const { installDomActions } = require('../security/dom-actions');
 
 const theme = createThemeController(window);
@@ -27,6 +28,7 @@ window.AnivoidUI = {
     storage,
     session,
     login,
+    welcome: createWelcomeEmail(window),
     bindLoginForm: (options) => bindLoginForm(window, { client: login, session, ...options }),
     site: createSite(window, motion.animate),
     readTheme: theme.readTheme,

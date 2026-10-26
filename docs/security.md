@@ -45,7 +45,9 @@ O limite JSON é 12 MiB. Login aceita identificadores de até 254 caracteres e s
 
 ## Verificação real de e-mail
 
-O envio não está configurado nesta instalação. Enquanto as variáveis abaixo estiverem ausentes, o endpoint informa `EMAIL_DELIVERY_UNAVAILABLE` e não marca nenhum endereço como verificado.
+O envio de **boas-vindas** usa a integração EmailJS/Gmail existente e é separado da verificação de posse. `frontend/account/email-config.js` guarda somente os identificadores públicos que o EmailJS documenta para uso no navegador. O conteúdo HTML fica predefinido no template remoto; os parâmetros usam somente variáveis escapadas, sem `{{{html}}}`, links dinâmicos ou credenciais. Não transportar provas de verificação ou recuperação de senha por essa integração pública sem uma implementação específica no servidor. O remetente Gmail continua o serviço já conectado no painel; o nome de exibição é ANIVØID.
+
+O envio de links de verificação pelo Resend não está configurado nesta instalação. Enquanto as variáveis abaixo estiverem ausentes, esse endpoint informa `EMAIL_DELIVERY_UNAVAILABLE` e não marca nenhum endereço como verificado. Isso não impede o envio separado das boas-vindas pelo EmailJS.
 
 A implementação está preparada para a API do Resend:
 

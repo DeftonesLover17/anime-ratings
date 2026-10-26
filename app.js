@@ -1,12 +1,3 @@
-// --- EMAILJS CONFIGURATION (OPTIONAL FOR REAL EMAILS) ---
-// Se você quiser que o site envie e-mails reais de boas-vindas aos usuários,
-// registre-se gratuitamente em https://www.emailjs.com/ e preencha as chaves abaixo:
-const EMAILJS_CONFIG = (typeof window !== 'undefined' && window.__ANIVOID_EMAILJS_CONFIG) ? window.__ANIVOID_EMAILJS_CONFIG : {
-    publicKey: '',
-    serviceId: '',
-    templateId: ''
-};
-
 const DEFAULT_AVATAR_SVG = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjI1KSI+PHBhdGggZD0iTTEyIDEyYTUgNSAwIDEgMCAwLTEwIDUgNSAwIDAgMCAwIDEwek0xMiAxNGMtMy43MyAwLTExIDEuODYtMTEgNS41VjIwSDIzdi0xYy0xLjEtMy42NC03LjI3LTUuNS0xMS01LjV6Ii8+PC9zdmc+';
 
 // --- DEVTOOLS & CONSOLE SECURITY DEFENSE (ANTI-SELF-XSS) ---
@@ -7196,14 +7187,14 @@ function initRegistrationOptions() {
             // Show member welcome modal
             showMemberWelcomeModal(name, assignedMemberNumber);
 
-            // Trigger welcome email (mapping template object correctly)
+            // Delivery failure never rolls back a successfully created account.
             const emailFriendObj = {
                 name: name,
                 email: email,
                 favoriteGenres: selectedGenres,
                 favoriteStudios: selectedStudios
             };
-            triggerSimulatedWelcomeEmail(emailFriendObj);
+            window.AnivoidUI.welcome.send(emailFriendObj);
         });
     }
 
@@ -7425,125 +7416,6 @@ function showWelcomeToast(username) {
         toast.style.transform = 'translateY(-10px)';
         setTimeout(() => toast.remove(), 500);
     }, 4000);
-}
-
-function triggerSimulatedWelcomeEmail(user) {
-    const toast = document.getElementById('email-toast');
-    const toastSubject = document.getElementById('email-toast-subject');
-    const toastClose = document.getElementById('email-toast-close');
-    const modal = document.getElementById('email-modal');
-    const modalClose = document.getElementById('email-modal-close');
-    const modalTo = document.getElementById('email-modal-to');
-    const modalSubject = document.getElementById('email-modal-subject');
-    const modalUsername = document.getElementById('email-modal-username');
-    const modalGenres = document.getElementById('email-modal-genres');
-    const modalStudios = document.getElementById('email-modal-studios');
-    const modalConfirmBtn = document.getElementById('email-confirm-btn');
-    const modalDate = document.getElementById('email-modal-date');
-
-    if (!toast || !modal) return;
-
-    // --- REAL EMAIL DISPATCH VIA EMAILJS (IF CONFIGURED) ---
-    if (typeof emailjs !== 'undefined' && EMAILJS_CONFIG.publicKey) {
-        emailjs.init({ publicKey: EMAILJS_CONFIG.publicKey });
-        
-        const genresStr = user.favoriteGenres.join(', ') || 'Nenhum selecionado';
-        const studiosStr = user.favoriteStudios.join(', ') || 'Nenhum selecionado';
-        
-        emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, {
-            name: user.name,
-            email: user.email,
-            title: `Cadastro de Onboarding (Gêneros: ${genresStr} | Estúdios: ${studiosStr})`,
-            favorite_genres: genresStr,
-            favorite_studios: studiosStr,
-            reply_to: "no-reply@anivoid.anime"
-        }).then(() => {
-            console.log('Real email welcome template dispatched successfully.');
-        }).catch(err => {
-            console.error('Failed to send real welcome email via EmailJS:', err);
-        });
-    }
-
-    // 1. Configure toast subject
-    toastSubject.textContent = `Bem-vindo ao Anivoid, ${user.name}! 🌸`;
-    
-    // 2. Show toast with transition
-    toast.classList.remove('hidden');
-    toast.classList.add('flex');
-    void toast.offsetWidth; // Reflow
-    toast.style.opacity = '1';
-    toast.style.transform = 'translateX(0)';
-
-    // Auto fadeout toast after 12 seconds
-    let toastTimeout = setTimeout(() => {
-        hideToast();
-    }, 12000);
-
-    function hideToast() {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateX(20px)';
-        setTimeout(() => {
-            toast.classList.add('hidden');
-            toast.classList.remove('flex');
-        }, 500);
-    }
-
-    // Hook toast close
-    if (toastClose) {
-        toastClose.addEventListener('click', (e) => {
-            e.stopPropagation();
-            clearTimeout(toastTimeout);
-            hideToast();
-        });
-    }
-
-    // Hook toast click to open email reader modal
-    toast.addEventListener('click', () => {
-        clearTimeout(toastTimeout);
-        hideToast();
-
-        // Populate modal data
-        if (modalTo) modalTo.textContent = user.email;
-        if (modalSubject) modalSubject.textContent = `Bem-vindo ao Anivoid, ${user.name}! 🌸`;
-        if (modalUsername) modalUsername.textContent = user.name;
-        if (modalGenres) modalGenres.textContent = user.favoriteGenres.join(', ') || 'Nenhum selecionado';
-        if (modalStudios) modalStudios.textContent = user.favoriteStudios.join(', ') || 'Nenhum selecionado';
-        if (modalDate) {
-            const now = new Date();
-            modalDate.textContent = `Hoje, ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-        }
-
-        // Configure confirmation button state
-        if (modalConfirmBtn) {
-            modalConfirmBtn.innerHTML = `
-                <iconify-icon icon="lucide:check-circle" class="text-xs"></iconify-icon>
-                <span>Enviar link de verificação</span>
-            `;
-            modalConfirmBtn.className = 'px-6 py-2.5 rounded-full bg-brand text-white hover:bg-brand/80 hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-widest font-semibold text-[9px] border border-brand/40 shadow-[0_4px_15px_rgba(255,69,0,0.3)] flex items-center gap-2';
-            modalConfirmBtn.disabled = false;
-        }
-
-        // Open modal
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-    });
-
-    // Close modal click
-    if (modalClose) {
-        modalClose.addEventListener('click', () => {
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        });
-    }
-
-    // Confirm button listener
-    if (modalConfirmBtn) {
-        const newBtn = modalConfirmBtn.cloneNode(true);
-        modalConfirmBtn.parentNode.replaceChild(newBtn, modalConfirmBtn);
-        newBtn.textContent='Enviar link de verificação';
-        newBtn.disabled=false;
-        window.AnivoidUI.session.bindVerification(newBtn);
-    }
 }
 
 // --- PROFILE EDITOR MODAL AND CUSTOM THEME STYLES ---

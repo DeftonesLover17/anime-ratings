@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-    <script src="assets/ui.fcb539df8a56.js"></script>
+    <script src="assets/ui.4ec8926161db.js"></script>
     <title>ANIVØID | Season Ratings</title>
     <!-- Favicon / Logo -->
     <link rel="icon" type="image/png" href="favicon.png">
     <!-- EmailJS SDK for real email delivery (optional) -->
     <script defer src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <link rel="stylesheet" href="assets/tailwind.d3cdfdce7b33.css">
+    <link rel="stylesheet" href="assets/tailwind.bbb9cc4ef28c.css">
     <!-- Iconify Icons CDN -->
     <script defer src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
     <!-- GSAP 3 & ScrollTrigger (Awwwards Creative Motion) -->
@@ -26,7 +26,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syncopate:wght@700&family=Syne:wght@800&family=Lexend+Tera:wght@900&display=swap" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="assets/styles.94d4af2f3633.css">
+    <link rel="stylesheet" href="assets/styles.1046b1d16c05.css">
     
     <meta name="theme-color" content="#050505">
     <script>
@@ -822,70 +822,23 @@
     <!-- 8. FOOTER -->
     <footer class="av-footer"><div class="av-wrap"><div class="av-footer-top"><p>Uma história nunca termina<br>na última cena.</p><nav aria-label="Rodapé"><a href="#featured-banner-wrapper">Descobrir</a><a href="#anime-grid-section">Acervo</a><a href="#estudios">Estúdios</a></nav></div><a class="av-footer-word" href="#featured-banner-wrapper" aria-label="ANIVØID, voltar ao início">ANIVØID</a><div class="av-footer-bottom"><span>Anime. Visto de outro jeito.</span><span>Seu acervo. A sua leitura.</span></div></div></footer>
 
-    <!-- EMAIL NOTIFICATION TOAST -->
-    <div id="email-toast" class="fixed top-6 right-6 z-[9999] hidden items-center gap-4 bg-[#0a0a0a]/95 backdrop-blur-xl border border-brand/40 rounded-2xl p-4 w-80 shadow-[0_20px_50px_rgba(0,0,0,0.8),0_0_20px_rgba(255,69,0,0.15)] cursor-pointer transform translate-x-12 opacity-0 transition-all duration-500 hover:scale-[1.02]">
-        <div class="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand text-lg shrink-0 animate-pulse">
-            <iconify-icon icon="lucide:mail"></iconify-icon>
+    <!-- Welcome delivery status and the same letter used in EmailJS. -->
+    <section id="welcome-email-toast" class="av-welcome-toast" aria-label="Boas-vindas" hidden>
+        <p class="av-welcome-toast-label">ANIVØID / BOAS-VINDAS</p>
+        <button id="welcome-email-dismiss" class="av-welcome-toast-dismiss" type="button" aria-label="Fechar mensagem de boas-vindas">×</button>
+        <p id="welcome-email-status" class="av-welcome-toast-status" role="status" aria-live="polite"></p>
+        <div class="av-welcome-toast-actions">
+            <button id="welcome-email-open" type="button">Ver boas-vindas ↗</button>
+            <button id="welcome-email-retry" type="button" hidden>Tentar envio novamente</button>
         </div>
-        <div class="min-w-0 flex-grow font-mono text-[11px]">
-            <p class="font-bold text-brand uppercase tracking-widest text-[9px] mb-0.5">E-mail Recebido! ✉️</p>
-            <p class="text-white font-serif font-bold text-[12px] truncate leading-tight mb-0.5" id="email-toast-subject">Bem-vindo ao Anivoid!</p>
-            <p class="text-gray-400 text-[9px] truncate">De: boasvindas@anivoid.com</p>
-        </div>
-        <div class="shrink-0 text-white/30 text-xs">
-            <iconify-icon icon="lucide:x" id="email-toast-close" class="hover:text-white transition-colors p-1"></iconify-icon>
-        </div>
-    </div>
-
-    <!-- EMAIL READER MODAL -->
-    <div id="email-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4">
-        <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl p-6 md:p-8 space-y-6 relative animate-[fadeIn_0.3s_ease-out]">
-            <!-- Top bar -->
-            <div class="flex items-center justify-between border-b border-white/5 pb-4 select-none">
-                <div class="flex items-center gap-2 text-xs font-mono text-gray-400">
-                    <iconify-icon icon="lucide:mail" class="text-brand text-base"></iconify-icon>
-                    <span class="tracking-widest uppercase text-[10px]">Caixa de Entrada (1)</span>
-                </div>
-                <button id="email-modal-close" class="text-gray-400 hover:text-white transition-colors">
-                    <iconify-icon icon="lucide:x" class="text-lg"></iconify-icon>
-                </button>
-            </div>
-
-            <!-- Email Content -->
-            <div class="space-y-4 font-mono text-[11px]">
-                <div class="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-2">
-                    <p class="text-gray-400"><strong>De:</strong> Anivoid Team &lt;boasvindas@anivoid.com&gt;</p>
-                    <p class="text-gray-400"><strong>Para:</strong> <span id="email-modal-to" class="text-white">usuario@email.com</span></p>
-                    <p class="text-gray-400"><strong>Assunto:</strong> <span id="email-modal-subject" class="text-brand font-bold text-xs uppercase tracking-wide">Confirme sua conta no Anivoid!</span></p>
-                    <p class="text-gray-500 text-[9px] text-right mt-1" id="email-modal-date">Hoje, 17:15</p>
-                </div>
-
-                <!-- Rich Email Body (Glassmorphic Letter) -->
-                <div class="bg-black/40 border border-white/5 rounded-2xl p-6 space-y-4 text-gray-300 font-sans text-xs leading-relaxed">
-                    <div class="flex justify-center mb-2">
-                        <span class="text-3xl animate-bounce">🌸</span>
-                    </div>
-                    <h3 class="text-center font-serif text-white font-bold text-base">Olá, <span id="email-modal-username" class="text-brand">Otaku</span>!</h3>
-                    <p class="text-center text-[11px] text-gray-400">O seu portal de anime personalizado está pronto! Estamos muito felizes por você se juntar ao Anivoid.</p>
-                    
-                    <div class="bg-white/5 border border-white/5 rounded-xl p-3 space-y-1.5 text-[10.5px]">
-                        <p class="font-mono text-[9px] uppercase tracking-wider text-brand font-bold mb-1 border-b border-white/5 pb-1">Preferências Salvas:</p>
-                        <p class="truncate"><strong class="text-gray-400 font-mono">Gêneros:</strong> <span id="email-modal-genres" class="text-white/80">Ação, Aventura</span></p>
-                        <p class="truncate"><strong class="text-gray-400 font-mono">Estúdios:</strong> <span id="email-modal-studios" class="text-white/80">Ufotable, MAPPA</span></p>
-                    </div>
-                    
-                    <p class="text-[11px] text-gray-400 text-center">Clique abaixo para confirmar a inscrição e receber sua insígnia oficial de membro fundador no seu perfil!</p>
-                    
-                    <div class="flex justify-center pt-2">
-                        <button id="email-confirm-btn" class="px-6 py-2.5 rounded-full bg-brand text-white hover:bg-brand/80 hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-widest font-semibold text-[9px] border border-brand/40 shadow-[0_4px_15px_rgba(255,69,0,0.3)] flex items-center gap-2">
-                            <iconify-icon icon="lucide:check-circle" class="text-xs"></iconify-icon>
-                            <span>Confirmar Inscrição</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    </section>
+    <dialog id="welcome-email-dialog" class="av-welcome-dialog" aria-labelledby="welcome-email-title">
+        <header class="av-welcome-dialog-header">
+            <h2 id="welcome-email-title">ANIVØID / SUA PRIMEIRA HISTÓRIA</h2>
+            <button id="welcome-email-close" type="button">Fechar</button>
+        </header>
+        <iframe id="welcome-email-preview" title="Sua mensagem de boas-vindas" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>
+    </dialog>
 
     <!-- EDIT PROFILE MODAL (AWWWARDS PROFILE STUDIO) -->
     <div id="edit-profile-modal" data-lenis-prevent="true" class="fixed inset-0 bg-black/85 backdrop-blur-2xl z-[9998] hidden items-center justify-center p-3 sm:p-5 md:p-8 overflow-y-auto">
@@ -1573,6 +1526,6 @@
 
     <!-- Scripts Integration -->
     <script src="assets/sync-state.a90666d9f92c.js"></script>
-    <script src="assets/app.1bb407e0833c.js"></script>
+    <script src="assets/app.4c8d0393de67.js"></script>
 </body>
 </html>

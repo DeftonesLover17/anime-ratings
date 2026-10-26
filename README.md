@@ -31,6 +31,10 @@ npm start
 | `frontend/account/login-client.js` | Login com timeout, confirmação do cookie, erros de conexão e troca obrigatória de senha. |
 | `frontend/account/login-form.js` | Campos de login/redefinição, confirmação de senha, feedback acessível e bloqueio de envios duplicados. |
 | `frontend/account/storage.js` | Cache opcional com fallback em memória quando o navegador bloqueia ou esgota o armazenamento. |
+| `frontend/account/welcome-email.js` | Envio pelo EmailJS existente, confirmação de aceite, repetição e prévia fiel da mensagem de boas-vindas. |
+| `frontend/account/email-config.js` | Identificadores públicos do serviço/template EmailJS; não contém senha Gmail ou chave privada. |
+| `emails/welcome.html` | Fonte única do e-mail responsivo, instalada no EmailJS e usada na prévia local. |
+| `scripts/preview-welcome.cjs` | Prévia isolada em loopback; não envia e-mails. |
 | `frontend/security/dom-actions.js` | Eventos delegados que substituem handlers HTML inline sob CSP restrita. |
 | `frontend/shared/dom.js` | Escape de texto, URLs de mídia e pequenos elementos realmente compartilhados. |
 | `frontend/shared/catalog-media.js` | Substituições de pôsteres do catálogo por arquivos locais, preservando os dados e as avaliações. |
@@ -84,6 +88,10 @@ Sessões novas usam tokens aleatórios, hash no D1, limite de inatividade de 24 
 O nome em cache não autentica a interface. A entrada confirma o cookie em `/api/users`; cada carregamento restaura a identidade a partir do servidor. Respostas iniciadas antes de um novo login/logout são descartadas. Uma resposta pública sem `viewerUsername` autenticado encerra a identidade local; falhas de conexão ou permissão não são apresentadas como senha incorreta. A sincronização informa o usuário esperado e recusa troca de conta entre abas antes de aplicar o delta. Senhas preservam todos os caracteres digitados. Login não transfere avaliações históricas de um perfil para outro.
 
 O cache local é uma otimização, não um requisito de autenticação. Quando o navegador recusa a persistência, os dados ficam apenas na memória da aba e são recuperados novamente do servidor ao recarregar. Isso não transforma alterações ainda não sincronizadas em backup persistente.
+
+Boas-vindas são enviadas depois da criação confirmada da conta pelo serviço Gmail já conectado ao EmailJS. Os três identificadores públicos selecionam um template predefinido e são próprios do SDK de navegador; nenhuma credencial Gmail ou chave privada entra no bundle. O template só recebe texto escapado, com links fixos do site. Nunca usar uma variável de HTML arbitrário no painel. Uma resposta 200 do provedor confirma aceite para envio, não leitura nem chegada garantida à caixa principal. Falhas não desfazem o cadastro e oferecem nova tentativa explícita. O template remoto precisa acompanhar `emails/welcome.html`; alterar somente a prévia não muda o que chega ao destinatário.
+
+Esse e-mail de boas-vindas não verifica o endereço nem troca senhas. A verificação de posse continua exigindo a prova do servidor descrita abaixo. O antigo aviso que simulava uma caixa de entrada e um remetente inexistente foi removido.
 
 Mutações do navegador exigem origem permitida e `application/json`; requisições cross-site são recusadas. Clientes de API sem Origin precisam de um Bearer explícito. Corpos JSON têm limite de 12 MiB para preservar os snapshots com mídia já suportados. Limites de tentativa por IP complementam os limites por operação; o contador D1 é incrementado atomicamente.
 
