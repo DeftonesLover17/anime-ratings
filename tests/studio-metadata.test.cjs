@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { studioForAnime, kitsuStudio, isUnknownStudio } = require('../shared/studio-metadata');
+const { studioForAnime, standardStudioName, kitsuStudio, isUnknownStudio } = require('../shared/studio-metadata');
 const { renderCredit } = require('../frontend/site/studios');
 
 test('known studio repairs a missing imported credit for exact title aliases', () => {
@@ -20,6 +20,16 @@ test('studio resolution preserves explicit credits and does not modify records',
     assert.equal(studioForAnime({ studios: [{ name: '' }, { name: 'Trigger' }] }), 'Trigger');
     assert.equal(studioForAnime(null), 'Desconhecido');
     assert.equal(isUnknownStudio('  ESTÚDIO NÃO INFORMADO  '), true);
+});
+
+test('one canonical studio name is shared by catalog, Node and Cloudflare', () => {
+    assert.equal(standardStudioName('tOkYo mOvIe ShInShA'), 'Tokyo Movie Shinsha');
+    assert.equal(standardStudioName('bug film'), 'BUG FILMS');
+    assert.equal(standardStudioName('trigger'), 'Trigger');
+    assert.equal(standardStudioName('tms entertainment'), 'TMS Entertainment');
+    assert.equal(standardStudioName('new independent studio'), 'New Independent Studio');
+    assert.equal(standardStudioName('constructor'), 'Constructor');
+    assert.equal(standardStudioName(null), 'Desconhecido');
 });
 
 test('Kitsu distributors are not mistaken for the animation studio', () => {

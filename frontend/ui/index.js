@@ -4,6 +4,7 @@ const { createMotionController } = require('./motion');
 const { createSite } = require('../site');
 const { imageUrl } = require('../shared/dom');
 const studioMetadata = require('../../shared/studio-metadata');
+const studioPresentation = require('../site/studio-presentation');
 const { createAccountDrawer } = require('../account/drawer');
 const { createAccountSession } = require('../account/session');
 const { createAccountStorage } = require('../account/storage');
@@ -41,6 +42,7 @@ window.AnivoidUI = {
     createApiFetch,
     imageUrl,
     studioMetadata,
+    studioPresentation,
     account,
     storage,
     session,

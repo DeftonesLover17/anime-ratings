@@ -2,13 +2,16 @@ require('dotenv').config();
 const http = require('http');
 const { mergeClientState } = require('./shared/sync-state');
 const studioMetadata = require('./shared/studio-metadata');
+const { standardStudioName } = studioMetadata;
 const identity = require('./shared/security/identity');
+const { escapeHtml, sanitizeColor, sanitizeTextArray } = require('./shared/security/text-sanitizers');
 const security = require('./shared/security/policy');
 const responseTools = require('./shared/security/responses');
 const { classifyPublicPath } = require('./shared/security/public-paths');
 const { createNodeSessions } = require('./backend/node/sessions');
 const { createAccountRoutes } = require('./backend/node/account-routes');
 const { createFileRecoveryStore } = require('./backend/node/recovery-store');
+const normalizeUsername = identity.legacyId;
 let stateWriteQueue = Promise.resolve();
 const fs = require('fs');
 const path = require('path');
@@ -56,36 +59,6 @@ const MIME_TYPES = {
     '.svg': 'image/svg+xml',
     '.json': 'application/json; charset=utf-8'
 };
-
-function normalizeUsername(username) {
-    return String(username || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-}
-
-function decodeHtmlEntities(value) {
-    return String(value || '')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/&amp;/g, '&');
-}
-
-function escapeHtml(value, maxLength = 5000) {
-    const text = decodeHtmlEntities(value)
-        .replace(/\u0000/g, '')
-        .slice(0, maxLength);
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
-function sanitizeColor(color) {
-    const value = String(color || '').trim();
-    return /^#[0-9a-fA-F]{6}$/.test(value) ? value : '#FF4500';
-}
 
 function sanitizeImageUrl(url) {
     const value = String(url || '').trim();
@@ -155,11 +128,6 @@ function sanitizeAvatar(avatar) {
     return escapeHtml(value, 16);
 }
 
-function sanitizeTextArray(values, maxItems = 20, maxLength = 80) {
-    return Array.isArray(values)
-        ? values.slice(0, maxItems).map(value => escapeHtml(value, maxLength)).filter(Boolean)
-        : [];
-}
 
 function sanitizeUserRecord(user) {
     if (!user || typeof user !== 'object') return user;
@@ -211,23 +179,6 @@ function sanitizeComment(comment) {
     };
 }
 
-function textCorruptionScore(value) {
-    const text = String(value || '');
-    const replacementChars = (text.match(/\uFFFD/g) || []).length;
-    const mojibakeSequences = (text.match(/(?:\u00C3[\u0080-\u00BF]|\u00C2[\u0080-\u00BF]|\u00F0\u0178)/g) || []).length;
-    return (replacementChars * 10) + mojibakeSequences;
-}
-
-function preferCleanerText(serverText, localText) {
-    const serverValue = String(serverText || '');
-    const localValue = String(localText || '');
-    return textCorruptionScore(localValue) > textCorruptionScore(serverValue)
-        ? serverValue
-        : localValue;
-}
-
-
-
 function sanitizeRatings(ratings) {
     if (!ratings || typeof ratings !== 'object') return {};
     const safeRatings = {};
@@ -264,56 +215,6 @@ function sanitizeRatings(ratings) {
     return safeRatings;
 }
 
-function getStandardStudioName(name) {
-    const raw = String(name || '').trim();
-    if (!raw) return 'Desconhecido';
-    
-    const known = {
-        'ufotable': 'Ufotable',
-        'madhouse': 'Madhouse',
-        'mappa': 'MAPPA',
-        'bones': 'Bones',
-        'witstudio': 'Wit Studio',
-        'gainax': 'Gainax',
-        'kyotoanimation': 'Kyoto Animation',
-        'whitefox': 'White Fox',
-        'comixwavefilms': 'CoMix Wave Films',
-        'sunrise': 'Sunrise',
-        'studioghibli': 'Studio Ghibli',
-        'shaft': 'Shaft',
-        'tokyomovieshinsha': 'Tokyo Movie Shinsha',
-        'tatsunokoproduction': 'Tatsunoko Production',
-        'bugfilm': 'BUG FILMS',
-        'bugfilms': 'BUG FILMS',
-        'sciencesaru': 'Science Saru',
-        'toeianimation': 'Toei Animation',
-        'pierrot': 'Pierrot',
-        'davidproduction': 'David Production',
-        'jcstaff': 'J.C.Staff',
-        'studiobind': 'Studio Bind',
-        'kinemacitrus': 'Kinema Citrus',
-        'manglobe': 'Manglobe',
-        'artland': 'Artland',
-        'trianglestaff': 'Triangle Staff',
-        'trigger': 'Trigger',
-        'enishiya': 'Enishiya',
-        'studiom2': 'Studio M2',
-        'asread': 'Asread',
-        'paworks': 'P.A. Works',
-        'cloverworks': 'CloverWorks',
-        'a1pictures': 'A-1 Pictures',
-        'productionig': 'Production I.G',
-        'tmsentertainment': 'TMS Entertainment'
-    };
-    
-    const lookup = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (known[lookup]) return known[lookup];
-    
-    return raw
-        .split(/\s+/)
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(' ');
-}
 
 function sanitizeAnimeRecord(anime) {
     if (!anime || typeof anime !== 'object') return anime;
@@ -326,7 +227,7 @@ function sanitizeAnimeRecord(anime) {
         coverUrl: sanitizeImageUrl(anime.coverUrl) || '',
         studioLogoUrl: sanitizeImageUrl(anime.studioLogoUrl) || '',
         genres: sanitizeTextArray(anime.genres, 20, 80),
-        studio: escapeHtml(getStandardStudioName(studioMetadata.studioForAnime(anime)), 120),
+        studio: escapeHtml(standardStudioName(studioMetadata.studioForAnime(anime)), 120),
         status: escapeHtml(anime.status || '', 80),
         season: escapeHtml(anime.season || '', 80),
         episodes: escapeHtml(anime.episodes || '', 40),

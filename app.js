@@ -924,15 +924,6 @@ const API_BASE_URL = (typeof window !== 'undefined' && window.ANIVOID_API_BASE_U
 const originalFetch = window.fetch;
 const ANIVOID_API_ORIGIN = new URL(API_BASE_URL || currentOrigin, currentOrigin).origin;
 
-function isAniVoidApiRequest(input) {
-    try {
-        const requestUrl = new URL(input instanceof Request ? input.url : String(input), window.location.origin);
-        return requestUrl.origin === ANIVOID_API_ORIGIN && requestUrl.pathname.startsWith('/api/');
-    } catch (error) {
-        return false;
-    }
-}
-
 window.fetch = window.AnivoidUI.createApiFetch(window, originalFetch.bind(window), { origin: ANIVOID_API_ORIGIN });
 const AUTH_TOKEN_KEY = 'anivoid_auth_token';
 const MIN_PASSWORD_LENGTH = 10;
@@ -1102,29 +1093,6 @@ function normalizeProfileId(value) {
     return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-function normalizeAnimeIdentity(value) {
-    return String(value || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, ' ')
-        .trim();
-}
-
-function hasMeaningfulRating(rating) {
-    if (!rating || typeof rating !== 'object') return false;
-    const overall = parseFloat(rating.overall);
-    const hasOverall = !isNaN(overall) && overall > 0;
-    const hasEpisodes = rating.episodeRatings &&
-        typeof rating.episodeRatings === 'object' &&
-        Object.values(rating.episodeRatings).some(score => {
-            const value = parseFloat(score);
-            return !isNaN(value) && value > 0;
-        });
-    const hasStatus = rating.status && rating.status !== 'Plan to Watch';
-    return hasOverall || hasEpisodes || hasStatus;
-}
-
 function ratingStrength(rating) {
     if (!rating || typeof rating !== 'object') return 0;
     const episodeCount = rating.episodeRatings && typeof rating.episodeRatings === 'object'
@@ -1155,77 +1123,6 @@ function normalizeRatingMapKeys(ratings) {
     });
 
     return changed;
-}
-
-function getRatingForProfile(ratings, userId) {
-    if (!ratings || typeof ratings !== 'object') return null;
-    const normalizedUserId = normalizeProfileId(userId);
-    if (!normalizedUserId) return null;
-    if (ratings[normalizedUserId]) return ratings[normalizedUserId];
-
-    const aliasEntry = Object.entries(ratings).find(([key]) => normalizeProfileId(key) === normalizedUserId);
-    return aliasEntry ? aliasEntry[1] : null;
-}
-
-function animeRecoveryKeys(anime) {
-    if (!anime || typeof anime !== 'object') return [];
-    const keys = new Set();
-    if (anime.id) keys.add(`id:${anime.id}`);
-
-    const title = normalizeAnimeIdentity(anime.title);
-    const japaneseTitle = normalizeAnimeIdentity(anime.japaneseTitle);
-    if (title) keys.add(`title:${title}`);
-    if (japaneseTitle) keys.add(`title:${japaneseTitle}`);
-
-    const joined = `${title} ${japaneseTitle}`.trim();
-    if (joined.includes('jujutsu kaisen')) {
-        if (anime.id === 'a20_s2' || /\b(2|2nd|segunda|temporada 2)\b/.test(joined)) {
-            keys.add('series:jujutsu-kaisen-season-2');
-        } else if (anime.id === 'a20' || !joined.includes('shimetsu kaiyuu') && !joined.includes('culling game')) {
-            keys.add('series:jujutsu-kaisen-season-1');
-        }
-    }
-
-    return Array.from(keys);
-}
-
-function mergeLocalOwnRatings(serverAnimes, localAnimes, userId) {
-    const normalizedUserId = normalizeProfileId(userId);
-    if (!normalizedUserId || !Array.isArray(serverAnimes) || !Array.isArray(localAnimes)) return serverAnimes;
-
-    const localRatingsByKey = new Map();
-    localAnimes.forEach(localAnime => {
-        const localRating = getRatingForProfile(localAnime?.ratings, normalizedUserId) || localAnime?.ratings?.['1'];
-        if (!hasMeaningfulRating(localRating)) return;
-        animeRecoveryKeys(localAnime).forEach(key => {
-            const current = localRatingsByKey.get(key);
-            if (!current || ratingStrength(localRating) > ratingStrength(current.rating)) {
-                localRatingsByKey.set(key, { rating: { ...localRating }, anime: localAnime });
-            }
-        });
-    });
-
-    return serverAnimes.map(serverAnime => {
-        const keys = animeRecoveryKeys(serverAnime);
-        const found = keys.map(key => localRatingsByKey.get(key)).find(Boolean);
-        if (!found) return serverAnime;
-
-        const currentRating = serverAnime?.ratings?.[normalizedUserId];
-        if (hasMeaningfulRating(currentRating) && ratingStrength(currentRating) >= ratingStrength(found.rating)) {
-            return serverAnime;
-        }
-
-        return {
-            ...serverAnime,
-            ratings: {
-                ...(serverAnime.ratings || {}),
-                [normalizedUserId]: {
-                    ...(currentRating || {}),
-                    ...found.rating
-                }
-            }
-        };
-    });
 }
 
 function applyServerStateSnapshot(serverState) {
@@ -2705,6 +2602,11 @@ class AppState {
 
 // Initialise Global State
 const state = new AppState();
+const standardStudioName = window.AnivoidUI.studioMetadata.standardStudioName;
+const {
+    getStudioDescription, STUDIO_LOGOS, normalizeStudioLookupKey,
+    sanitizeStudioLogoUrl, findLogoInMap, STUDIO_BRAND_COLORS
+} = window.AnivoidUI.studioPresentation;
 window.__anivoidState = state;
 const projectUI = window.AnivoidUI?.site.connect({
     state,
@@ -2714,7 +2616,7 @@ const projectUI = window.AnivoidUI?.site.connect({
     normalizeId: normalizeProfileId,
     studioLogo: getStudioLogo,
     studioDescription: getStudioDescription,
-    standardStudio: getStandardStudioName,
+    standardStudio: standardStudioName,
     open: (id, animate = true) => openAnimeDetail(id, animate),
     studio: (name, animate = true) => window.switchTabToStudio(name, animate),
     catalog: () => window.switchTabToAll('#anime-grid-section', true),
@@ -2810,14 +2712,6 @@ function getProfileStats(profileId = state.currentFriendId) {
     return window.AnivoidUI.profiles.profileStats(profileId, state.animes, state.activities);
 }
 
-function getProfileRank(stats) {
-    const score = (stats.avgScore * 12) + (stats.ratingCount * 1.6) + (stats.totalEpisodes * 0.18) + (stats.commentsCount * 3);
-    if (score >= 210) return { label: 'Mythic Critic', tier: 'S+', icon: 'lucide:gem', color: '#22c55e' };
-    if (score >= 145) return { label: 'Elite Curator', tier: 'S', icon: 'lucide:crown', color: '#10b981' };
-    if (score >= 90) return { label: 'Veteran Watcher', tier: 'A', icon: 'lucide:shield', color: '#84cc16' };
-    if (score >= 45) return { label: 'Rising Analyst', tier: 'B', icon: 'lucide:sparkles', color: '#facc15' };
-    return { label: 'New Challenger', tier: 'C', icon: 'lucide:badge', color: '#fb923c' };
-}
 
 function getStoredNotifications() {
     try {
@@ -2962,7 +2856,7 @@ function updateCatalogLivePreview() {
     const logoBox = document.getElementById('anime-preview-studio-logo-box');
     const logoImg = document.getElementById('anime-preview-studio-logo');
     if (logoBox && logoImg) {
-        const logoUrl = studioLogo || (studio ? (state.studioLogos?.[studio] || (typeof STUDIO_LOGOS !== 'undefined' ? STUDIO_LOGOS[studio] : '')) : '');
+        const logoUrl = studioLogo || (studio ? (state.studioLogos?.[studio] || STUDIO_LOGOS[studio] || '') : '');
         if (logoUrl) {
             logoImg.src = logoUrl;
             logoBox.classList.remove('hidden');
@@ -4679,8 +4573,6 @@ function initUI() {
         }
     });
 
-
-
     // Form Submissions
     setupFormSubmissions();
     
@@ -5085,147 +4977,6 @@ function renderAnimeGrid() {
 
 let activeStudioName = null;
 
-// Helper to get descriptive text for studio profiles
-function getStudioDescription(name, animes) {
-    const titles = animes.map(a => `"${a.title}"`).join(', ');
-    const fallbackDesc = `${name} é um estúdio de animação japonês de renome, amplamente reconhecido pela excelência técnica e impacto visual de suas produções. Atualmente, destaca-se no grupo pela avaliação das obras ${titles}.`;
-    
-    const descriptions = {
-        'Ufotable': 'Ufotable é mundialmente aclamado por seu nível técnico absurdo de animação digital, composição 3D dinâmica e efeitos de iluminação em combates de altíssima fidelidade. É o lar de grandes sucessos de crítica e público do Anivoid.',
-        'A-1 Pictures': 'A-1 Pictures é uma subsidiária da Aniplex de extrema versatilidade, transitando com maestria entre animes de ação de alta voltagem, dramas escolares emocionantes e mundos fantásticos ricamente detalhados.',
-        'Production I.G': 'Production I.G é pioneiro na fusão de animação tradicional com computação gráfica avançada, renomado por thrillers psicológicos, ficções científicas maduras e animes esportivos de imensa dinâmica de quadra.',
-        'CloverWorks': 'CloverWorks destaca-se pelas suas composições cinematográficas, paletas de cores expressivas e rica sensibilidade no desenvolvimento de personagens cotidianos ou de coreografia refinada.'
-    };
-    
-    return descriptions[name] || fallbackDesc;
-}
-
-// Studio logo map — local files in /logos/ folder, fallback to initials
-const STUDIO_LOGOS = {
-    'Ufotable': 'logos/ufotable.png',
-    'A-1 Pictures': 'logos/a_1_pictures.png',
-    'Production I.G': 'logos/production_i_g.png',
-    'CloverWorks': 'logos/cloverworks.png',
-    'Madhouse': 'logos/madhouse.png',
-    'MAPPA': 'logos/mappa.png',
-    'Bones': 'logos/bones.png',
-    'Wit Studio': 'logos/wit_studio.png',
-    'Gainax': 'logos/gainax.png',
-    'Kyoto Animation': 'logos/kyoto_animation.png',
-    'White Fox': 'logos/white_fox.png',
-    'CoMix Wave Films': 'logos/comix_wave_films.png',
-    'Sunrise': 'logos/sunrise-animation.png',
-    'Studio Ghibli': 'logos/studio_ghibli.png',
-    'Shaft': 'logos/shaft.png',
-    'Tokyo Movie Shinsha': 'logos/tokyo_movie_shinsha.png',
-    'Tatsunoko Production': 'logos/tatsunoko_production.png',
-    'Bug Film': 'logos/bug_film.png',
-    'BUG FILMS': 'logos/bug_film.png',
-    'Bug Films': 'logos/bug_film.png',
-    'Science Saru': 'logos/science_saru.png',
-    'Toei Animation': 'logos/toei_animation.png',
-    'Pierrot': 'logos/pierrot.png',
-    'David Production': 'logos/david_production.png',
-    'J.C.Staff': 'logos/j_c_staff.png',
-    'Studio Bind': 'logos/studio_bind.png',
-    'Kinema Citrus': 'logos/kinema_citrus.png',
-    'Manglobe': 'logos/manglobe.png',
-    'Artland': 'logos/artland.png',
-    'Triangle Staff': 'logos/triangle_staff.png',
-    'Trigger': 'logos/trigger.png',
-    'Enishiya': 'logos/enishiya.svg',
-    'Studio M2': 'logos/studio_m2.png',
-    'Asread': 'logos/asread.png',
-    'asread': 'logos/asread.png',
-    'asread.': 'logos/asread.png',
-    'P.A. Works': 'logos/p_a_works.png',
-    'P.A.Works': 'logos/p_a_works.png',
-    'PA Works': 'logos/p_a_works.png'
-};
-
-function normalizeStudioName(name) {
-    return String(name || '').trim().toLowerCase();
-}
-
-function getStandardStudioName(name) {
-    const raw = String(name || '').trim();
-    if (!raw) return 'Desconhecido';
-    
-    const known = {
-        'ufotable': 'Ufotable',
-        'madhouse': 'Madhouse',
-        'mappa': 'MAPPA',
-        'bones': 'Bones',
-        'witstudio': 'Wit Studio',
-        'gainax': 'Gainax',
-        'kyotoanimation': 'Kyoto Animation',
-        'whitefox': 'White Fox',
-        'comixwavefilms': 'CoMix Wave Films',
-        'sunrise': 'Sunrise',
-        'studioghibli': 'Studio Ghibli',
-        'shaft': 'Shaft',
-        'tokyomovieshinsha': 'Tokyo Movie Shinsha',
-        'tatsunokoproduction': 'Tatsunoko Production',
-        'bugfilm': 'BUG FILMS',
-        'bugfilms': 'BUG FILMS',
-        'sciencesaru': 'Science Saru',
-        'toeianimation': 'Toei Animation',
-        'pierrot': 'Pierrot',
-        'davidproduction': 'David Production',
-        'jcstaff': 'J.C.Staff',
-        'studiobind': 'Studio Bind',
-        'kinemacitrus': 'Kinema Citrus',
-        'manglobe': 'Manglobe',
-        'artland': 'Artland',
-        'trianglestaff': 'Triangle Staff',
-        'trigger': 'Trigger',
-        'enishiya': 'Enishiya',
-        'studiom2': 'Studio M2',
-        'asread': 'Asread',
-        'paworks': 'P.A. Works',
-        'cloverworks': 'CloverWorks',
-        'a1pictures': 'A-1 Pictures',
-        'productionig': 'Production I.G',
-        'tmsentertainment': 'TMS Entertainment'
-    };
-    
-    const lookup = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (known[lookup]) return known[lookup];
-    
-    return raw
-        .split(/\s+/)
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(' ');
-}
-
-function normalizeStudioLookupKey(name) {
-    return normalizeStudioName(name).replace(/[^a-z0-9]/g, '');
-}
-
-function sanitizeStudioLogoUrl(url) {
-    const value = String(url || '').trim();
-    if (!value) return '';
-    if (/^logos\/[a-z0-9._/-]+\.(png|jpe?g|webp|gif|svg)$/i.test(value)) return value;
-    if (value.length <= 4096) {
-        try {
-            const parsed = new URL(value);
-            if (parsed.protocol === 'https:') return parsed.href;
-        } catch (error) {
-            // Ignore invalid external URLs and fall through to the safe empty value.
-        }
-    }
-    if (/^data:image\/(png|jpe?g|gif|webp);base64,[a-z0-9+/=]+$/i.test(value) && value.length <= 2 * 1024 * 1024) return value;
-    return '';
-}
-
-function findLogoInMap(studioName, map) {
-    const key = normalizeStudioName(studioName);
-    const looseKey = normalizeStudioLookupKey(studioName);
-    const entry = Object.entries(map || {}).find(([name]) =>
-        normalizeStudioName(name) === key || normalizeStudioLookupKey(name) === looseKey
-    );
-    return entry ? entry[1] : '';
-}
 
 function getStudioLogo(studioName) {
     const staticLogo = STUDIO_LOGOS[studioName] || findLogoInMap(studioName, STUDIO_LOGOS);
@@ -5275,68 +5026,6 @@ async function fetchStudioLogoFromMal(studioName) {
         return '';
     }
 }
-
-function hydrateStudioLogosFromAnimes(animes) {
-    let changed = false;
-    (animes || []).forEach(anime => {
-        if (!anime || !anime.studio || !anime.studioLogoUrl) return;
-        const logo = sanitizeStudioLogoUrl(anime.studioLogoUrl);
-        if (!logo) return;
-        const existing = getStudioLogo(anime.studio);
-        if (!existing || existing !== logo) {
-            state.studioLogos = {
-                ...(state.studioLogos || {}),
-                [anime.studio]: logo
-            };
-            changed = true;
-        }
-    });
-    if (changed) {
-        localStorage.setItem('anivoid_studio_logos', JSON.stringify(state.studioLogos));
-    }
-}
-
-// Global Studio Brand Theme Colors (shared across landing cards and previews)
-const STUDIO_BRAND_COLORS = {
-    'A-1 Pictures':       { border: 'rgba(0, 85, 255, 0.4)', glow: 'rgba(0, 85, 255, 0.15)', text: '#0055ff' },
-    'Ufotable':           { border: 'rgba(255, 69, 0, 0.4)', glow: 'rgba(255, 69, 0, 0.15)', text: '#FF4500' },
-    'Production I.G':     { border: 'rgba(255, 255, 255, 0.3)', glow: 'rgba(255, 255, 255, 0.1)', text: '#ffffff' },
-    'CloverWorks':        { border: 'rgba(0, 204, 102, 0.4)', glow: 'rgba(0, 204, 102, 0.15)', text: '#00cc66' },
-    'Madhouse':           { border: 'rgba(114, 9, 183, 0.4)', glow: 'rgba(114, 9, 183, 0.15)', text: '#7209b7' },
-    'MAPPA':              { border: 'rgba(235, 94, 40, 0.4)', glow: 'rgba(235, 94, 40, 0.15)', text: '#eb5e28' },
-    'Bones':              { border: 'rgba(0, 180, 216, 0.4)', glow: 'rgba(0, 180, 216, 0.15)', text: '#00b4d8' },
-    'Wit Studio':         { border: 'rgba(46, 196, 182, 0.4)', glow: 'rgba(46, 196, 182, 0.15)', text: '#2ec4b6' },
-    'Gainax':             { border: 'rgba(247, 127, 0, 0.4)', glow: 'rgba(247, 127, 0, 0.15)', text: '#f77f00' },
-    'Kyoto Animation':    { border: 'rgba(255, 112, 166, 0.4)', glow: 'rgba(255, 112, 166, 0.15)', text: '#ff70a6' },
-    'White Fox':          { border: 'rgba(248, 249, 250, 0.3)', glow: 'rgba(248, 249, 250, 0.1)', text: '#f8f9fa' },
-    'CoMix Wave Films':   { border: 'rgba(0, 48, 73, 0.4)', glow: 'rgba(0, 48, 73, 0.15)', text: '#003049' },
-    'Sunrise':            { border: 'rgba(230, 57, 70, 0.4)', glow: 'rgba(230, 57, 70, 0.15)', text: '#e63946' },
-    'Studio Ghibli':      { border: 'rgba(170, 204, 0, 0.4)', glow: 'rgba(170, 204, 0, 0.15)', text: '#aacc00' },
-    'Shaft':              { border: 'rgba(208, 0, 0, 0.4)', glow: 'rgba(208, 0, 0, 0.15)', text: '#d00000' },
-    'Tokyo Movie Shinsha':{ border: 'rgba(255, 0, 110, 0.4)', glow: 'rgba(255, 0, 110, 0.15)', text: '#ff006e' },
-    'Tatsunoko Production':{ border: 'rgba(255, 190, 11, 0.4)', glow: 'rgba(255, 190, 11, 0.15)', text: '#ffbe0b' },
-    'Bug Film':           { border: 'rgba(255, 209, 102, 0.4)', glow: 'rgba(255, 209, 102, 0.15)', text: '#ffd166' },
-    'BUG FILMS':          { border: 'rgba(255, 209, 102, 0.4)', glow: 'rgba(255, 209, 102, 0.15)', text: '#ffd166' },
-    'Bug Films':          { border: 'rgba(255, 209, 102, 0.4)', glow: 'rgba(255, 209, 102, 0.15)', text: '#ffd166' },
-    'Science Saru':       { border: 'rgba(255, 0, 127, 0.4)', glow: 'rgba(255, 0, 127, 0.15)', text: '#ff007f' },
-    'Toei Animation':     { border: 'rgba(251, 133, 0, 0.4)', glow: 'rgba(251, 133, 0, 0.15)', text: '#fb8500' },
-    'Pierrot':            { border: 'rgba(78, 168, 222, 0.4)', glow: 'rgba(78, 168, 222, 0.15)', text: '#4ea8de' },
-    'David Production':   { border: 'rgba(42, 157, 143, 0.4)', glow: 'rgba(42, 157, 143, 0.15)', text: '#2a9d8f' },
-    'J.C.Staff':          { border: 'rgba(255, 77, 109, 0.4)', glow: 'rgba(255, 77, 109, 0.15)', text: '#ff4d6d' },
-    'Studio Bind':        { border: 'rgba(155, 93, 229, 0.4)', glow: 'rgba(155, 93, 229, 0.15)', text: '#9b5de5' },
-    'Kinema Citrus':      { border: 'rgba(247, 127, 0, 0.4)', glow: 'rgba(247, 127, 0, 0.15)', text: '#f77f00' },
-    'Manglobe':           { border: 'rgba(6, 214, 160, 0.4)', glow: 'rgba(6, 214, 160, 0.15)', text: '#06d6a0' },
-    'Artland':            { border: 'rgba(214, 40, 40, 0.4)', glow: 'rgba(214, 40, 40, 0.15)', text: '#d62828' },
-    'Triangle Staff':     { border: 'rgba(255, 190, 11, 0.4)', glow: 'rgba(255, 190, 11, 0.15)', text: '#ffbe0b' },
-    'Trigger':            { border: 'rgba(230, 57, 70, 0.4)', glow: 'rgba(230, 57, 70, 0.15)', text: '#e63946' },
-    'Enishiya':           { border: 'rgba(253, 186, 116, 0.4)', glow: 'rgba(253, 186, 116, 0.15)', text: '#fdba74' },
-    'Studio M2':          { border: 'rgba(255, 255, 255, 0.32)', glow: 'rgba(255, 255, 255, 0.12)', text: '#f5f5f5' },
-    'Asread':             { border: 'rgba(0, 112, 74, 0.4)', glow: 'rgba(0, 112, 74, 0.15)', text: '#00704a' },
-    'asread':             { border: 'rgba(0, 112, 74, 0.4)', glow: 'rgba(0, 112, 74, 0.15)', text: '#00704a' },
-    'asread.':            { border: 'rgba(0, 112, 74, 0.4)', glow: 'rgba(0, 112, 74, 0.15)', text: '#00704a' }
-};
-
-
 
 function renderStudiosDirectory() {
     const container = document.getElementById('studios-directory-container');
@@ -6188,7 +5877,7 @@ function setupFormSubmissions() {
             const title = document.getElementById('form-anime-title').value;
             const japaneseTitle = document.getElementById('form-anime-jp-title').value;
             const synopsis = document.getElementById('form-anime-synopsis').value;
-            const studio = getStandardStudioName(window.AnivoidUI.studioMetadata.studioForAnime({
+            const studio = standardStudioName(window.AnivoidUI.studioMetadata.studioForAnime({
                 title,
                 japaneseTitle,
                 studio: document.getElementById('form-anime-studio').value
@@ -8387,7 +8076,7 @@ function initAddFriendModalOptions() {
                 const year = anime.year || (anime.aired?.prop?.from?.year) || '';
                 const score = anime.score || (anime.attributes?.averageRating ? parseFloat((parseFloat(anime.attributes.averageRating) / 10).toFixed(1)) : null);
                 
-                const studioName = getStandardStudioName(window.AnivoidUI.studioMetadata.studioForAnime(anime));
+                const studioName = standardStudioName(window.AnivoidUI.studioMetadata.studioForAnime(anime));
                 const studioMissing = window.AnivoidUI.studioMetadata.isUnknownStudio(studioName);
 
                 const item = document.createElement('div');

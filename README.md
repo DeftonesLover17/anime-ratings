@@ -23,6 +23,7 @@ npm start
 | `app.js` | Integração legada: estado, sessão, catálogo, perfis e ligação com APIs e módulos novos. |
 | `frontend/site/` | Descoberta editorial, cards, detalhe, estúdios, navegação e transições entre telas. |
 | `frontend/site/project-adapter.js` | Ponte explícita entre os módulos visuais e o estado legado; permissões e comandos da aplicação. |
+| `frontend/site/studio-presentation.js` | Logos, cores, descrições e validação de URLs usados na apresentação dos estúdios. |
 | `frontend/ratings/model.js` | Parsing decimal, seleção e paginação de episódios; funções puras. |
 | `frontend/ratings/workbench.js` | Editor real de notas, progresso, rascunhos, salvamento, desfazer e repetição de sincronização. |
 | `frontend/community/` | Composição e leitura de reviews/comentários, contexto de episódio, spoilers, respostas, edição e curtidas. |
@@ -71,9 +72,11 @@ npm start
 | `config/security-headers.template` | Fonte dos cabeçalhos; o build calcula os hashes CSP sem alterar o preload. |
 | `docs/security.md` | Operação, migração de sessões, configuração de administradores e envio de e-mail. |
 | `shared/sync-state.js` | Merge de alterações e proteção de dados usados nos dois servidores. |
-| `shared/studio-metadata.js` | Estúdios confirmados por título exato e leitura de créditos da importação, compartilhados entre UI e APIs. |
+| `shared/studio-metadata.js` | Estúdios confirmados por título exato, leitura de créditos e nomes canônicos compartilhados entre UI e APIs. |
+| `shared/security/text-sanitizers.js` | Escape de texto, limites de listas e cores usados pelos dois servidores. |
 | `scripts/browser-security.js` | Impede dependências privadas e valores secretos nos arquivos compilados do navegador. |
 | `scripts/build-pages.js` | Build de CSS/JS, hashes e cópia de mídia. |
+| `tests/architecture.test.cjs` | Verifica a direção das dependências e a ausência de ciclos entre módulos de produção. |
 | `tests/` | Regressões de dados, concorrência, autenticação e módulos de UI. |
 | `covers/`, `logos/` | Mídia do catálogo. `sunrise-animation.png` identifica a Sunrise de animação. |
 | `fonts/` | Syne e DM Sans variáveis, servidas localmente, com licenças OFL. |
@@ -131,6 +134,8 @@ As fontes Syne e DM Sans vieram de Google Fonts e dos repositórios oficiais `go
 
 ## Dívidas conhecidas
 
-`app.js` ainda concentra cerca de 10,5 mil linhas, incluindo catálogo inicial, integrações de autenticação, perfis, administração e estado. Descoberta, cards, estúdios, editor de notas, comunidade e controles de sessão têm módulos próprios. O servidor Node ainda tem rotas legadas de catálogo e social; as operações de conta foram extraídas e as antigas implementações paralelas de merge foram removidas. A verificação de propriedade compartilhada é a mesma nos dois servidores. `styles.css` contém regras antigas com especificidade alta. A atualização não elimina toda a dívida do legado.
+`app.js` ainda concentra catálogo inicial, integrações de autenticação, perfis, administração e estado. Descoberta, cards, estúdios, editor de notas, comunidade e controles de sessão têm módulos próprios. A normalização dos nomes de estúdios e as regras idênticas de texto/cor dos servidores foram unificadas; a validação de imagens e a sanitização de ratings continuam diferentes entre os adaptadores Node e Cloudflare e precisam de migração própria com testes de dados reais antes de serem unificadas. O servidor Node ainda tem rotas legadas de catálogo e social; as operações de conta foram extraídas e as antigas implementações paralelas de merge foram removidas. A verificação de propriedade compartilhada é a mesma nos dois servidores. `styles.css` contém regras antigas com especificidade alta. A atualização não elimina toda a dívida do legado.
+
+Os maiores blocos restantes em `app.js` são `AppState`, o cadastro e a central de amigos. A próxima extração deve separar estado, DOM e chamadas de rede por fluxo, com testes de comportamento antes de mover esses blocos. `frontend/site/site.css` também é extenso; suas regras devem sair por tela quando essa tela for alterada, preservando a ordem da cascata. O teste de arquitetura impede novas dependências invertidas e ciclos nos módulos já separados.
 
 A migração deve ser incremental, por funcionalidade: extrair estado/API, depois renderizadores e controladores de cada tela conforme forem alterados. Evitar reescrita geral durante uma correção pontual. Atualizar este mapa e manter os testes de preservação de dados em cada etapa.

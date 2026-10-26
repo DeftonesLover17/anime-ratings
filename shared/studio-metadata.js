@@ -33,6 +33,57 @@ function studioForAnime(anime = {}) {
     return imported?.name.trim() || verifiedStudio(anime.title, anime.title_english, anime.japaneseTitle, anime.title_japanese) || 'Desconhecido';
 }
 
+function standardStudioName(name) {
+    const raw = String(name || '').trim();
+    if (!raw) return 'Desconhecido';
+
+    const known = {
+        'ufotable': 'Ufotable',
+        'madhouse': 'Madhouse',
+        'mappa': 'MAPPA',
+        'bones': 'Bones',
+        'witstudio': 'Wit Studio',
+        'gainax': 'Gainax',
+        'kyotoanimation': 'Kyoto Animation',
+        'whitefox': 'White Fox',
+        'comixwavefilms': 'CoMix Wave Films',
+        'sunrise': 'Sunrise',
+        'studioghibli': 'Studio Ghibli',
+        'shaft': 'Shaft',
+        'tokyomovieshinsha': 'Tokyo Movie Shinsha',
+        'tatsunokoproduction': 'Tatsunoko Production',
+        'bugfilm': 'BUG FILMS',
+        'bugfilms': 'BUG FILMS',
+        'sciencesaru': 'Science Saru',
+        'toeianimation': 'Toei Animation',
+        'pierrot': 'Pierrot',
+        'davidproduction': 'David Production',
+        'jcstaff': 'J.C.Staff',
+        'studiobind': 'Studio Bind',
+        'kinemacitrus': 'Kinema Citrus',
+        'manglobe': 'Manglobe',
+        'artland': 'Artland',
+        'trianglestaff': 'Triangle Staff',
+        'trigger': 'Trigger',
+        'enishiya': 'Enishiya',
+        'studiom2': 'Studio M2',
+        'asread': 'Asread',
+        'paworks': 'P.A. Works',
+        'cloverworks': 'CloverWorks',
+        'a1pictures': 'A-1 Pictures',
+        'productionig': 'Production I.G',
+        'tmsentertainment': 'TMS Entertainment'
+    };
+
+    const lookup = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (Object.prototype.hasOwnProperty.call(known, lookup)) return known[lookup];
+
+    return raw
+        .split(/\s+/)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+}
+
 function kitsuStudio(anime, included = []) {
     const resources = new Map((Array.isArray(included) ? included : []).filter(Boolean).map((item) => [`${item.type}:${item.id}`, item]));
     const references = anime?.relationships?.animeProductions?.data;
@@ -46,4 +97,4 @@ function kitsuStudio(anime, included = []) {
     return '';
 }
 
-module.exports = { isUnknownStudio, verifiedStudio, studioForAnime, kitsuStudio };
+module.exports = { isUnknownStudio, verifiedStudio, studioForAnime, standardStudioName, kitsuStudio };
