@@ -11,6 +11,7 @@ const { createLoginClient } = require('../account/login-client');
 const { bindLoginForm } = require('../account/login-form');
 const { createRecoveryController } = require('../account/recovery');
 const { createWelcomeEmail } = require('../account/welcome-email');
+const { createEditorialNotices } = require('./notifications');
 const { installDomActions } = require('../security/dom-actions');
 
 const { createProfileClient } = require('../account/profile-client');
@@ -45,6 +46,7 @@ window.AnivoidUI = {
     session,
     login,
     welcome: createWelcomeEmail(window),
+    notices: createEditorialNotices(window),
     bindLoginForm: (options) => bindLoginForm(window, { client: login, session, ...options }),
     site: createSite(window, motion.animate),
     readTheme: theme.readTheme,

@@ -6827,7 +6827,7 @@ function initRegistrationOptions() {
 
         initUI();
         checkAndShowSecurityModal();
-        showWelcomeToast(matchedUser.username);
+        window.AnivoidUI.notices.welcome(matchedUser.username);
         state.syncWithServer().then(() => {
             renderAnimeGrid();
             renderFeaturedBanner();
@@ -7219,26 +7219,6 @@ function showMemberWelcomeModal(username, memberNumber) {
             if (card) { card.style.transform = 'translateY(0) scale(1)'; }
         });
     });
-}
-
-function showWelcomeToast(username) {
-    const toast = document.createElement('div');
-    toast.className = 'fixed top-6 right-6 z-[9999] flex items-center gap-3 bg-[#0a0a0a]/95 backdrop-blur-xl border border-brand/50 rounded-2xl p-4 w-72 shadow-[0_20px_50px_rgba(0,0,0,0.8),0_0_20px_rgba(255,69,0,0.15)] animate-[fadeIn_0.3s_ease-out] transition-all duration-500';
-    toast.innerHTML = `
-        <div class="w-8 h-8 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand text-sm shrink-0">
-            <span>✨</span>
-        </div>
-        <div class="min-w-0 flex-grow font-mono text-[11px]">
-            <p class="font-bold text-brand uppercase tracking-widest text-[9px] mb-0.5">Entrada Autorizada</p>
-            <p class="text-white font-serif font-bold text-[12px] truncate leading-tight">Bem-vindo(a) de volta, ${username}!</p>
-        </div>
-    `;
-    document.body.appendChild(toast);
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateY(-10px)';
-        setTimeout(() => toast.remove(), 500);
-    }, 4000);
 }
 
 // --- PROFILE EDITOR MODAL AND CUSTOM THEME STYLES ---
@@ -8820,7 +8800,7 @@ function renderRegisteredUsersSuggestions() {
                     alert(res.error);
                     renderCentralDeAmigos();
                 } else {
-                    showWelcomeToast(`Solicitação enviada para ${user.username}!`);
+                    window.AnivoidUI.notices.friendship(`Solicitação enviada para ${user.username}!`);
                     state.save(); // syncs and updates UI
                     renderCentralDeAmigos();
                 }
@@ -8835,7 +8815,7 @@ function renderRegisteredUsersSuggestions() {
                 if (res.error) {
                     alert(res.error);
                 } else {
-                    showWelcomeToast(`Agora você e ${user.username} são amigos!`);
+                    window.AnivoidUI.notices.friendship(`Agora você e ${user.username} são amigos!`);
                     state.save();
                     renderCentralDeAmigos();
                 }
@@ -8852,7 +8832,7 @@ function renderRegisteredUsersSuggestions() {
                     alert(res.error);
                     renderCentralDeAmigos();
                 } else {
-                    showWelcomeToast(`Agora você e ${user.username} são amigos!`);
+                    window.AnivoidUI.notices.friendship(`Agora você e ${user.username} são amigos!`);
                     state.save();
                     renderCentralDeAmigos();
                 }
@@ -8932,7 +8912,7 @@ function renderPendingRequests() {
             if (res.error) {
                 alert(res.error);
             } else {
-                showWelcomeToast(`Agora você e ${sender.username} são amigos!`);
+                window.AnivoidUI.notices.friendship(`Agora você e ${sender.username} são amigos!`);
                 state.save();
                 renderCentralDeAmigos();
             }

@@ -51,6 +51,8 @@ npm start
 | `frontend/ui/theme.js` | Preferência claro/escuro, armazenamento local e controles acessíveis. |
 | `frontend/ui/motion.js` | Animações interrompíveis por canal e respeito à redução de movimento. |
 | `frontend/ui/ui.css` | Tokens, componentes, temas, adaptações do legado e comportamento responsivo da UI. |
+| `frontend/ui/notifications.js` | Avisos transitórios de login e amizade, com texto seguro, fechamento e timers canceláveis. |
+| `frontend/ui/notifications.css` | Aparência editorial, posição central superior, responsividade e movimento reduzido desses avisos. |
 | `styles.css` | Estilos legados, incluindo o preload preservado. |
 | `functions/api/[[path]].js` | API de produção para Cloudflare Pages/D1. |
 | `server.js` | API alternativa Node, com armazenamento em arquivo ou Postgres. |
