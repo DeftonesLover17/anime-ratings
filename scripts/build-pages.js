@@ -34,7 +34,7 @@ async function build() {
     let html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
     const assets = [
         ['tailwind.css', generated.css, 'css'],
-        ['styles.css', ['styles.css', 'frontend/ui/ui.css', 'frontend/site/fonts.css', 'frontend/site/site.css', 'frontend/account/account.css', 'frontend/profiles/profiles.css', 'frontend/account/welcome-email.css', 'frontend/ratings/ratings.css', 'frontend/community/community.css', 'frontend/site/motion.css'].map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n'), 'css'],
+        ['styles.css', ['styles.css', 'frontend/ui/ui.css', 'frontend/site/fonts.css', 'frontend/site/site.css', 'frontend/account/account.css', 'frontend/account/recovery.css', 'frontend/profiles/profiles.css', 'frontend/account/welcome-email.css', 'frontend/ratings/ratings.css', 'frontend/community/community.css', 'frontend/site/motion.css'].map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n'), 'css'],
         ['shared/sync-state.js', syncBundle, 'js'],
         ['app.js', fs.readFileSync(path.join(root, 'app.js'), 'utf8'), 'js'],
         ['ui.js', uiBundle, 'js']

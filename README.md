@@ -32,10 +32,12 @@ npm start
 | `frontend/account/request.js` | Transporte de conta com timeout, erros e Retry-After; sem repetir mutações. |
 | `frontend/account/profile-client.js` | Salvamento atômico do perfil/senha e confirmação do cookie renovado. |
 | `frontend/account/profile-form.js` | Confirmação de senha, bloqueio de envios repetidos e preservação de edições durante atualização de cache. |
+| `frontend/account/recovery.js` | Solicitação e confirmação da recuperação de senha; token temporário removido da URL e sem persistência no navegador. |
 | `frontend/account/login-form.js` | Campos de login/redefinição, confirmação de senha, feedback acessível e bloqueio de envios duplicados. |
 | `frontend/account/storage.js` | Cache opcional com fallback em memória quando o navegador bloqueia ou esgota o armazenamento. |
 | `frontend/account/welcome-email.js` | Envio pelo EmailJS existente, confirmação de aceite, repetição e prévia fiel da mensagem de boas-vindas. |
 | `frontend/account/email-config.js` | Identificadores públicos do serviço/template EmailJS; não contém senha Gmail ou chave privada. |
+| `emails/password-recovery.html` | Template da recuperação de senha com domínio fixo, logo oficial e link de uso único. |
 | `emails/welcome.html` | Fonte única do e-mail responsivo, instalada no EmailJS e usada na prévia local. |
 | `scripts/preview-welcome.cjs` | Prévia isolada em loopback; não envia e-mails. |
 | `frontend/profiles/` | Modelo defensivo de perfis e estatísticas, foco e fechamento interrompível das janelas de perfil/amigos. |
@@ -59,6 +61,9 @@ npm start
 | `backend/cloudflare/rate-limit.js` | Contadores atômicos D1 e cache limitado de bloqueios já confirmados. |
 | `backend/cloudflare/` | Persistência D1 das sessões e provas de e-mail; tokens armazenados como hash. |
 | `backend/node/` | Adaptadores de sessão, e-mail e operações de conta do servidor Node. |
+| `backend/security/password-recovery.js` | Emissão e consumo de provas de recuperação, vínculo com conta/e-mail/versão da credencial e revogação das sessões. |
+| `backend/security/recovery-email.js` | Entrega de recuperação por EmailJS ou Resend, com segredos somente no servidor. |
+| `backend/cloudflare/recovery-store.js`, `backend/node/recovery-store.js` | Persistência de hashes de recuperação em D1 ou arquivo privado com consumo atômico por processo. |
 | `backend/security/email-verification.js` | Emissão, expiração e consumo de provas reais de posse do e-mail. |
 | `functions/_middleware.js` | Allowlist dos arquivos públicos e cabeçalhos também nas respostas da API. |
 | `config/security-headers.template` | Fonte dos cabeçalhos; o build calcula os hashes CSP sem alterar o preload. |

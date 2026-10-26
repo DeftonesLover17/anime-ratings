@@ -4068,7 +4068,7 @@ function bindElementOnce(element, key, event, handler) {
 let authGateReturnFocus = null;
 function setAuthBackgroundInert(active) {
     for (const child of document.body.children) {
-        if (child.id === 'registration-gate' || child.id === 'splash-screen' || child.tagName === 'SCRIPT') continue;
+        if (child.id === 'registration-gate' || child.id === 'password-recovery-dialog' || child.id === 'splash-screen' || child.tagName === 'SCRIPT') continue;
         if (active) {
             if (!child.inert) { child.inert = true; child.dataset.authGateInert = 'true'; }
         } else if (child.dataset.authGateInert) {

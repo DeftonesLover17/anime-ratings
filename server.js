@@ -8,6 +8,7 @@ const responseTools = require('./shared/security/responses');
 const { classifyPublicPath } = require('./shared/security/public-paths');
 const { createNodeSessions } = require('./backend/node/sessions');
 const { createAccountRoutes } = require('./backend/node/account-routes');
+const { createFileRecoveryStore } = require('./backend/node/recovery-store');
 let stateWriteQueue = Promise.resolve();
 const fs = require('fs');
 const path = require('path');
@@ -782,21 +783,24 @@ function getClientIp(req) {
 }
 
 function enforceRateLimit(req, res, bucket, maxAttempts, windowMs, discriminator = '') {
-    const key = (bucket === 'account' ? [bucket, discriminator] : [bucket, getClientIp(req), normalizeUsername(discriminator).slice(0, 80)]).filter(Boolean).join(':');
+    const key = ((bucket === 'account' || bucket === 'recovery-account') ? [bucket, discriminator] : [bucket, getClientIp(req), normalizeUsername(discriminator).slice(0, 80)]).filter(Boolean).join(':');
     let accepted = requestLimits.get(req);
     if (!accepted) { accepted = new Set(); requestLimits.set(req, accepted); }
     if (accepted.has(key)) return false;
     const result = rateLimits.consume(key, maxAttempts, windowMs);
     if (!result.allowed) {
-        res.setHeader('Retry-After', String(result.retryAfter));
-        sendJson(res, 429, { error: 'Muitas requisições. Aguarde e tente novamente.', code: 'RATE_LIMITED' });
+        if (res) {
+            res.setHeader('Retry-After', String(result.retryAfter));
+            sendJson(res, 429, { error: 'Muitas requisições. Aguarde e tente novamente.', code: 'RATE_LIMITED' });
+        }
         return true;
     }
     accepted.add(key);
     return false;
 }
 
-const accountRoutes = createAccountRoutes({ readState, writeState, sessionStore, verifyPassword, setPassword, sanitizeUser, sanitizeState, sendJson, enforceRateLimit });
+const recoveryStore = createFileRecoveryStore(path.join(DATA_DIR, 'password-recoveries.json'));
+const accountRoutes = createAccountRoutes({ recoveryStore, readState, writeState, sessionStore, verifyPassword, setPassword, sanitizeUser, sanitizeState, sendJson, enforceRateLimit });
 const server = http.createServer(async (req, res) => {
     const cors = getSafeCorsHeaders(req);
     res.setHeader('Access-Control-Allow-Origin', cors.origin);

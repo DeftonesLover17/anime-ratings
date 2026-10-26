@@ -9,6 +9,7 @@ const { createAccountSession } = require('../account/session');
 const { createAccountStorage } = require('../account/storage');
 const { createLoginClient } = require('../account/login-client');
 const { bindLoginForm } = require('../account/login-form');
+const { createRecoveryController } = require('../account/recovery');
 const { createWelcomeEmail } = require('../account/welcome-email');
 const { installDomActions } = require('../security/dom-actions');
 
@@ -20,6 +21,7 @@ const { createApiFetch } = require('../security/api-client');
 const { cleanBrowserCache } = require('../security/cache');
 const { cachedUserResponse } = require('../../shared/security/responses');
 
+const recovery = createRecoveryController(window, { baseUrl: window.ANIVOID_API_BASE_URL || '' });
 const theme = createThemeController(window);
 const motion = createMotionController(window);
 const account = createAccountDrawer(window, motion);
@@ -54,3 +56,4 @@ window.AnivoidUI = {
 theme.install();
 motion.install();
 installDomActions(window);
+recovery.install();

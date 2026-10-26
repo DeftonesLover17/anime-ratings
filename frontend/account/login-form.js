@@ -8,7 +8,7 @@ function bindLoginForm(browser, { client, session, onAuthenticated }) {
     const resetFields = doc.getElementById('login-reset-fields');
     const newPassword = doc.getElementById('login-new-password'), confirmation = doc.getElementById('login-confirm-password');
     const status = doc.getElementById('login-status'), submit = form.querySelector('button[type="submit"]');
-    const switchers = ['tab-login', 'tab-register', 'toggle-to-login', 'toggle-to-register'].map(id => doc.getElementById(id)).filter(Boolean);
+    const switchers = ['tab-login', 'tab-register', 'toggle-to-login', 'toggle-to-register', 'forgot-password'].map(id => doc.getElementById(id)).filter(Boolean);
     let busy = false, resetting = false;
     function message(text, error = false) {
         status.textContent = text;

@@ -63,6 +63,9 @@ async function startNodeServer(t) {
             ADMIN_USERS: 'felipe',
             ALLOWED_ORIGINS: 'https://anime-ratings.pages.dev',
             EMAIL_VERIFICATION_API_KEY: '',
+            RECOVERY_EMAIL_API_KEY: '',
+            RECOVERY_EMAIL_PROVIDER: '',
+            EMAILJS_PRIVATE_KEY: '',
             EMAIL_FROM: '',
             PASSWORD_ITERATIONS: '100000'
         }

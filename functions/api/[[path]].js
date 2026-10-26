@@ -6,6 +6,8 @@ import responseTools from '../../shared/security/responses.js';
 import sessionTools from '../../backend/cloudflare/sessions.js';
 import verificationTools from '../../backend/security/email-verification.js';
 import emailStoreTools from '../../backend/cloudflare/email-store.js';
+import recoveryTools from '../../backend/security/password-recovery.js';
+import recoveryStoreTools from '../../backend/cloudflare/recovery-store.js';
 import rateTools from '../../shared/security/rate-limits.js';
 import d1RateTools from '../../backend/cloudflare/rate-limit.js';
 const consumeRateLimit = d1RateTools.createD1RateLimiter();
@@ -13,6 +15,7 @@ const { API_LIMITS } = rateTools;
 const { mergeClientState } = syncTools;
 const storageReady = new WeakMap();
 const REQUEST_LIMITS = Symbol('requestRateLimits');
+const RECOVERY_DEFER = Symbol('recoveryDelivery');
 
 const PASSWORD_ITERATIONS = 100000;
 const PASSWORD_KEY_LENGTH_BITS = 256;
@@ -765,6 +768,7 @@ async function initializeStorage(env) {
     await db.prepare('CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, username TEXT NOT NULL, expires_at INTEGER NOT NULL)').run();
     await sessionStore.initialize(db);
     await emailStore.initialize(db);
+    await recoveryStore.initialize(db);
     await db.prepare('CREATE TABLE IF NOT EXISTS rate_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, reset_at INTEGER NOT NULL)').run();
     await db.prepare('CREATE TABLE IF NOT EXISTS state_backups (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, reason TEXT NOT NULL, state TEXT NOT NULL)').run();
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions (expires_at)').run();
@@ -840,6 +844,8 @@ async function writeState(env, state) {
 const sessionStore = sessionTools.createD1Sessions({ crypto, getDb, ensureStorage, randomToken });
 const emailStore = emailStoreTools.createD1EmailStore({ getDb, ensureStorage });
 const emailVerification = verificationTools.createEmailVerification({ crypto, store: emailStore });
+const recoveryStore = recoveryStoreTools.createD1RecoveryStore({ getDb, ensureStorage });
+const passwordRecovery = recoveryTools.createPasswordRecovery({ crypto, store: recoveryStore });
 const createSession = (env, user) => sessionStore.create(env, user);
 const getAuthenticatedUser = (request, env, state) => sessionStore.authenticate(request, env, state);
 
@@ -857,7 +863,7 @@ async function requireAuthenticatedUser(request, env, state) {
 function clientRateLimitKey(request, bucket, discriminator = '') {
     const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
     const safeDiscriminator = normalizeUsername(discriminator).slice(0, 80);
-    return (bucket === 'account' ? [bucket, safeDiscriminator] : [bucket, ip, safeDiscriminator]).filter(Boolean).join(':');
+    return ((bucket === 'account' || bucket === 'recovery-account') ? [bucket, safeDiscriminator] : [bucket, ip, safeDiscriminator]).filter(Boolean).join(':');
 }
 
 async function enforceRateLimit(request, env, bucket, maxAttempts, windowMs, discriminator = '') {
@@ -1370,6 +1376,41 @@ async function handleClearUserRatings(request, env) {
     return json({ success: true, cleared });
 }
 
+async function handleRecoveryRequest(request, env) {
+    const started = Date.now();
+    const body = await parseJsonBody(request);
+    const limited = await enforceRateLimit(request, env, 'recovery-request-ip', 5, 15 * 60 * 1000);
+    if (limited) return limited;
+    if (!passwordRecovery.available(env)) return json({ error: 'A recuperação por e-mail está temporariamente indisponível.', code: 'RECOVERY_UNAVAILABLE' }, 503);
+    const email = typeof body.email === 'string' ? identity.emailKey(body.email) : '';
+    if (identity.validEmail(email)) {
+        const targetLimited = await enforceRateLimit(request, env, 'recovery-account', 3, 60 * 60 * 1000, await passwordRecovery.digest(email));
+        if (!targetLimited) {
+            const state = await readState(env);
+            const matches = state.registeredUsers.filter(user => identity.emailKey(user.email) === email);
+            const user = matches.length === 1 && matches[0];
+            if (user) {
+                if (!user.accountId) { identity.assignAccountIds(state, () => crypto.randomUUID()); await writeState(env, state); }
+                await passwordRecovery.request(env, user, env[RECOVERY_DEFER]);
+            }
+        }
+    }
+    await new Promise(resolve => setTimeout(resolve, Math.max(0, 200 - (Date.now() - started))));
+    return json({ success: true, message: recoveryTools.ACCEPTED }, 202);
+}
+
+async function handleRecoveryConfirm(request, env) {
+    const body = await parseJsonBody(request);
+    const limited = await enforceRateLimit(request, env, 'recovery-confirm-ip', 10, 15 * 60 * 1000);
+    if (limited) return limited;
+    const state = await readState(env);
+    await passwordRecovery.reset(env, body.token, body.password, state, {
+        saveState: next => writeState(env, next), setPassword, verifyPassword,
+        revokeSessions: username => sessionStore.revokeUser(env, username)
+    });
+    return json({ success: true }, 200, { 'Set-Cookie': security.expiredCookie() });
+}
+
 async function handleForcedChangePassword(request, env) {
     const body = await parseJsonBody(request);
     if (!body || !body.email || !body.oldPassword || !body.newPassword) return json({ error: 'Faltam dados obrigatórios.' }, 400);
@@ -1826,6 +1867,8 @@ async function route(request, env) {
             registeredUsers: sanitizeRegisteredUsersOnly(state, authUser ? authUser.username : '')
         });
     }
+    if (path === '/api/account/password-recovery/request' && request.method === 'POST') return handleRecoveryRequest(request, env);
+    if (path === '/api/account/password-recovery/confirm' && request.method === 'POST') return handleRecoveryConfirm(request, env);
     if (path === '/api/login-challenge' && request.method === 'POST') return handleLoginChallenge(request, env);
     if (path === '/api/login' && request.method === 'POST') return handleLogin(request, env);
     if (path === '/api/logout' && request.method === 'POST') return handleLogout(request, env);
@@ -1863,7 +1906,7 @@ async function route(request, env) {
 
 export async function onRequest(context) {
     try {
-        const env = { ...context.env, [REQUEST_LIMITS]: new Set() };
+        const env = { ...context.env, [REQUEST_LIMITS]: new Set(), [RECOVERY_DEFER]: context.waitUntil ? task => context.waitUntil(task) : null };
         for (let attempt = 0; attempt < 3; attempt++) {
             try { return await route(context.request.clone(), env); }
             catch (error) { if (error.code !== 'STATE_CONFLICT') throw error; }

@@ -2,8 +2,11 @@ const policy = require('../../shared/security/policy');
 const { API_LIMITS } = require('../../shared/security/rate-limits');
 const identity = require('../../shared/security/identity');
 const { createEmailVerification } = require('../security/email-verification');
+const { createPasswordRecovery, ACCEPTED } = require('../security/password-recovery');
 const { createMemoryEmailStore } = require('./email-store');
 const ACCOUNT_PATHS = new Set([
+    '/api/account/password-recovery/request',
+    '/api/account/password-recovery/confirm',
     '/api/logout',
     '/api/account/signout-all',
     '/api/account/change-password',
@@ -14,6 +17,7 @@ const ACCOUNT_PATHS = new Set([
 ]);
 
 function createAccountRoutes({
+    recoveryStore,
     readState,
     writeState,
     sessionStore,
@@ -28,6 +32,7 @@ function createAccountRoutes({
         crypto: require('node:crypto').webcrypto,
         store: createMemoryEmailStore()
     });
+    const passwordRecovery = createPasswordRecovery({ crypto: require('node:crypto').webcrypto, store: recoveryStore });
     const load = () =>
         new Promise((resolve, reject) =>
             readState((error, text) => {
@@ -71,6 +76,10 @@ function createAccountRoutes({
             );
         }
     }
+    async function enforceRecoveryTarget(req, email) {
+        const key = await passwordRecovery.digest(email);
+        return enforceRateLimit(req, null, 'recovery-account', 3, 60 * 60 * 1000, key);
+    }
     const handle = async function (req, res) {
         try {
             if (req.url === '/api/logout') {
@@ -81,6 +90,27 @@ function createAccountRoutes({
             }
             const input = await body(req),
                 state = await load();
+            if (req.url === '/api/account/password-recovery/request') {
+                const started = Date.now();
+                if (enforceRateLimit(req, res, 'recovery-request-ip', 5, 15 * 60 * 1000)) return true;
+                if (!passwordRecovery.available(process.env)) throw new policy.SecurityError(503, 'RECOVERY_UNAVAILABLE', 'A recuperação por e-mail está temporariamente indisponível.');
+                const email = typeof input.email === 'string' ? identity.emailKey(input.email) : '';
+                if (identity.validEmail(email) && !(await enforceRecoveryTarget(req, email))) {
+                    const matches = state.registeredUsers.filter(user => identity.emailKey(user.email) === email);
+                    const user = matches.length === 1 && matches[0];
+                    if (user) {
+                        if (!user.accountId) { identity.assignAccountIds(state, () => require('node:crypto').randomUUID()); await save(state); }
+                        await passwordRecovery.request(process.env, user, task => { void task; });
+                    }
+                }
+                await new Promise(resolve => setTimeout(resolve, Math.max(0, 200 - (Date.now() - started))));
+                sendJson(res, 202, { success: true, message: ACCEPTED }); return true;
+            }
+            if (req.url === '/api/account/password-recovery/confirm') {
+                if (enforceRateLimit(req, res, 'recovery-confirm-ip', 10, 15 * 60 * 1000)) return true;
+                await passwordRecovery.reset(process.env, input.token, input.password, state, { saveState: save, setPassword, verifyPassword, revokeSessions: username => sessionStore.revokeUser(username) });
+                res.setHeader('Set-Cookie', policy.expiredCookie()); sendJson(res, 200, { success: true }); return true;
+            }
             if (req.url === '/api/account/email-verification/confirm') {
                 if (
                     enforceRateLimit(
