@@ -1,11 +1,22 @@
 /* Delivery feedback and the same letter shown in the user's inbox. */
-.av-welcome-toast { position:fixed; z-index:10000; right:var(--av-page-gutter,24px); bottom:24px; width:min(390px,calc(100% - 32px)); padding:22px 24px; background:var(--av-bg,#10150f); color:var(--av-ink,#f3f1e8); border:1px solid var(--av-line,#3b4435); border-top:3px solid var(--av-accent,#ff7957); box-shadow:0 12px 50px rgb(0 0 0 / .2); font-family:var(--av-body,Arial,sans-serif); }
+.av-welcome-toast { position:fixed; z-index:10000; top:max(18px,env(safe-area-inset-top)); left:50%; display:grid; grid-template-columns:52px minmax(0,1fr) auto; align-items:center; gap:0 18px; width:min(660px,calc(100vw - 36px)); box-sizing:border-box; padding:20px 58px 20px 22px; transform:translateX(-50%); overflow:hidden; color:var(--av-ink,#f1f0e8); background:color-mix(in srgb,var(--av-surface,#1b2019) 95%,var(--av-bg,#121510)); border:1px solid var(--av-line,#384131); box-shadow:0 18px 54px rgb(0 0 0 / .24),inset 0 1px 0 rgb(255 255 255 / .035); font-family:var(--av-body,sans-serif); animation:av-welcome-arrive .24s cubic-bezier(.2,.75,.25,1) both; }
+.av-welcome-toast::before { content:""; position:absolute; inset:0 auto 0 0; width:2px; background:var(--av-accent,#ff7957); }
 .av-welcome-toast[hidden], .av-welcome-toast button[hidden] { display:none; }
-.av-welcome-toast-label { margin:0 35px 12px 0; color:var(--av-accent); font:500 10px/1.5 var(--av-mono,monospace); letter-spacing:.16em; }
-.av-welcome-toast-status { margin:0 0 12px; font-size:14px; line-height:1.6; }
-.av-welcome-toast-actions { display:flex; flex-wrap:wrap; gap:4px 16px; }
-.av-welcome-toast-actions button { min-height:44px; padding:6px 0; background:transparent; border:0; border-bottom:1px solid var(--av-line); color:var(--av-ink); font:inherit; font-size:12px; cursor:pointer; }
-.av-welcome-toast-dismiss { position:absolute; right:8px; top:8px; width:44px; height:44px; border:0; background:transparent; color:var(--av-muted); font-size:24px; cursor:pointer; }
+.av-welcome-toast-mark { display:grid; place-items:center; width:48px; height:48px; border:1px solid color-mix(in srgb,var(--av-accent) 38%,var(--av-line)); border-radius:50%; color:var(--av-accent); background:color-mix(in srgb,var(--av-accent) 9%,transparent); }
+.av-welcome-toast-mark svg { width:20px; height:20px; }
+.av-welcome-toast-copy { min-width:0; }
+.av-welcome-toast-label { margin:0 0 5px; color:var(--av-muted); font:500 9px/1.4 var(--av-mono,monospace); letter-spacing:.15em; }
+.av-welcome-toast-label span { padding:0 3px; color:var(--av-accent); }
+.av-welcome-toast-greeting { margin:0; padding:0 0 2px; color:var(--av-ink); font:600 clamp(17px,2vw,21px)/1.2 var(--av-display,sans-serif); letter-spacing:-.04em; overflow-wrap:anywhere; }
+.av-welcome-toast-status { margin:5px 0 0; color:var(--av-muted); font:12px/1.5 var(--av-body,sans-serif); overflow-wrap:anywhere; }
+.av-welcome-toast-actions { display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:6px 14px; }
+.av-welcome-toast-actions button { display:inline-flex; align-items:center; gap:7px; min-height:44px; padding:7px 0; background:transparent; border:0; border-bottom:1px solid color-mix(in srgb,var(--av-accent) 58%,var(--av-line)); color:var(--av-ink); font:500 11px/1.35 var(--av-body,sans-serif); white-space:nowrap; cursor:pointer; transition:color .18s ease,border-color .18s ease; }
+.av-welcome-toast-actions button:hover { color:var(--av-accent); border-color:var(--av-accent); }
+.av-welcome-toast-actions button:focus-visible,.av-welcome-toast-dismiss:focus-visible { outline:2px solid var(--av-accent); outline-offset:3px; }
+.av-welcome-toast-actions button span { color:var(--av-accent); font-size:15px; }
+.av-welcome-toast-dismiss { position:absolute; right:8px; top:8px; display:grid; place-items:center; width:44px; height:44px; padding:0; border:0; background:transparent; color:var(--av-muted); font:300 23px/1 var(--av-body,sans-serif); cursor:pointer; transition:color .18s ease,transform .18s ease; }
+.av-welcome-toast-dismiss:hover { color:var(--av-ink); transform:rotate(90deg); }
+@keyframes av-welcome-arrive { from { opacity:0; translate:0 -10px; } to { opacity:1; translate:0 0; } }
 .av-welcome-dialog { width:min(680px,calc(100% - 24px)); height:min(90dvh,1000px); max-width:none; max-height:none; margin:auto; padding:0; border:1px solid #3b4435; border-radius:0; background:#10150f; color:#f3f1e8; overflow:hidden; }
 .av-welcome-dialog:not([open]) { display:none; }
 .av-welcome-dialog::backdrop { background:rgb(0 0 0 / .72); }
@@ -13,4 +24,7 @@
 .av-welcome-dialog-header h2 { margin:0; color:#f3f1e8; font-size:12px; line-height:20px; font-weight:500; letter-spacing:.08em; }
 .av-welcome-dialog-header button { min-height:44px; padding:8px 12px; background:transparent; border:1px solid #3b4435; color:#f3f1e8; font:inherit; font-size:12px; cursor:pointer; }
 .av-welcome-dialog iframe { display:block; width:100%; height:calc(100% - 68px); border:0; background:#10150f; }
-@media(max-width:600px) { .av-welcome-toast { right:16px; bottom:16px; padding:20px; } .av-welcome-dialog { width:100%; height:100dvh; border:0; } }
+@media(max-width:700px) { .av-welcome-toast { grid-template-columns:42px minmax(0,1fr); gap:12px; padding:17px 48px 16px 16px; } .av-welcome-toast-mark { width:40px; height:40px; } .av-welcome-toast-actions { grid-column:2; justify-content:flex-start; gap:0 16px; margin-top:6px; } .av-welcome-toast-actions button { min-height:40px; } .av-welcome-toast-dismiss { right:5px; top:5px; } }
+@media(max-width:390px) { .av-welcome-toast { width:calc(100vw - 24px); grid-template-columns:34px minmax(0,1fr); gap:10px; padding:14px 44px 13px 13px; } .av-welcome-toast-mark { width:32px; height:32px; } .av-welcome-toast-mark svg { width:16px; height:16px; } .av-welcome-toast-greeting { font-size:17px; } .av-welcome-toast-status { font-size:11px; } }
+@media(prefers-reduced-motion:reduce) { .av-welcome-toast { animation:none; } .av-welcome-toast-actions button,.av-welcome-toast-dismiss { transition:none; } }
+@media(max-width:600px) { .av-welcome-dialog { width:100%; height:100dvh; border:0; } }

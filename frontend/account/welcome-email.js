@@ -28,7 +28,7 @@ function createWelcomeEmail(browser) {
     const sent = new Set();
     function elements() {
         const doc = browser.document;
-        return { toast: doc.getElementById('welcome-email-toast'), status: doc.getElementById('welcome-email-status'), retry: doc.getElementById('welcome-email-retry'), dialog: doc.getElementById('welcome-email-dialog'), frame: doc.getElementById('welcome-email-preview') };
+        return { toast: doc.getElementById('welcome-email-toast'), greeting: doc.getElementById('welcome-email-greeting'), status: doc.getElementById('welcome-email-status'), retry: doc.getElementById('welcome-email-retry'), dialog: doc.getElementById('welcome-email-dialog'), frame: doc.getElementById('welcome-email-preview') };
     }
     function mount() {
         if (mounted || !elements().toast) return;
@@ -59,6 +59,7 @@ function createWelcomeEmail(browser) {
         const el = elements();
         if (!el.toast) return;
         el.toast.hidden = false;
+        if (el.greeting) el.greeting.textContent = `Bem-vindo ao seu acervo, ${welcomeParameters(currentUser || {}).name}!`;
         el.status.textContent = status;
         el.retry.hidden = !retry;
         el.retry.disabled = Boolean(pending);
