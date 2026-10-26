@@ -5,6 +5,8 @@ const { createSite } = require('../site');
 const { imageUrl } = require('../shared/dom');
 const studioMetadata = require('../../shared/studio-metadata');
 const studioPresentation = require('../site/studio-presentation');
+const { initCatalogAutocomplete } = require('../catalog/autocomplete');
+const { DEFAULT_ANIMES } = require('../catalog/default-animes');
 const { createAccountDrawer } = require('../account/drawer');
 const { createAccountSession } = require('../account/session');
 const { createAccountStorage } = require('../account/storage');
@@ -43,6 +45,8 @@ window.AnivoidUI = {
     imageUrl,
     studioMetadata,
     studioPresentation,
+    initCatalogAutocomplete,
+    defaultAnimes: DEFAULT_ANIMES,
     account,
     storage,
     session,

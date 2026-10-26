@@ -24,6 +24,8 @@ npm start
 | `frontend/site/` | Descoberta editorial, cards, detalhe, estúdios, navegação e transições entre telas. |
 | `frontend/site/project-adapter.js` | Ponte explícita entre os módulos visuais e o estado legado; permissões e comandos da aplicação. |
 | `frontend/site/studio-presentation.js` | Logos, cores, descrições e validação de URLs usados na apresentação dos estúdios. |
+| `frontend/catalog/autocomplete.js` | Busca e preenchimento assistido de obras no formulário do catálogo; inicializada pela ponte da UI. |
+| `frontend/catalog/default-animes.js` | Catálogo inicial estático, separado da lógica de estado e de sincronização. |
 | `frontend/ratings/model.js` | Parsing decimal, seleção e paginação de episódios; funções puras. |
 | `frontend/ratings/workbench.js` | Editor real de notas, progresso, rascunhos, salvamento, desfazer e repetição de sincronização. |
 | `frontend/community/` | Composição e leitura de reviews/comentários, contexto de episódio, spoilers, respostas, edição e curtidas. |
