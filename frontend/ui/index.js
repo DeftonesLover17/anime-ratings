@@ -12,6 +12,8 @@ const { bindLoginForm } = require('../account/login-form');
 const { createWelcomeEmail } = require('../account/welcome-email');
 const { installDomActions } = require('../security/dom-actions');
 
+const { createProfileClient } = require('../account/profile-client');
+const { bindProfileForm } = require('../account/profile-form');
 const profiles = require('../profiles/model');
 const { createProfileDialogs } = require('../profiles/dialog');
 const { createApiFetch } = require('../security/api-client');
@@ -27,6 +29,7 @@ const login = createLoginClient(window, { baseUrl: window.ANIVOID_API_BASE_URL |
 window.AnivoidUI = {
     ...ratings,
     profiles,
+    bindProfileForm: options => bindProfileForm(window, { client: createProfileClient(window, { baseUrl: window.ANIVOID_API_BASE_URL || '' }), session, ...options }),
     profileDialogs: createProfileDialogs(window),
     createApiFetch,
     imageUrl,

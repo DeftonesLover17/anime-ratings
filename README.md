@@ -29,6 +29,9 @@ npm start
 | `frontend/account/` | Gaveta da conta, seleção de avaliador e transições interrompíveis de abertura, fechamento e passagem às ações existentes. |
 | `frontend/account/session.js` | Logout confirmado pela API, limpeza de cache privado e confirmação de e-mail por prova do servidor. |
 | `frontend/account/login-client.js` | Login com timeout, confirmação do cookie, erros de conexão e troca obrigatória de senha. |
+| `frontend/account/request.js` | Transporte de conta com timeout, erros e Retry-After; sem repetir mutações. |
+| `frontend/account/profile-client.js` | Salvamento atômico do perfil/senha e confirmação do cookie renovado. |
+| `frontend/account/profile-form.js` | Confirmação de senha, bloqueio de envios repetidos e preservação de edições durante atualização de cache. |
 | `frontend/account/login-form.js` | Campos de login/redefinição, confirmação de senha, feedback acessível e bloqueio de envios duplicados. |
 | `frontend/account/storage.js` | Cache opcional com fallback em memória quando o navegador bloqueia ou esgota o armazenamento. |
 | `frontend/account/welcome-email.js` | Envio pelo EmailJS existente, confirmação de aceite, repetição e prévia fiel da mensagem de boas-vindas. |

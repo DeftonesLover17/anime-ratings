@@ -1,4 +1,4 @@
-const { passwordPolicyError } = require('../../shared/security/policy');
+const { passwordChangeError } = require('../../shared/security/policy');
 
 function bindLoginForm(browser, { client, session, onAuthenticated }) {
     const doc = browser.document, form = doc.getElementById('login-form');
@@ -42,7 +42,7 @@ function bindLoginForm(browser, { client, session, onAuthenticated }) {
         if (busy) return;
         if (!identifier.value.trim() || !password.value) { message('Informe seu e-mail ou usuário e sua senha.', true); return; }
         if (resetting) {
-            const error = passwordPolicyError(newPassword.value);
+            const error = passwordChangeError(password.value, newPassword.value);
             if (error) { message(error, true); newPassword.focus(); return; }
             if (newPassword.value !== confirmation.value) { message('As novas senhas não coincidem.', true); confirmation.focus(); return; }
         }
@@ -65,7 +65,7 @@ function bindLoginForm(browser, { client, session, onAuthenticated }) {
                 focusReset = true;
                 message('Crie uma senha pessoal para continuar. Use de 10 a 256 caracteres, com letras e números.');
             } else {
-                if (error.code === 'PASSWORD_CHANGED') { password.value = ''; resetMode(false); }
+                if (['PASSWORD_CHANGED', 'CHANGE_UNCONFIRMED', 'PASSWORD_RESET_NOT_REQUIRED'].includes(error.code)) { password.value = ''; resetMode(false); }
                 message(error.message || 'Não foi possível entrar. Tente novamente.', true);
             }
         } finally {

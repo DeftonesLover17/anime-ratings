@@ -109,3 +109,9 @@
 @media(prefers-reduced-motion:reduce) {
     .av-account-panel * { transition: none !important; animation: none !important; }
 }
+
+/* Password editing follows the existing account form rhythm. */
+.av-password-confirm { margin-top: 16px; }
+.av-password-help { color: var(--av-muted); font-size: 12px; line-height: 1.6; margin: 12px 0 20px; }
+#edit-profile-status { scroll-margin: 24px; overflow-wrap: anywhere; }
+#edit-profile-form[aria-busy="true"] button { cursor: wait; opacity: .65; }

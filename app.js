@@ -7393,11 +7393,14 @@ function setupEditProfileModal() {
     
     const currentPasswordInput = document.getElementById('edit-profile-current-password');
     const newPasswordInput = document.getElementById('edit-profile-new-password');
+    let profileForm;
     const signOutAllBtn = document.getElementById('edit-profile-signout-all');
 
     if (!modal || !form) return;
 
     const closeModal = () => {
+        if (profileForm?.busy) return;
+        profileForm?.close();
         if (currentPasswordInput) currentPasswordInput.value = '';
         if (newPasswordInput) newPasswordInput.value = '';
         modal.classList.add('hidden');
@@ -7673,12 +7676,13 @@ function setupEditProfileModal() {
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             document.body.classList.add('overflow-hidden');
+            const editGeneration = profileForm.begin();
 
             (async () => {
                 try {
                     await refreshRegisteredUsersFromServer({ force: true });
                     await state.syncWithServer();
-                    fillModalFromCache();
+                    if (profileForm.canRefresh(editGeneration)) { fillModalFromCache(); profileForm.begin(); }
                 } catch (err) {
                     console.warn('Could not refresh profile before edit:', err);
                 }
@@ -7686,117 +7690,24 @@ function setupEditProfileModal() {
         });
     }
 
-    // Form submit
-    if (form.dataset.editProfileHooked) return;
-    form.dataset.editProfileHooked = 'true';
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const newEmail = emailInput ? emailInput.value.trim() : '';
-        const newColor = colorInput ? colorInput.value : '#ff7957';
-        const newAvatar = avatarInput ? avatarInput.value : '👤';
-        const newBanner = bannerInput ? bannerInput.value : '';
-        const currentPassword = currentPasswordInput ? currentPasswordInput.value.trim() : '';
-        const newPassword = newPasswordInput ? newPasswordInput.value.trim() : '';
-
-        const editUsername = modal.dataset.editUsername || getSessionUsername();
-        if (!editUsername) {
-            alert('Nao foi possivel identificar sua sessao. Entre novamente antes de editar o perfil.');
-            return;
+    profileForm = window.AnivoidUI.bindProfileForm({
+        getUsername: () => state.loggedInUser || '',
+        readFields: () => {
+            const fields = { color: colorInput.value, avatar: avatarInput.value, banner: bannerInput.value };
+            const title = document.getElementById('edit-profile-active-title');
+            if (title && isFelipe({ username: state.loggedInUser })) fields.activeTitle = title.value;
+            return fields;
+        },
+        onSaved: async data => {
+            if (Array.isArray(data.registeredUsers)) storeRegisteredUsers(data.registeredUsers);
+            if (data.user?.username) setAuthSession(data.user.username);
+            state.loadLocalSession();
+            applyUserThemeColor(data.user.color || '#ff7957');
+            closeModal();
+            initUI();
+            showToast('Perfil atualizado', data.credentialsChanged ? 'Dados de acesso atualizados e sessão confirmada.' : 'Suas alterações foram salvas.', '✓', '#22c55e');
+            await state.syncWithServer();
         }
-
-        const originalEmail = getCachedRegisteredUsers().find(user => user.username === editUsername)?.email || '';
-        if ((newPassword || newEmail.toLowerCase() !== originalEmail.toLowerCase()) && !currentPassword) {
-            alert('Digite sua senha atual para alterar o e-mail ou a senha.'); return;
-        }
-        if (newPassword && newPassword.length < MIN_PASSWORD_LENGTH) {
-            alert('A nova senha deve ter pelo menos 10 caracteres, com letras e números.'); return;
-        }
-
-        const registeredUsers = getCachedRegisteredUsers();
-        const userRecord = findCachedUserByUsername(registeredUsers, editUsername);
-        const fields = {
-            email: newEmail,
-            color: newColor,
-            avatar: newAvatar,
-            banner: newBanner
-        };
-
-        if (userRecord) {
-            userRecord.email = newEmail;
-            userRecord.color = newColor;
-            userRecord.avatar = newAvatar;
-            userRecord.banner = newBanner;
-            
-            const editTitleSelect = document.getElementById('edit-profile-active-title');
-            if (isFelipe(userRecord) && editTitleSelect) {
-                userRecord.activeTitle = editTitleSelect.value;
-                fields.activeTitle = editTitleSelect.value;
-            }
-            
-            storeRegisteredUsers(registeredUsers);
-        }
-
-        try {
-            const response = await fetch(API_BASE_URL + '/api/patch-user', {
-                method: 'POST',
-                headers: authHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({ username: editUsername, fields, currentPassword })
-            });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok || !data.success) {
-                alert(data.error || 'Nao foi possivel salvar seu perfil. Entre novamente e tente outra vez.');
-                return;
-            }
-            if (data.registeredUsers) storeRegisteredUsers(data.registeredUsers);
-            if (data.user && data.user.username) {
-                setAuthSession(data.user.username);
-            }
-        } catch (err) {
-            console.error('Profile update failed:', err);
-            alert('Nao foi possivel salvar seu perfil agora. Tente novamente em instantes.');
-            return;
-        }
-
-        if (newPassword) {
-            const passwordResp = await fetch(API_BASE_URL + '/api/account/change-password', {
-                method: 'POST',
-                headers: authHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({ password: newPassword, currentPassword })
-            }).catch(() => null);
-            if (!passwordResp || !passwordResp.ok) {
-                alert('Perfil salvo, mas nao foi possivel trocar a senha agora.');
-            } else {
-                if (currentPasswordInput) currentPasswordInput.value = '';
-                if (newPasswordInput) newPasswordInput.value = '';
-            }
-        }
-
-        state.loadLocalSession();
-        await state.syncWithServer();
-        
-        applyUserThemeColor(newColor);
-        closeModal();
-
-        initUI();
-
-        // Show elegant toast
-        const toast = document.createElement('div');
-        toast.className = 'fixed top-6 right-6 z-[9999] flex items-center gap-3 bg-[#121510]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-4 w-80 shadow-[0_20px_50px_rgba(0,0,0,0.8)] animate-[fadeIn_0.3s_ease-out] transition-all duration-500';
-        toast.innerHTML = `
-            <div class="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white text-sm shrink-0">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-            </div>
-            <div class="min-w-0 flex-grow font-sans text-[11px]">
-                <p class="font-bold text-white uppercase tracking-widest text-[9px] mb-0.5">Perfil Atualizado</p>
-                <p class="text-white/70 text-[12px] truncate leading-tight">Sua identidade e capa foram salvas com sucesso!</p>
-            </div>
-        `;
-        document.body.appendChild(toast);
-        setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.transform = 'translateY(-10px)';
-            setTimeout(() => toast.remove(), 500);
-        }, 4000);
     });
 }
 

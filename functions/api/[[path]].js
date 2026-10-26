@@ -1095,19 +1095,28 @@ async function handlePatchUser(request, env) {
         const limited = await enforceRateLimit(request, env, 'email-change', 5, 30 * 60 * 1000, auth.user.username);
         if (limited) return limited;
     }
-    if (Object.hasOwn(safeFields, 'email') && (!sameUsername(auth.user.username, body.username)
-        || !(await verifyPassword(auth.user, body.currentPassword)))) return json({ error: 'Confirme sua senha atual para alterar o e-mail.' }, 403);
+    const changesPassword = Object.hasOwn(body, 'newPassword');
+    if (changesPassword) {
+        const limited = await enforceRateLimit(request, env, 'password-change', 5, 30 * 60 * 1000, auth.user.username);
+        if (limited) return limited;
+        const error = security.passwordChangeError(body.currentPassword, body.newPassword);
+        if (error) return json({ error, code: 'INVALID_PASSWORD' }, 400);
+    }
+    const credentialsChanged = changesPassword || Object.hasOwn(safeFields, 'email');
+    if (credentialsChanged && (!sameUsername(auth.user.username, body.username)
+        || !(await verifyPassword(auth.user, body.currentPassword)))) return json({ error: 'Senha atual incorreta. Confira e tente novamente.', code: 'REAUTH_REQUIRED' }, 403);
+    if (changesPassword) await setPassword(state.registeredUsers[index], body.newPassword);
     Object.assign(state.registeredUsers[index], safeFields);
     Object.keys(safeFields).forEach(field => {
         if (safeFields[field] === null) delete state.registeredUsers[index][field];
     });
     await writeState(env, state);
     let cookieHeaders = {};
-    if (Object.hasOwn(safeFields, 'email')) {
+    if (credentialsChanged) {
         await sessionStore.revokeUser(env, auth.user.username);
         cookieHeaders = { 'Set-Cookie': security.sessionCookie(await createSession(env, state.registeredUsers[index])) };
     }
-    return json({ success: true, user: sanitizeUser(state.registeredUsers[index], auth.user.username), registeredUsers: sanitizeState(state, auth.user.username).registeredUsers }, 200, cookieHeaders);
+    return json({ success: true, credentialsChanged, user: sanitizeUser(state.registeredUsers[index], auth.user.username), registeredUsers: sanitizeState(state, auth.user.username).registeredUsers }, 200, cookieHeaders);
 }
 
 async function handleSyncState(request, env) {
@@ -1396,6 +1405,9 @@ async function handleForcedChangePassword(request, env) {
         throw err;
     }
     if (!oldPasswordValid) return json({ error: 'Credenciais inválidas.' }, 401);
+    if (!user.passwordResetRequired) return json({ error: 'Entre na sua conta para trocar a senha pelo perfil.', code: 'PASSWORD_RESET_NOT_REQUIRED' }, 409);
+    const changeError = security.passwordChangeError(body.oldPassword, body.newPassword);
+    if (changeError) return json({ error: changeError, code: 'INVALID_PASSWORD' }, 400);
     await setPassword(user, body.newPassword);
     user.passwordResetRequired = false;
     await writeState(env, state);
@@ -1408,7 +1420,7 @@ async function handleChangePassword(request, env) {
     if (!body || !body.password) {
         return json({ error: 'Nova senha obrigatoria.' }, 400);
     }
-    const passwordError = passwordPolicyError(body.password);
+    const passwordError = security.passwordChangeError(body.currentPassword, body.password);
     if (passwordError) return json({ error: passwordError }, 400);
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);

@@ -105,6 +105,8 @@ test('Node login accepts Cloudflare hashes and correctly exposes the forced rese
     const blocked = await send('/api/login', { identifier: 'Ana', password: ' CloudflareFixture123 ' });
     assert.equal(blocked.status, 426);
     assert.equal((await blocked.json()).code, 'PASSWORD_RESET_REQUIRED');
+    const reused = await send('/api/account/change-password-forced', { email: 'Ana', oldPassword: ' CloudflareFixture123 ', newPassword: ' CloudflareFixture123 ' });
+    assert.equal(reused.status, 400);
     const reset = await send('/api/account/change-password-forced', { email: 'Ana', oldPassword: ' CloudflareFixture123 ', newPassword: ' ReplacementFixture123 ' });
     assert.equal(reset.status, 200);
     const login = await send('/api/login', { identifier: 'Ana', password: ' ReplacementFixture123 ' });

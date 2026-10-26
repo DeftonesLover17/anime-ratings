@@ -77,6 +77,10 @@ function passwordPolicyError(password) {
     return '';
 }
 
+function passwordChangeError(currentPassword, newPassword) {
+    return passwordPolicyError(newPassword) || (currentPassword === newPassword ? 'A nova senha deve ser diferente da senha atual.' : '');
+}
+
 function mutationPolicy(
     { method, origin, contentType, fetchSite, authorization },
     allowedOrigins
@@ -222,6 +226,7 @@ module.exports = {
     SESSION_ABSOLUTE_MS,
     MAX_JSON_BYTES,
     passwordPolicyError,
+    passwordChangeError,
     mutationPolicy,
     readJson,
     profilePatch,

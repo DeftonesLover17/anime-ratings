@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-    <script src="assets/ui.887db2b62835.js"></script>
+    <script src="assets/ui.e050f03b244d.js"></script>
     <title>ANIVØID | Season Ratings</title>
     <!-- Favicon / Logo -->
     <link rel="icon" type="image/png" href="favicon.png">
     <!-- EmailJS SDK for real email delivery (optional) -->
     <script defer src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <link rel="stylesheet" href="assets/tailwind.62372b6d27ae.css">
+    <link rel="stylesheet" href="assets/tailwind.49e0144b1f33.css">
     <!-- Iconify Icons CDN -->
     <script defer src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
     <!-- GSAP 3 & ScrollTrigger (Awwwards Creative Motion) -->
@@ -26,7 +26,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syncopate:wght@700&family=Syne:wght@800&family=Lexend+Tera:wght@900&display=swap" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="assets/styles.e34668cfeb55.css">
+    <link rel="stylesheet" href="assets/styles.2ba71387968b.css">
     
     <meta name="theme-color" content="#050505">
     <script>
@@ -1105,12 +1105,19 @@
                                 <div class="av-security-content">
                                     <div class="av-studio-fields-grid">
                                         <div class="av-field-box">
-                                            <input type="password" id="edit-profile-current-password" autocomplete="current-password" placeholder="Senha atual" spellcheck="false" autocorrect="off" autocapitalize="off" data-lpignore="true" class="av-input">
+                                            <label for="edit-profile-current-password" class="av-field-label">Senha atual</label>
+                                            <input name="current-password" maxlength="256" type="password" id="edit-profile-current-password" autocomplete="current-password" placeholder="Senha atual" spellcheck="false" autocorrect="off" autocapitalize="off" data-lpignore="true" class="av-input">
                                         </div>
                                         <div class="av-field-box">
-                                            <input type="password" id="edit-profile-new-password" autocomplete="new-password" placeholder="Nova senha (mínimo 10 caracteres)" spellcheck="false" autocorrect="off" autocapitalize="off" data-lpignore="true" class="av-input">
+                                            <label for="edit-profile-new-password" class="av-field-label">Nova senha</label>
+                                            <input name="new-password" maxlength="256" type="password" id="edit-profile-new-password" autocomplete="new-password" placeholder="Nova senha (mínimo 10 caracteres)" spellcheck="false" autocorrect="off" autocapitalize="off" data-lpignore="true" class="av-input">
                                         </div>
                                     </div>
+                                    <div class="av-field-box av-password-confirm">
+                                        <label for="edit-profile-confirm-password" class="av-field-label">Confirme a nova senha</label>
+                                        <input type="password" id="edit-profile-confirm-password" name="confirm-password" autocomplete="new-password" maxlength="256" placeholder="Repita a nova senha" class="av-input" aria-describedby="edit-profile-password-help">
+                                    </div>
+                                    <p id="edit-profile-password-help" class="av-password-help">Use de 10 a 256 caracteres, com letras e números. Espaços fazem parte da senha.</p>
                                     <div class="av-security-actions">
                                         <button type="button" id="edit-profile-signout-all" class="av-button av-button-outline av-btn-danger">
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
@@ -1120,6 +1127,8 @@
                                 </div>
                             </details>
                         </div>
+
+                        <p id="edit-profile-status" class="av-login-status" role="status" aria-live="polite" tabindex="-1" hidden></p>
 
                         <!-- Footer Actions -->
                         <div class="av-studio-footer-actions">
@@ -1526,6 +1535,6 @@
 
     <!-- Scripts Integration -->
     <script src="assets/sync-state.a90666d9f92c.js"></script>
-    <script src="assets/app.0a4d0505dca0.js"></script>
+    <script src="assets/app.f2f4d3f6bd85.js"></script>
 </body>
 </html>

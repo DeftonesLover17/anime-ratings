@@ -120,7 +120,8 @@ function createAccountRoutes({
                         'INVALID_CREDENTIALS',
                         'Credenciais inválidas.'
                     );
-                const error = policy.passwordPolicyError(input.newPassword);
+                if (!user.passwordResetRequired) throw new policy.SecurityError(409, 'PASSWORD_RESET_NOT_REQUIRED', 'Entre na sua conta para trocar a senha pelo perfil.');
+                const error = policy.passwordChangeError(input.oldPassword, input.newPassword);
                 if (error)
                     throw new policy.SecurityError(
                         400,
@@ -183,7 +184,7 @@ function createAccountRoutes({
                         'REAUTH_REQUIRED',
                         'Senha atual incorreta.'
                     );
-                const error = policy.passwordPolicyError(input.password);
+                const error = policy.passwordChangeError(input.currentPassword, input.password);
                 if (error)
                     throw new policy.SecurityError(
                         400,
@@ -223,25 +224,26 @@ function createAccountRoutes({
                 )
             )
                 return true;
-            if (
-                Object.hasOwn(patch, 'email') &&
-                !verifyPassword(user, input.currentPassword)
-            )
-                throw new policy.SecurityError(
-                    403,
-                    'REAUTH_REQUIRED',
-                    'Confirme sua senha atual para alterar o e-mail.'
-                );
+            const changesPassword = Object.hasOwn(input, 'newPassword');
+            if (changesPassword) {
+                if (enforceRateLimit(req, res, 'password-change', 5, 30 * 60 * 1000, user.username)) return true;
+                const error = policy.passwordChangeError(input.currentPassword, input.newPassword);
+                if (error) throw new policy.SecurityError(400, 'INVALID_PASSWORD', error);
+            }
+            const credentialsChanged = changesPassword || Object.hasOwn(patch, 'email');
+            if (credentialsChanged && !verifyPassword(user, input.currentPassword)) throw new policy.SecurityError(403, 'REAUTH_REQUIRED', 'Senha atual incorreta. Confira e tente novamente.');
+            if (changesPassword) setPassword(user, input.newPassword);
             Object.assign(user, patch);
             for (const key of Object.keys(patch))
                 if (patch[key] === null) delete user[key];
             await save(state);
-            if (Object.hasOwn(patch, 'email')) {
+            if (credentialsChanged) {
                 sessionStore.revokeUser(user.username);
                 sessionStore.create(user, res);
             }
             sendJson(res, 200, {
                 success: true,
+                credentialsChanged,
                 user: sanitizeUser(user, user.username),
                 registeredUsers: sanitizeState(state, user.username)
                     .registeredUsers

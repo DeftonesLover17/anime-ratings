@@ -296,8 +296,11 @@ test('password changes require server reauthentication and rotate every old sess
 });
 
 test('forced password change and signout-all revoke server sessions', async (t) => {
-    const { send, login } = await fixture(t),
+    const { send, login, env } = await fixture(t),
         old = await login();
+    const resettingState = await api.readState(env);
+    resettingState.registeredUsers.find(user => user.username === 'Ana').passwordResetRequired = true;
+    await api.writeState(env, resettingState);
     assert.equal(
         (
             await send('/api/account/change-password-forced', {
