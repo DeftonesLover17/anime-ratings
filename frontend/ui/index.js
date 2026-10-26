@@ -12,6 +12,10 @@ const { bindLoginForm } = require('../account/login-form');
 const { createWelcomeEmail } = require('../account/welcome-email');
 const { installDomActions } = require('../security/dom-actions');
 
+const profiles = require('../profiles/model');
+const { createProfileDialogs } = require('../profiles/dialog');
+const { createApiFetch } = require('../security/api-client');
+
 const theme = createThemeController(window);
 const motion = createMotionController(window);
 const account = createAccountDrawer(window, motion);
@@ -22,6 +26,9 @@ const login = createLoginClient(window, { baseUrl: window.ANIVOID_API_BASE_URL |
 // The legacy screen renderer has one explicit bridge; new modules stay independent of it.
 window.AnivoidUI = {
     ...ratings,
+    profiles,
+    profileDialogs: createProfileDialogs(window),
+    createApiFetch,
     imageUrl,
     studioMetadata,
     account,

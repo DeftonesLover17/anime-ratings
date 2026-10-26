@@ -35,6 +35,8 @@ npm start
 | `frontend/account/email-config.js` | Identificadores públicos do serviço/template EmailJS; não contém senha Gmail ou chave privada. |
 | `emails/welcome.html` | Fonte única do e-mail responsivo, instalada no EmailJS e usada na prévia local. |
 | `scripts/preview-welcome.cjs` | Prévia isolada em loopback; não envia e-mails. |
+| `frontend/profiles/` | Modelo defensivo de perfis e estatísticas, foco e fechamento interrompível das janelas de perfil/amigos. |
+| `frontend/security/api-client.js` | Deduplicação de leituras simultâneas e respeito a Retry-After, sem repetir mutações. |
 | `frontend/security/dom-actions.js` | Eventos delegados que substituem handlers HTML inline sob CSP restrita. |
 | `frontend/shared/dom.js` | Escape de texto, URLs de mídia e pequenos elementos realmente compartilhados. |
 | `frontend/shared/catalog-media.js` | Substituições de pôsteres do catálogo por arquivos locais, preservando os dados e as avaliações. |
@@ -47,6 +49,8 @@ npm start
 | `functions/api/[[path]].js` | API de produção para Cloudflare Pages/D1. |
 | `server.js` | API alternativa Node, com armazenamento em arquivo ou Postgres. |
 | `shared/security/` | Identidade, unicidade, autorização, política de senha, origem, limites JSON e campos editáveis. |
+| `shared/security/rate-limits.js` | Orçamentos da API e limitador Node com memória limitada. |
+| `backend/cloudflare/rate-limit.js` | Contadores atômicos D1 e cache limitado de bloqueios já confirmados. |
 | `backend/cloudflare/` | Persistência D1 das sessões e provas de e-mail; tokens armazenados como hash. |
 | `backend/node/` | Adaptadores de sessão, e-mail e operações de conta do servidor Node. |
 | `backend/security/email-verification.js` | Emissão, expiração e consumo de provas reais de posse do e-mail. |

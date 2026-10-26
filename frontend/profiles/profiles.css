@@ -1,0 +1,11 @@
+/* Preserve the editorial profile while allowing long member names to wrap. */
+.av-player-unavailable { padding: clamp(24px, 5vw, 64px); }
+.av-player-unavailable h2 { font: 600 clamp(24px, 4vw, 36px)/1.2 var(--av-display); }
+.av-player-unavailable p { color: var(--av-muted); margin: 20px 0; max-width: 48ch; }
+.av-player-unavailable button { border: 1px solid var(--av-line); padding: 12px 20px; border-radius: 100px; }
+#player-profile-modal button:focus-visible,
+#add-friend-modal button:focus-visible { outline: 2px solid var(--av-accent, #ff7957); outline-offset: 4px; }
+@media (max-width: 520px) {
+    #add-friend-modal .av-friend-card { flex-wrap: wrap; }
+    #add-friend-modal .av-friend-actions { width: 100%; justify-content: flex-end; }
+}

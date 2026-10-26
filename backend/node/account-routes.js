@@ -1,4 +1,5 @@
 const policy = require('../../shared/security/policy');
+const { API_LIMITS } = require('../../shared/security/rate-limits');
 const identity = require('../../shared/security/identity');
 const { createEmailVerification } = require('../security/email-verification');
 const { createMemoryEmailStore } = require('./email-store');
@@ -135,6 +136,7 @@ function createAccountRoutes({
                 return true;
             }
             const user = sessionStore.authenticate(req, state);
+            if (user && enforceRateLimit(req, res, 'account', API_LIMITS.account.max, API_LIMITS.account.windowMs, user.accountId || user.username)) return;
             if (!user)
                 throw new policy.SecurityError(
                     401,

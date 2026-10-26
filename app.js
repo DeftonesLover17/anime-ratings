@@ -1,39 +1,7 @@
 const DEFAULT_AVATAR_SVG = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjI1KSI+PHBhdGggZD0iTTEyIDEyYTUgNSAwIDEgMCAwLTEwIDUgNSAwIDAgMCAwIDEwek0xMiAxNGMtMy43MyAwLTExIDEuODYtMTEgNS41VjIwSDIzdi0xYy0xLjEtMy42NC03LjI3LTUuNS0xMS01LjV6Ii8+PC9zdmc+';
 
-// --- DEVTOOLS & CONSOLE SECURITY DEFENSE (ANTI-SELF-XSS) ---
-(function installDevToolsSecurityBanner() {
-    if (typeof window === 'undefined' || typeof console === 'undefined') return;
-    try {
-        const titleStyle = 'color: #ff3b30; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 24px; font-weight: 900; -webkit-text-stroke: 1px black; text-shadow: 0 0 10px rgba(255,59,48,0.4);';
-        const warnBadgeStyle = 'background: #ff3b30; color: #ffffff; font-family: monospace; font-size: 11px; font-weight: bold; padding: 3px 8px; border-radius: 4px;';
-        const bodyStyle = 'color: #e5e7eb; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; line-height: 1.6; font-weight: 500;';
-        const alertBoxStyle = 'color: #fbbf24; font-family: monospace; font-size: 12px; background: rgba(251,191,36,0.08); padding: 6px 12px; border-left: 3px solid #fbbf24; border-radius: 4px; margin: 4px 0;';
-        const tipStyle = 'color: #9ca3af; font-family: monospace; font-size: 11px;';
-
-        console.log('%c🛑 ÁREA DE SEGURANÇA DO ANIVOID %cDEVTOOLS', titleStyle, warnBadgeStyle);
-        console.log(
-            '%cATENÇÃO: Esta é uma ferramenta técnica de depuração do navegador destinada exclusivamente a desenvolvedores.\n\n' +
-            'Se alguém instruiu você a copiar e colar qualquer código ou script aqui prometendo "acesso de admin", "desbloquear títulos" ou "ver notas secretas", NÃO FAÇA ISSO.\n' +
-            'Trata-se de um ataque conhecido como Self-XSS (Scam) para comprometer sua sessão e seus dados.',
-            bodyStyle
-        );
-        console.log('%c🔒 Defesa Ativa: Sessões criptografadas com cookies HttpOnly, isolamento de escopo e proteção anti-tampering.', alertBoxStyle);
-        console.log('%cSaiba mais sobre segurança web em https://owasp.org/www-community/attacks/xss/#self-xss', tipStyle);
-    } catch (_) {}
-})();
-
-// --- CLICKJACKING & IFRAME ISOLATION DEFENSE ---
-(function enforceFrameIsolation() {
-    if (typeof window === 'undefined') return;
-    try {
-        if (window.top !== window.self) {
-            window.top.location = window.self.location;
-        }
-    } catch (_) {
-        try { document.documentElement.style.display = 'none'; window.top.location = window.location; } catch (__) {}
-    }
-})();
-
+// DevTools cannot enforce authorization. Permissions and cookie policy live on the server.
+console.info('ANIVØID: não cole no console códigos enviados por outras pessoas. Eles podem agir usando a sua sessão.');
 
 (function installAvatarImageFallback() {
     if (typeof document === 'undefined' || window.__anivoidAvatarFallbackInstalled) return;
@@ -965,16 +933,7 @@ function isAniVoidApiRequest(input) {
     }
 }
 
-window.fetch = function(input, init) {
-    if (!isAniVoidApiRequest(input)) {
-        return originalFetch.call(this, input, init);
-    }
-
-    return originalFetch.call(this, input, {
-        ...(init || {}),
-        credentials: 'include'
-    });
-};
+window.fetch = window.AnivoidUI.createApiFetch(window, originalFetch.bind(window), { origin: ANIVOID_API_ORIGIN });
 const AUTH_TOKEN_KEY = 'anivoid_auth_token';
 const MIN_PASSWORD_LENGTH = 10;
 
@@ -2798,14 +2757,14 @@ function escapeHtml(value) {
 function getRegisteredUsersSafe() {
     try {
         const users = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
-        return Array.isArray(users) ? users.map(stripSensitiveUserFields) : [];
+        return Array.isArray(users) ? users.filter(user => user && typeof user.username === 'string').map(stripSensitiveUserFields) : [];
     } catch (err) {
         return [];
     }
 }
 
 function getLoggedInProfileId() {
-    return normalizeProfileId(state.loggedInUser || localStorage.getItem('anivoid_logged_in_username') || '');
+    return normalizeProfileId(state.loggedInUser || '');
 }
 
 function findRegisteredUserById(profileId) {
@@ -2851,35 +2810,7 @@ function recommendationTieBreak(profileId, animeId) {
 }
 
 function getProfileDisplayUser(profileId = state.currentFriendId) {
-    const cleanId = normalizeProfileId(profileId);
-    const friend = (state.friends || []).find(item => item && item.id === cleanId);
-    const registered = findRegisteredUserById(cleanId);
-    if (friend || registered) {
-        return {
-            id: cleanId,
-            username: registered?.username || friend?.name?.replace(' (Voce)', '').replace(' (Voc\u00ea)', '') || cleanId || 'Usu\u00e1rio',
-            name: friend?.name || registered?.username || cleanId || 'Usuario',
-            avatar: registered?.avatar || friend?.avatar || DEFAULT_AVATAR_SVG,
-            banner: registered?.banner || friend?.banner || '',
-            color: registered?.color || friend?.color || '#FF4500',
-            emailVerified: Boolean(registered?.emailVerified || friend?.emailVerified),
-            favoriteGenres: registered?.favoriteGenres || friend?.favoriteGenres || [],
-            favoriteStudios: registered?.favoriteStudios || friend?.favoriteStudios || [],
-            favoriteAnimes: registered?.favoriteAnimes || friend?.favoriteAnimes || [],
-            activeTitle: registered?.activeTitle || friend?.activeTitle || 'admin',
-            memberNumber: registered?.memberNumber || friend?.memberNumber
-        };
-    }
-    return {
-        id: cleanId,
-        username: cleanId || 'Usuario',
-        name: cleanId || 'Usuario',
-        avatar: DEFAULT_AVATAR_SVG,
-        color: '#FF4500',
-        favoriteGenres: [],
-        favoriteStudios: [],
-        favoriteAnimes: []
-    };
+    return window.AnivoidUI.profiles.displayUser(profileId, getRegisteredUsersSafe(), DEFAULT_AVATAR_SVG);
 }
 
 function avatarMarkup(user, sizeClass = 'w-14 h-14', fallbackText = '') {
@@ -2892,85 +2823,7 @@ function avatarMarkup(user, sizeClass = 'w-14 h-14', fallbackText = '') {
 }
 
 function getProfileStats(profileId = state.currentFriendId) {
-    const userId = normalizeProfileId(profileId);
-    const statusCounts = { Watching: 0, Completed: 0, 'On Hold': 0, Dropped: 0, 'Plan to Watch': 0 };
-    const genreScores = {};
-    const studioScores = {};
-    const ratedAnime = [];
-    let totalEpisodes = 0;
-    let ratingSum = 0;
-    let ratingCount = 0;
-    let commentsCount = 0;
-    let repliesCount = 0;
-
-    (state.animes || []).forEach(anime => {
-        const rating = anime?.ratings?.[userId];
-        if (rating) {
-            const status = rating.status || 'Plan to Watch';
-            statusCounts[status] = (statusCounts[status] || 0) + 1;
-            totalEpisodes += Number(rating.episodesWatched) || 0;
-            const overall = parseFloat(rating.overall);
-            if (!isNaN(overall) && overall > 0) {
-                ratingSum += overall;
-                ratingCount++;
-                ratedAnime.push({ anime, rating, overall });
-                (anime.genres || []).forEach(genre => {
-                    if (!genreScores[genre]) genreScores[genre] = { sum: 0, count: 0 };
-                    genreScores[genre].sum += overall;
-                    genreScores[genre].count++;
-                });
-                const studio = anime.studio || 'Desconhecido';
-                if (!studioScores[studio]) studioScores[studio] = { sum: 0, count: 0 };
-                studioScores[studio].sum += overall;
-                studioScores[studio].count++;
-            }
-        }
-
-        (anime.comments || []).forEach(comment => {
-            if (normalizeProfileId(comment.friendId) === userId) commentsCount++;
-            (comment.replies || []).forEach(reply => {
-                if (normalizeProfileId(reply.friendId) === userId) repliesCount++;
-            });
-        });
-    });
-
-    const topAnime = ratedAnime.sort((a, b) => b.overall - a.overall).slice(0, 5);
-    const topGenres = Object.entries(genreScores)
-        .map(([name, data]) => ({ name, avg: data.sum / data.count, count: data.count }))
-        .sort((a, b) => b.avg - a.avg || b.count - a.count)
-        .slice(0, 5);
-    const topStudios = Object.entries(studioScores)
-        .map(([name, data]) => ({ name, avg: data.sum / data.count, count: data.count }))
-        .sort((a, b) => b.avg - a.avg || b.count - a.count)
-        .slice(0, 5);
-    const recentActivities = (state.activities || [])
-        .filter(activity => normalizeProfileId(activity.username) === userId)
-        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-        .slice(0, 5);
-
-    const avgScore = ratingCount > 0 ? ratingSum / ratingCount : 0;
-    const xp = Math.round(totalEpisodes * 18 + ratingCount * 75 + commentsCount * 120 + repliesCount * 45 + statusCounts.Completed * 95);
-    const level = Math.max(1, Math.floor(Math.sqrt(Math.max(1, xp)) / 3));
-    const nextLevelXp = Math.pow((level + 1) * 3, 2);
-    const currentLevelXp = Math.pow(level * 3, 2);
-    const levelProgress = Math.max(5, Math.min(100, ((xp - currentLevelXp) / Math.max(1, nextLevelXp - currentLevelXp)) * 100));
-
-    return {
-        userId,
-        avgScore,
-        totalEpisodes,
-        ratingCount,
-        commentsCount,
-        repliesCount,
-        statusCounts,
-        topAnime,
-        topGenres,
-        topStudios,
-        recentActivities,
-        xp,
-        level,
-        levelProgress
-    };
+    return window.AnivoidUI.profiles.profileStats(profileId, state.animes, state.activities);
 }
 
 function getProfileRank(stats) {
@@ -3695,26 +3548,9 @@ function importBackupData(file) {
     reader.readAsText(file);
 }
 
-function closePlayerProfileModal() {
+function closePlayerProfileModal(options) {
     const modal = document.getElementById('player-profile-modal');
-    if (!modal || modal.classList.contains('hidden') || modal.classList.contains('is-closing')) return;
-
-    if (window.lenisStart) window.lenisStart();
-
-    const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReducedMotion) {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        document.body.classList.remove('overflow-hidden');
-        return;
-    }
-
-    modal.classList.add('is-closing');
-    setTimeout(() => {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex', 'is-closing');
-        document.body.classList.remove('overflow-hidden');
-    }, 220);
+    if (modal) window.AnivoidUI.profileDialogs.close(modal, options);
 }
 window.closePlayerProfileModal = closePlayerProfileModal;
 
@@ -3723,15 +3559,21 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
     const content = document.getElementById('player-profile-content');
     if (!modal || !content) return;
     const user = getProfileDisplayUser(profileId);
+    if (!user.available) {
+        content.innerHTML = '<div class="av-player-unavailable"><h2>Perfil indisponível</h2><p>Este membro pode ter saído do coletivo. Atualize a lista de amigos e tente novamente.</p><button type="button">Fechar perfil</button></div>';
+        content.querySelector('button').addEventListener('click', () => closePlayerProfileModal());
+        window.AnivoidUI.profileDialogs.open(modal);
+        return;
+    }
     const stats = getProfileStats(user.id);
     const badges = getUserBadgesHtml({ ...user, username: user.username, name: user.username });
     const scoreColor = getScoreColor(stats.avgScore);
     const completed = stats.statusCounts.Completed || 0;
     const watching = stats.statusCounts.Watching || 0;
-    const completionRate = stats.ratingCount > 0 ? Math.round((completed / stats.ratingCount) * 100) : 0;
+    const completionRate = stats.completionRate;
 
     const bannerUrl = user.banner || 'covers/cyberpunk-edgerunners-2.jpg';
-    const bannerStyle = `background-image: linear-gradient(180deg, rgba(8,9,10,0.3) 0%, rgba(8,9,10,0.85) 60%, rgba(12,13,16,1) 100%), url('${escapeHtml(bannerUrl)}'); background-size: cover; background-position: center;`;
+
 
     // Achievement cards
     const achievementCards = [
@@ -3743,7 +3585,7 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
         },
         { 
             label: 'Crítico', 
-            value: `${stats.ratingCount} avaliações`, 
+            value: `${stats.ratingCount} ${stats.ratingCount === 1 ? 'avaliação' : 'avaliações'}`,
             active: stats.ratingCount >= 10,
             icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
         },
@@ -3851,7 +3693,7 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
     content.innerHTML = `
         <!-- HERO SECTION (Cinematic Banner & Profile Identity) -->
         <div class="av-player-hero av-player-stagger-1" style="--profile-accent:${user.color}">
-            <div class="av-player-hero-banner" style="${bannerStyle}">
+            <div class="av-player-hero-banner" >
                 <div class="av-player-hero-tint"></div>
                 <button type="button" id="close-player-profile" class="av-stats-close-btn av-player-close-btn" aria-label="Fechar perfil">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3883,7 +3725,7 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
                         </span>
                         <span class="av-player-chip">
                             <span class="av-chip-label">Catálogo</span>
-                            <b class="text-white">${stats.ratingCount} títulos</b>
+                            <b class="text-white">${stats.trackedCount} ${stats.trackedCount === 1 ? 'título' : 'títulos'}</b>
                         </span>
                         <span class="av-player-chip">
                             <span class="av-chip-label">Total Assistido</span>
@@ -4058,6 +3900,12 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
         </div>
     `;
 
+    // Set media through the CSSOM, never by interpolating untrusted CSS into HTML.
+    const banner = content.querySelector('.av-player-hero-banner');
+    if (banner) {
+        banner.style.backgroundImage = `linear-gradient(180deg, rgba(8,9,10,.3), rgba(12,13,16,1)), url(${JSON.stringify(bannerUrl)})`;
+        banner.style.backgroundSize = 'cover'; banner.style.backgroundPosition = 'center';
+    }
     // Modal listeners
     const closeModal = () => {
         closePlayerProfileModal();
@@ -4068,7 +3916,7 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
     content.querySelectorAll('[data-anime-id]').forEach(item => {
         item.addEventListener('click', () => {
             const id = item.dataset.animeId;
-            closeModal();
+            closePlayerProfileModal({ immediate: true, restoreFocus: false });
             if (id) openAnimeDetail(id);
         });
     });
@@ -4076,7 +3924,7 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
     content.querySelectorAll('[data-studio]').forEach(item => {
         item.addEventListener('click', () => {
             const studio = item.dataset.studio;
-            closeModal();
+            closePlayerProfileModal({ immediate: true, restoreFocus: false });
             if (studio) window.switchTabToStudio(studio);
         });
     });
@@ -4091,23 +3939,7 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
         });
     }
 
-    // Escape key listener
-    if (!modal.dataset.profileEscapeHooked) {
-        modal.dataset.profileEscapeHooked = 'true';
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
-                closeModal();
-            }
-        });
-    }
-
-    // Open modal with entrance animation
-    modal.classList.remove('hidden', 'is-closing');
-    modal.classList.add('flex');
-    document.body.classList.add('overflow-hidden');
-    if (window.lenisStop) window.lenisStop();
-    const shell = modal.querySelector('.av-player-modal-shell');
-    if (shell) shell.scrollTop = 0;
+    window.AnivoidUI.profileDialogs.open(modal);
 }
 
 function setupUtilityModals() {
@@ -4788,26 +4620,17 @@ function initUI() {
     const closeAddFriendBtn = document.getElementById('close-add-friend');
     const logoutBtn = document.getElementById('logout-btn');
 
-    function closeAddFriendModal() {
-        if (!addFriendModal || addFriendModal.classList.contains('hidden') || addFriendModal.classList.contains('is-closing')) return;
-        if (window.lenisStart) window.lenisStart();
-        addFriendModal.classList.add('is-closing');
-        setTimeout(() => {
-            addFriendModal.classList.remove('is-closing');
-            addFriendModal.classList.add('hidden');
-            addFriendModal.classList.remove('flex');
-        }, 220);
+    function closeAddFriendModal(options) {
+        if (addFriendModal) window.AnivoidUI.profileDialogs.close(addFriendModal, options);
     }
     window.closeAddFriendModal = closeAddFriendModal;
 
     if (openAddFriendBtn && addFriendModal) {
         bindElementOnce(openAddFriendBtn, 'openAddFriend', 'click', async () => {
-            if (window.lenisStop) window.lenisStop();
-            addFriendModal.classList.remove('hidden');
-            addFriendModal.classList.add('flex');
+            window.AnivoidUI.profileDialogs.open(addFriendModal);
             renderCentralDeAmigos();
-            const refreshed = await refreshRegisteredUsersFromServer({ force: true });
-            if (refreshed) renderCentralDeAmigos();
+            const refreshed = await refreshRegisteredUsersFromServer();
+            if (refreshed && !addFriendModal.classList.contains('hidden')) renderCentralDeAmigos();
         });
     }
     if (logoutBtn && !logoutBtn.dataset.listenerHooked) {
@@ -9271,7 +9094,7 @@ function renderSentRequests() {
         item.className = 'av-friend-request-card is-outgoing';
         const avatarHtml = target.avatar && (target.avatar.startsWith('data:') || target.avatar.startsWith('http'))
             ? `<img src="${escapeHtml(target.avatar)}" class="w-full h-full object-cover" alt="">`
-            : `<span>${target.avatar || '👤'}</span>`;
+            : `<span>${escapeHtml(target.avatar || '👤')}</span>`;
         item.innerHTML = `
             <div class="av-friend-card-main">
                 <div class="av-friend-avatar-wrap">
@@ -9303,18 +9126,15 @@ function renderModalFriendsList() {
     const container = document.getElementById('modal-friends-list');
     if (!container) return;
 
-    let registeredUsers = [];
-    try {
-        registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
-    } catch (err) {}
+    const registeredUsers = getRegisteredUsersSafe();
 
-    const loggedInUsername = localStorage.getItem('anivoid_logged_in_username') || '';
+    const loggedInUsername = state.loggedInUser || '';
     if (!loggedInUsername) {
         container.innerHTML = `<p class="text-gray-500 italic text-[11px] py-4 text-center w-full">Faça login para ver seus amigos.</p>`;
         return;
     }
 
-    const curUser = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === loggedInUsername.toLowerCase());
+    const curUser = registeredUsers.find(u => typeof u?.username === 'string' && u.username.toLowerCase() === loggedInUsername.toLowerCase());
     if (!curUser || !curUser.friends || curUser.friends.length === 0) {
         container.innerHTML = `
             <div class="av-friends-empty">
@@ -9350,9 +9170,9 @@ function renderModalFriendsList() {
 
     container.innerHTML = '';
 
-    curUser.friends.forEach(fUsername => {
-        const friend = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === fUsername.toLowerCase());
-        if (!friend) return;
+    (Array.isArray(curUser.friends) ? curUser.friends : []).filter(name => typeof name === 'string').forEach(fUsername => {
+        const friend = window.AnivoidUI.profiles.displayUser(fUsername, registeredUsers, DEFAULT_AVATAR_SVG);
+        if (!friend.available) return;
 
         const item = document.createElement('div');
         const isFriendAdmin = friend.username && friend.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
@@ -9361,20 +9181,20 @@ function renderModalFriendsList() {
         
         const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
             ? `<img src="${escapeHtml(friend.avatar)}" class="w-full h-full object-cover" alt="">`
-            : `<span>${friend.avatar || '👤'}</span>`;
+            : `<span>${escapeHtml(friend.avatar || '👤')}</span>`;
 
         item.innerHTML = `
             <div class="av-friend-card-main">
                 <div class="av-friend-avatar-wrap">
                     ${avatarHtml}
-                    <span class="av-friend-online-dot"></span>
+
                 </div>
                 <div class="av-friend-info">
                     <div class="av-friend-name-row">
                         <span class="av-friend-name">${escapeHtml(friend.username)}</span>
                         ${adminBadge}
                     </div>
-                    <span class="av-friend-sub">${escapeHtml(friend.email || 'Membro do Coletivo')}</span>
+                    <span class="av-friend-sub">Membro do Coletivo</span>
                 </div>
             </div>
             <div class="av-friend-actions">
@@ -9392,140 +9212,10 @@ function renderModalFriendsList() {
         const viewProfileBtn = item.querySelector('.av-friend-view-profile-btn');
         if (viewProfileBtn) {
             viewProfileBtn.addEventListener('click', () => {
-                if (window.closeAddFriendModal) window.closeAddFriendModal();
-                const playerModal = document.getElementById('player-profile-modal');
-                if (playerModal) {
-                    playerModal.classList.remove('hidden');
-                    playerModal.classList.add('flex');
-                    renderPlayerProfileModal(friend.username);
-                }
+                window.closeAddFriendModal?.({ immediate: true, restoreFocus: false });
+                renderPlayerProfileModal(friend.username);
             });
         }
-
-        item.querySelector('.btn-remove').addEventListener('click', async () => {
-            if (confirm(`Deseja desfazer a amizade com ${friend.username}?`)) {
-                const res = await state.removeFriend(friend.username);
-                if (res.error) {
-                    alert(res.error);
-                } else {
-                    state.save();
-                    renderCentralDeAmigos();
-                }
-            }
-        });
-
-        container.appendChild(item);
-    });
-}
-
-function renderSentRequests() {
-    const section = document.getElementById('sent-requests-section');
-    const container = document.getElementById('sent-requests-list');
-    if (!section || !container) return;
-
-    let registeredUsers = [];
-    try {
-        registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
-    } catch (err) {}
-
-    const loggedInUsername = localStorage.getItem('anivoid_logged_in_username') || '';
-    if (!loggedInUsername) {
-        section.classList.add('hidden');
-        return;
-    }
-
-    const sent = registeredUsers
-        .filter(user => user && user.username && Array.isArray(user.friendRequests))
-        .filter(user => user.friendRequests.some(req => req && req.from && req.from.toLowerCase() === loggedInUsername.toLowerCase()));
-
-    if (sent.length === 0) {
-        section.classList.add('hidden');
-        container.innerHTML = '';
-        return;
-    }
-
-    section.classList.remove('hidden');
-    container.innerHTML = '';
-
-    sent.forEach(target => {
-        const item = document.createElement('div');
-        item.className = 'flex items-center justify-between p-2.5 bg-amber-500/[0.06] border border-amber-400/15 rounded-2xl gap-3 animate-[fadeIn_0.2s_ease-out]';
-        const avatarHtml = target.avatar && (target.avatar.startsWith('data:') || target.avatar.startsWith('http'))
-            ? `<img src="${target.avatar}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">`
-            : `<span class="text-xl shrink-0">${target.avatar || '&#128100;'}</span>`;
-        item.innerHTML = `
-            <div class="flex items-center gap-2 min-w-0 flex-grow">
-                ${avatarHtml}
-                <div class="min-w-0">
-                    <p class="font-bold text-white text-[11.5px] truncate leading-tight">${escapeHtml(target.username)}</p>
-                    <p class="text-[9px] text-amber-300/80 font-mono font-semibold">Aguardando resposta</p>
-                </div>
-            </div>
-            <button type="button" class="btn-cancel-request px-2.5 py-1.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 rounded-xl text-[9px] font-mono uppercase tracking-wider font-semibold transition-colors shrink-0">
-                Cancelar
-            </button>
-        `;
-        item.querySelector('.btn-cancel-request').addEventListener('click', async () => {
-            const res = await state.cancelFriendRequest(target.username);
-            if (res.error) {
-                alert(res.error);
-                return;
-            }
-            state.save();
-            renderCentralDeAmigos();
-        });
-        container.appendChild(item);
-    });
-}
-
-function renderModalFriendsList() {
-    const container = document.getElementById('modal-friends-list');
-    if (!container) return;
-
-    let registeredUsers = [];
-    try {
-        registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
-    } catch (err) {}
-
-    const loggedInUsername = localStorage.getItem('anivoid_logged_in_username') || '';
-    if (!loggedInUsername) {
-        container.innerHTML = `<p class="text-gray-500 italic text-[11px] py-2 text-center w-full">Faça login para ver seus amigos.</p>`;
-        return;
-    }
-
-    const curUser = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === loggedInUsername.toLowerCase());
-    if (!curUser || !curUser.friends || curUser.friends.length === 0) {
-        container.innerHTML = `<p class="text-gray-500 italic text-[11px] py-4 text-center w-full">Nenhum amigo adicionado ainda. Procure por outros usuários acima!</p>`;
-        return;
-    }
-
-    container.innerHTML = '';
-
-    curUser.friends.forEach(fUsername => {
-        const friend = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === fUsername.toLowerCase());
-        if (!friend) return;
-
-        const item = document.createElement('div');
-        const isFriendAdmin = friend.username && friend.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
-        const adminBadge = getUserBadgesHtml(friend);
-        item.className = `flex items-center justify-between p-2.5 rounded-2xl gap-3 animate-[fadeIn_0.2s_ease-out] ${isFriendAdmin ? 'bg-brand/[0.03] border border-brand/35 shadow-[0_0_12px_rgba(255,69,0,0.08)]' : 'bg-white/5 border border-white/10'}`;
-        
-        const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
-            ? `<img src="${friend.avatar}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">`
-            : `<span class="text-xl shrink-0">${friend.avatar || '👤'}</span>`;
-
-        item.innerHTML = `
-            <div class="flex items-center gap-2 min-w-0 flex-grow">
-                ${avatarHtml}
-                <div class="min-w-0">
-                    <p class="font-bold text-white text-[11.5px] truncate leading-tight">${friend.username}</p>
-                    <p class="text-[9px] text-gray-500 font-mono truncate">${friend.email || ''}</p>
-                </div>
-            </div>
-            <button type="button" class="btn-remove px-2.5 py-1.5 bg-red-900/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/20 rounded-xl text-[9px] font-mono uppercase tracking-wider font-semibold transition-colors shrink-0" title="Desfazer Amizade">
-                Remover
-            </button>
-        `;
 
         item.querySelector('.btn-remove').addEventListener('click', async () => {
             if (confirm(`Deseja desfazer a amizade com ${friend.username}?`)) {

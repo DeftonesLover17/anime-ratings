@@ -5,6 +5,10 @@ import security from '../../shared/security/policy.js';
 import sessionTools from '../../backend/cloudflare/sessions.js';
 import verificationTools from '../../backend/security/email-verification.js';
 import emailStoreTools from '../../backend/cloudflare/email-store.js';
+import rateTools from '../../shared/security/rate-limits.js';
+import d1RateTools from '../../backend/cloudflare/rate-limit.js';
+const consumeRateLimit = d1RateTools.createD1RateLimiter();
+const { API_LIMITS } = rateTools;
 const { mergeClientState } = syncTools;
 const storageReady = new WeakMap();
 const REQUEST_LIMITS = Symbol('requestRateLimits');
@@ -848,15 +852,18 @@ const getAuthenticatedUser = (request, env, state) => sessionStore.authenticate(
 async function requireAuthenticatedUser(request, env, state) {
     const user = await getAuthenticatedUser(request, env, state);
     if (!user) return { response: json({ error: 'Sessão inválida ou expirada. Faça login novamente.' }, 401) };
+    if (request.method === 'POST') {
+        const limit = API_LIMITS.account;
+        const response = await enforceRateLimit(request, env, 'account', limit.max, limit.windowMs, user.accountId || user.username);
+        if (response) return { response };
+    }
     return { user };
 }
 
 function clientRateLimitKey(request, bucket, discriminator = '') {
-    const ip = request.headers.get('CF-Connecting-IP')
-        || request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim()
-        || 'unknown';
+    const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
     const safeDiscriminator = normalizeUsername(discriminator).slice(0, 80);
-    return [bucket, ip, safeDiscriminator].filter(Boolean).join(':');
+    return (bucket === 'account' ? [bucket, safeDiscriminator] : [bucket, ip, safeDiscriminator]).filter(Boolean).join(':');
 }
 
 async function enforceRateLimit(request, env, bucket, maxAttempts, windowMs, discriminator = '') {
@@ -869,21 +876,11 @@ async function enforceRateLimit(request, env, bucket, maxAttempts, windowMs, dis
 
 async function enforceRateLimitOnce(request, env, bucket, maxAttempts, windowMs, discriminator = '') {
     await ensureStorage(env);
-    const now = Date.now();
-    const resetAt = now + windowMs;
-    const key = clientRateLimitKey(request, bucket, discriminator);
-    await getDb(env).prepare('DELETE FROM rate_limits WHERE reset_at < ?1').bind(now).run();
-    const row = await getDb(env).prepare(
-        'INSERT INTO rate_limits (key, count, reset_at) VALUES (?1, 1, ?2) ON CONFLICT(key) DO UPDATE SET count = CASE WHEN reset_at <= ?3 THEN 1 ELSE MIN(count + 1, ?4) END, reset_at = CASE WHEN reset_at <= ?3 THEN ?2 ELSE reset_at END RETURNING count, reset_at'
-    ).bind(key, resetAt, now, maxAttempts + 1).first();
-    if (Number(row.count) > maxAttempts) {
-        const retryAfter = Math.max(1, Math.ceil((Number(row.reset_at) - now) / 1000));
-        return json(
-            { error: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' },
-            429,
-            { 'Retry-After': String(retryAfter) }
-        );
-    }
+    const retryAfter = await consumeRateLimit(getDb(env), clientRateLimitKey(request, bucket, discriminator), maxAttempts, windowMs);
+    if (retryAfter) return json(
+        { error: 'Muitas requisições. Aguarde e tente novamente.', code: 'RATE_LIMITED' },
+        429, { 'Retry-After': String(retryAfter) }
+    );
     return null;
 }
 
@@ -1790,8 +1787,11 @@ async function route(request, env) {
     const allowedOrigins = String(env.ALLOWED_ORIGINS || DEFAULT_ALLOWED_ORIGIN).split(',').map(value => value.trim()).filter(Boolean);
     const policyError = security.mutationPolicy({ method: request.method, origin: request.headers.get('Origin'), contentType: request.headers.get('Content-Type'), fetchSite: request.headers.get('Sec-Fetch-Site'), authorization: request.headers.get('Authorization') }, allowedOrigins);
     if (policyError) throw policyError;
-    if (request.method === 'POST') {
-        const limited = await enforceRateLimit(request, env, 'writes-ip', 120, 60 * 1000);
+    if (request.method !== 'OPTIONS') {
+        const budget = request.method === 'GET' ? API_LIMITS.read : API_LIMITS.write;
+        const burst = await enforceRateLimit(request, env, 'api-burst', API_LIMITS.burst.max, API_LIMITS.burst.windowMs);
+        if (burst) return burst;
+        const limited = await enforceRateLimit(request, env, request.method === 'GET' ? 'reads-ip' : 'writes-ip', budget.max, budget.windowMs);
         if (limited) return limited;
     }
 

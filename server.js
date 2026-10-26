@@ -23,7 +23,10 @@ const MAX_EXTERNAL_IMAGE_URL_LENGTH = 4096;
 const MAX_DATA_IMAGE_LENGTH = 2 * 1024 * 1024;
 const DEFAULT_ALLOWED_ORIGIN = 'https://anime-ratings.pages.dev';
 const sessionStore = createNodeSessions();
-const rateLimits = new Map();
+const { API_LIMITS, createMemoryLimiter } = require('./shared/security/rate-limits');
+const rateLimits = createMemoryLimiter();
+const requestLimits = new WeakMap();
+let contentSecurityPolicy;
 const DEFAULT_STATE = {
     friends: [],
     animes: [],
@@ -470,7 +473,8 @@ const createSession = (user, res) => sessionStore.create(user, res);
 const getAuthenticatedUser = (req, state) => sessionStore.authenticate(req, state);
 function requireAuthenticatedUser(req, res, state) {
     const user = getAuthenticatedUser(req, state);
-    if (!user) sendJson(res, 401, {error: 'Sessão inválida ou expirada. Faça login novamente.'});
+    if (!user) { sendJson(res, 401, {error: 'Sessão inválida ou expirada. Faça login novamente.'}); return null; }
+    if (req.method === 'POST' && enforceRateLimit(req, res, 'account', API_LIMITS.account.max, API_LIMITS.account.windowMs, user.accountId || user.username)) return null;
     return user;
 }
 function isAdminUser(user, state) { return identity.isAdmin(user, process.env, state); }
@@ -784,23 +788,17 @@ function getClientIp(req) {
 }
 
 function enforceRateLimit(req, res, bucket, maxAttempts, windowMs, discriminator = '') {
-    const now = Date.now();
-    for (const [key, record] of rateLimits.entries()) {
-        if (!record || record.resetAt < now) rateLimits.delete(key);
-    }
-    const key = [bucket, getClientIp(req), normalizeUsername(discriminator).slice(0, 80)].filter(Boolean).join(':');
-    const record = rateLimits.get(key);
-    if (!record || record.resetAt < now) {
-        rateLimits.set(key, { count: 1, resetAt: now + windowMs });
-        return false;
-    }
-    if (record.count >= maxAttempts) {
-        const retryAfter = Math.max(1, Math.ceil((record.resetAt - now) / 1000));
-        res.setHeader('Retry-After', String(retryAfter));
-        sendJson(res, 429, { error: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' });
+    const key = (bucket === 'account' ? [bucket, discriminator] : [bucket, getClientIp(req), normalizeUsername(discriminator).slice(0, 80)]).filter(Boolean).join(':');
+    let accepted = requestLimits.get(req);
+    if (!accepted) { accepted = new Set(); requestLimits.set(req, accepted); }
+    if (accepted.has(key)) return false;
+    const result = rateLimits.consume(key, maxAttempts, windowMs);
+    if (!result.allowed) {
+        res.setHeader('Retry-After', String(result.retryAfter));
+        sendJson(res, 429, { error: 'Muitas requisições. Aguarde e tente novamente.', code: 'RATE_LIMITED' });
         return true;
     }
-    record.count += 1;
+    accepted.add(key);
     return false;
 }
 
@@ -821,8 +819,8 @@ const server = http.createServer(async (req, res) => {
     res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
     res.setHeader('Permissions-Policy', 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()');
-    const csp = fs.readFileSync(path.join(__dirname,'_headers'),'utf8').match(/Content-Security-Policy: ([^\r\n]+)/)?.[1];
-    if(csp) res.setHeader('Content-Security-Policy',csp);
+    if (contentSecurityPolicy === undefined) contentSecurityPolicy = fs.readFileSync(path.join(__dirname, '_headers'), 'utf8').match(/Content-Security-Policy: ([^\r\n]+)/)?.[1] || '';
+    if (contentSecurityPolicy) res.setHeader('Content-Security-Policy', contentSecurityPolicy);
 
     const allowedOrigins = String(process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGIN || DEFAULT_ALLOWED_ORIGIN + ',http://localhost:' + PORT + ',http://127.0.0.1:' + PORT).split(',').map(value => value.trim());
     const boundaryError = security.mutationPolicy({method:req.method, origin:req.headers.origin, contentType:req.headers['content-type'], fetchSite:req.headers['sec-fetch-site'], authorization:req.headers.authorization}, allowedOrigins);
@@ -835,6 +833,11 @@ const server = http.createServer(async (req, res) => {
             req.pause(); res.once('finish', () => req.destroy()); sendJson(res, 413, {error:'Requisição grande demais.'});
         }
     });
+    if (req.url.startsWith('/api/') && req.method !== 'OPTIONS') {
+        const budget = req.method === 'GET' ? API_LIMITS.read : API_LIMITS.write;
+        if (enforceRateLimit(req, res, 'api-burst', API_LIMITS.burst.max, API_LIMITS.burst.windowMs)) return;
+        if (enforceRateLimit(req, res, req.method === 'GET' ? 'reads-ip' : 'writes-ip', budget.max, budget.windowMs)) return;
+    }
     if (accountRoutes.handles(req)) { await accountRoutes(req, res); return; }
 
     if (req.method === 'OPTIONS') {

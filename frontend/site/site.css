@@ -3134,7 +3134,14 @@ details[open] .av-security-chevron {
     border-radius: 50%;
     object-fit: cover;
     border: 3px solid #0c0d10;
-    display: block;
+}
+
+.av-player-avatar-ring img { display: block; }
+
+.av-player-avatar-ring span {
+    display: grid;
+    place-items: center;
+    background: var(--av-surface);
 }
 
 .av-player-identity-meta {
@@ -3155,10 +3162,12 @@ details[open] .av-security-chevron {
 .av-player-name {
     font-family: var(--av-display);
     font-size: clamp(24px, 3.5vw, 36px);
-    font-weight: 800;
+    font-weight: 600;
     letter-spacing: -0.03em;
     color: var(--av-ink) !important;
-    line-height: 1.1;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+    min-width: 0;
     margin: 0;
 }
 
@@ -5537,7 +5546,7 @@ details[open] .av-security-chevron {
     border-radius: 16px;
     background: color-mix(in srgb, var(--av-surface) 70%, transparent);
     border: 1px solid var(--av-line);
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
 }
 
 .av-friend-card:hover {
@@ -5612,9 +5621,9 @@ details[open] .av-security-chevron {
     font-size: 14px;
     font-weight: 600;
     color: var(--av-ink);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
 }
 
 .av-friend-sub {

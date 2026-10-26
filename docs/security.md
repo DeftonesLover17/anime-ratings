@@ -75,3 +75,14 @@ Executar `npm test` em Node.js 24 e `npm run build:pages`. A suíte cobre o D1 c
 Após publicar, conferir o commit do build, saúde da API, carregamento dos assets, CSP e 404 dos caminhos privados. Testes de ataque com usuários reais ou download de exportações administrativas não são necessários para essa conferência. Não registrar cookies, senhas, provas de verificação, hashes de credenciais ou respostas completas de exportação em logs.
 
 A mudança acrescenta tabelas de autenticação e verificação; não elimina tabelas ou dados existentes. Backups e o controle de revisão concorrente do estado permanecem. Antes de desfazer uma atualização de segurança, avaliar a compatibilidade da autenticação e das autorizações: voltar a código vulnerável não é uma forma segura de rollback.
+
+
+## Proteção contra excesso de requisições
+
+A API aplica, por IP, 40 requisições em 10 segundos, 180 leituras por minuto e 120 gravações por minuto. Operações autenticadas de gravação compartilham também um orçamento de 90 por conta por minuto, independente do IP; os limites específicos mais restritos de login, cadastro e credenciais continuam válidos. O Cloudflare aceita somente o IP informado pela borda em `CF-Connecting-IP`. O Node usa o socket, salvo configuração explícita `TRUST_PROXY=true`, que exige um proxy confiável que remova cabeçalhos recebidos do visitante.
+
+No Cloudflare, os contadores atômicos ficam no D1. O cache limitado de bloqueios evita novas gravações para negações já confirmadas no mesmo isolate; ele não substitui o D1. A limpeza de contadores expirados usa o índice existente e acontece no máximo uma vez por minuto por binding/isolate. No Node, os contadores têm capacidade limitada e valem por processo; múltiplas instâncias Node precisam de armazenamento de limites compartilhado antes de serem usadas como uma única implantação.
+
+Respostas de bloqueio usam `429`, `code: RATE_LIMITED` e `Retry-After`. O cliente aguarda esse prazo, compartilha leituras idênticas em andamento e nunca repete automaticamente uma gravação. A deduplicação é invalidada nas mutações para não reaproveitar respostas de uma identidade anterior. Esses limites também afetam pessoas que compartilham um IP; ajustar os orçamentos com tráfego real, sem removê-los. São proteção da aplicação; ataques distribuídos que esgotam a borda exigem proteção de rede/WAF da hospedagem. Não foi criada nem alterada configuração paga de WAF.
+
+O F12 continua disponível. Código e requisições enviados ao navegador são inspecionáveis. O aviso contra colar scripts é educativo; autorização, autoria de notas, perfil editável, cookies HttpOnly e projeções sem credenciais são verificados no servidor. Não usar bloqueio de atalhos, detecção de DevTools ou alegações de proteção contra alterações do DOM como controle de acesso.
