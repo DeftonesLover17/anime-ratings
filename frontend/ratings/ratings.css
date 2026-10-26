@@ -96,6 +96,94 @@ input.av-score-range::-moz-range-thumb { width: 11px; height: 11px; background: 
 .av-workbench-film { grid-template-columns: 1fr; }
 .av-workbench-film .av-episode-index { display: none; }
 .av-workbench-film .av-rating-editor { padding: 30px 0; }
+
+/* Notebook & Laptop Viewport Optimization for Rating Workbench */
+@media (min-width: 1025px) and (max-width: 1440px), (max-height: 850px) and (min-width: 1025px) {
+    .av-workbench {
+        grid-template-columns: minmax(200px, .6fr) minmax(0, 1.9fr);
+    }
+
+    .av-episode-index {
+        padding: 20px 20px 20px 0;
+    }
+
+    .av-rail-heading {
+        padding-bottom: 16px;
+    }
+
+    .av-rail-heading h3 {
+        font-size: 18px;
+    }
+
+    .av-episode-buttons {
+        max-height: 380px;
+    }
+
+    .av-episode-buttons > button {
+        padding: 13px 10px;
+        min-height: 58px;
+        font-size: 11.5px;
+    }
+
+    .av-episode-buttons .av-score {
+        font-size: 18px;
+    }
+
+    .av-rating-editor {
+        padding: 20px 0 22px 28px;
+    }
+
+    .av-editor-heading {
+        margin-bottom: 18px;
+    }
+
+    .av-editor-heading h3 {
+        font-size: 26px;
+    }
+
+    .av-app #av-score-input,
+    .av-app #av-global-score-input,
+    #av-global-score-input {
+        font-size: clamp(58px, 5.5vw, 84px) !important;
+        letter-spacing: -.075em !important;
+    }
+
+    .av-score-range {
+        height: 24px;
+        margin: 2px 0 0;
+    }
+
+    .av-scale-labels {
+        margin-bottom: 14px;
+    }
+
+    .av-editor-actions {
+        margin-top: 12px;
+        gap: 10px;
+    }
+
+    .av-editor-actions .av-button {
+        min-height: 44px;
+        padding: 10px 18px;
+        font-size: 12px;
+    }
+
+    .av-rating-tools {
+        margin-top: 14px;
+        padding-top: 14px;
+        gap: 16px;
+    }
+
+    .av-bulk {
+        margin-top: 16px;
+        padding-top: 16px;
+    }
+
+    .av-workbench-nav {
+        margin-bottom: 18px;
+    }
+}
+
 @media(max-width:760px) {
     .av-workbench { grid-template-columns: 1fr; }
     .av-episode-index { padding: 22px 0; border-right: 0; border-bottom: 1px solid var(--av-line); }

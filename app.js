@@ -4350,13 +4350,13 @@ function initMotionSuite() {
     if (typeof Lenis !== 'undefined' && !reducedMotion && !window.lenis) {
         try {
             window.lenis = new Lenis({
-                duration: 1.15,
+                duration: 0.92,
                 easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
                 orientation: 'vertical',
                 gestureOrientation: 'vertical',
                 smoothWheel: true,
-                wheelMultiplier: 1.0,
-                touchMultiplier: 1.5,
+                wheelMultiplier: 0.98,
+                touchMultiplier: 1.0,
                 infinite: false,
                 prevent: (node) => {
                     if (!node || typeof node.closest !== 'function') return false;
@@ -4394,6 +4394,22 @@ function initMotionSuite() {
             window.lenisStop = () => window.lenis?.stop();
             window.lenisStart = () => window.lenis?.start();
 
+            // Recalculate Lenis bounds on window resize/DPI zoom change (vital for laptop viewport shifts)
+            let lenisResizeTimer;
+            window.addEventListener('resize', () => {
+                clearTimeout(lenisResizeTimer);
+                lenisResizeTimer = setTimeout(() => {
+                    if (window.lenis) {
+                        try {
+                            window.lenis.resize();
+                            if (typeof ScrollTrigger !== 'undefined') {
+                                ScrollTrigger.refresh();
+                            }
+                        } catch (_) {}
+                    }
+                }, 150);
+            }, { passive: true });
+
             // Smooth anchor links interceptor
             document.addEventListener('click', (e) => {
                 const anchor = e.target.closest('a[href^="#"]');
@@ -4405,7 +4421,7 @@ function initMotionSuite() {
                     const targetEl = document.querySelector(targetId);
                     if (targetEl && window.lenis) {
                         e.preventDefault();
-                        window.lenis.scrollTo(targetEl, { offset: -24, duration: 1.15 });
+                        window.lenis.scrollTo(targetEl, { offset: -24, duration: 0.95 });
                     }
                 } catch (_) {}
             });
@@ -5523,7 +5539,7 @@ function renderStudiosDirectory() {
 window.switchTabToFeatured = () => {
     window.switchTabToAll('#featured-banner-wrapper', false);
     if (window.lenis) {
-        window.lenis.scrollTo(0, { duration: 1.0 });
+        window.lenis.scrollTo(0, { duration: 0.85 });
     } else {
         window.scrollTo({ top: 0, behavior: 'instant' });
         document.getElementById('featured-banner-wrapper')?.scrollIntoView({ behavior: 'instant' });
@@ -5544,7 +5560,7 @@ window.switchTabToAll = (targetHash = null, shouldScroll = false) => {
     if (shouldScroll) {
         const gridSec = document.getElementById('anime-grid-section');
         if (window.lenis && gridSec) {
-            window.lenis.scrollTo(gridSec, { offset: -24, duration: 1.15 });
+            window.lenis.scrollTo(gridSec, { offset: -24, duration: 0.95 });
         } else {
             gridSec?.scrollIntoView({ behavior: 'instant' });
         }
