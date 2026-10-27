@@ -1491,8 +1491,10 @@ function normalizeAnimeLogoKey(value) {
 
 const byId = new Map();
 const byKey = new Map();
+const byUrl = new Map();
 
 for (const item of ANIME_LOGO_CATALOG) {
+    byUrl.set(item.url, item);
     for (const id of item.ids) {
         byId.set(id, item);
     }
@@ -1500,6 +1502,84 @@ for (const item of ANIME_LOGO_CATALOG) {
     for (const alias of item.aliases) {
         byKey.set(normalizeAnimeLogoKey(alias), item);
     }
+}
+
+function sanitizeAnimeLogoUrl(rawUrl) {
+    const value = String(rawUrl || '').trim();
+    if (!value || value.length > 4096) return '';
+    if (/^logos\/[a-z0-9._/-]+\.(png|jpe?g|webp|gif|svg)$/i.test(value)) return value;
+    if (/^data:image\/(png|jpe?g|gif|webp);base64,[a-z0-9+/=\s]+$/i.test(value)) {
+        return value.replace(/\s+/g, '');
+    }
+    if (/^https:\/\//i.test(value)) {
+        try {
+            const parsed = new URL(value);
+            return parsed.protocol === 'https:' ? parsed.toString() : '';
+        } catch {
+            return '';
+        }
+    }
+    return '';
+}
+
+function computeLogoOpticalMetrics(width = 480, height = 135, lightTone = false) {
+    const safeW = Number.isFinite(Number(width)) && Number(width) > 0 ? Math.round(Number(width)) : 480;
+    const safeH = Number.isFinite(Number(height)) && Number(height) > 0 ? Math.round(Number(height)) : 135;
+    const ar = Number((safeW / safeH).toFixed(2));
+    let tier = 'standard';
+    if (ar >= 5.2) tier = 'ultra-wide';
+    else if (ar >= 3.0) tier = 'standard';
+    else if (ar >= 1.5) tier = 'stacked';
+    else tier = 'emblem';
+    return {
+        width: safeW,
+        height: safeH,
+        ar,
+        tier,
+        lightTone: Boolean(lightTone)
+    };
+}
+
+function toWeservClearlogoUrl(rawUrl) {
+    const clean = String(rawUrl || '').trim();
+    if (!clean) return '';
+    if (/^logos\//i.test(clean) || /^data:image\//i.test(clean)) return clean;
+    if (/^https:\/\/images\.weserv\.nl\//i.test(clean)) return clean;
+    const stripped = clean.replace(/^https?:\/\//i, '');
+    if (!stripped) return '';
+    return `https://images.weserv.nl/?url=${encodeURIComponent(stripped)}&output=png&trim=10&w=520&h=210&fit=inside`;
+}
+
+const discoveredLogoSpecs = new Map();
+const discoveredLogoByAnimeKey = new Map();
+const discoveryPromiseCache = new Map();
+
+function buildCustomLogoSpec(url, anime) {
+    const safeUrl = sanitizeAnimeLogoUrl(url);
+    if (!safeUrl) return null;
+    const catalogItem = byUrl.get(safeUrl);
+    if (catalogItem) {
+        return {
+            url: catalogItem.url,
+            width: catalogItem.width,
+            height: catalogItem.height,
+            ar: catalogItem.ar,
+            tier: catalogItem.tier,
+            lightTone: catalogItem.lightTone,
+            arcLabel: inferArcLabel(anime, catalogItem)
+        };
+    }
+    const cached = discoveredLogoSpecs.get(safeUrl);
+    const metrics = cached || computeLogoOpticalMetrics(480, 135, false);
+    return {
+        url: safeUrl,
+        width: metrics.width,
+        height: metrics.height,
+        ar: metrics.ar,
+        tier: metrics.tier,
+        lightTone: Boolean(metrics.lightTone),
+        arcLabel: ''
+    };
 }
 
 function inferArcLabel(anime, matched) {
@@ -1520,6 +1600,7 @@ function inferArcLabel(anime, matched) {
 
 function resolveAnimeLogo(anime) {
     if (!anime || typeof anime !== 'object') return null;
+    const customUrl = sanitizeAnimeLogoUrl(anime.logoUrl);
     const titleKey = anime.title ? normalizeAnimeLogoKey(anime.title) : '';
     const jpKey = anime.japaneseTitle ? normalizeAnimeLogoKey(anime.japaneseTitle) : '';
     let matched = (titleKey && byKey.get(titleKey)) || null;
@@ -1528,6 +1609,19 @@ function resolveAnimeLogo(anime) {
     }
     if (!matched && jpKey) {
         matched = byKey.get(jpKey) || null;
+    }
+    if (customUrl && (!matched || customUrl !== matched.url)) {
+        const customSpec = buildCustomLogoSpec(customUrl, anime);
+        if (customSpec) return customSpec;
+    }
+    if (!matched) {
+        const discoveredUrl = (anime.id && discoveredLogoByAnimeKey.get(`id:${anime.id}`))
+            || (titleKey && discoveredLogoByAnimeKey.get(titleKey))
+            || (jpKey && discoveredLogoByAnimeKey.get(jpKey));
+        if (discoveredUrl) {
+            const discoveredSpec = buildCustomLogoSpec(discoveredUrl, anime);
+            if (discoveredSpec) return discoveredSpec;
+        }
     }
     if (!matched && titleKey) {
         for (const item of ANIME_LOGO_CATALOG) {
@@ -1565,6 +1659,12 @@ function preloadAnimeLogo(anime, priority = 'high') {
         if ('fetchPriority' in img) {
             img.fetchPriority = priority;
         }
+        img.onload = () => {
+            if (img.naturalWidth > 0 && img.naturalHeight > 0 && !byUrl.has(resolved.url)) {
+                const metrics = computeLogoOpticalMetrics(img.naturalWidth, img.naturalHeight, false);
+                discoveredLogoSpecs.set(resolved.url, { url: resolved.url, ...metrics });
+            }
+        };
         img.src = resolved.url;
         const decodePromise = typeof img.decode === 'function'
             ? img.decode().catch(() => {})
@@ -1598,10 +1698,302 @@ function scheduleAnimeLogoWarmup(anime) {
     }
 }
 
+function stripSeasonSuffixForBaseSearch(title) {
+    return String(title || '')
+        .replace(/\s*[:\-–—]?\s*(?:Season\s+\d+(?:\s+Part\s+\d+)?|The\s+Final\s+Season(?:\s+Part\s+\d+)?|Part\s+\d+|Temporada\s+\d+|Cour\s+\d+|2nd\s+Season|3rd\s+Season|4th\s+Season|[IVX]+\s*$)/i, '')
+        .trim();
+}
+
+async function fetchJsonSafe(requestFn, url, timeoutMs = 4500) {
+    if (typeof requestFn !== 'function') return null;
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = controller && typeof setTimeout === 'function'
+        ? setTimeout(() => controller.abort(), timeoutMs)
+        : null;
+    try {
+        const res = await requestFn(url, controller ? { signal: controller.signal } : undefined);
+        if (!res || !res.ok) return null;
+        return await res.json();
+    } catch {
+        return null;
+    } finally {
+        if (timer) clearTimeout(timer);
+    }
+}
+
+async function validateLogoCandidateUrl(candidateUrl, { requestFn, probeImage } = {}) {
+    const safeUrl = sanitizeAnimeLogoUrl(candidateUrl);
+    if (!safeUrl) return null;
+    if (byUrl.has(safeUrl)) return safeUrl;
+    if (discoveredLogoSpecs.has(safeUrl)) return safeUrl;
+
+    if (typeof probeImage === 'function') {
+        try {
+            const dims = await probeImage(safeUrl);
+            if (!dims || !(dims.width >= 60 && dims.height >= 20)) return null;
+            if (dims.width / dims.height < 0.72) return null;
+            const metrics = computeLogoOpticalMetrics(dims.width, dims.height, false);
+            discoveredLogoSpecs.set(safeUrl, { url: safeUrl, ...metrics });
+            return safeUrl;
+        } catch {
+            return null;
+        }
+    }
+
+    if (typeof Image !== 'undefined' && !requestFn) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            let settled = false;
+            const timer = typeof setTimeout === 'function'
+                ? setTimeout(() => {
+                    if (settled) return;
+                    settled = true;
+                    resolve(null);
+                }, 4500)
+                : null;
+            img.decoding = 'sync';
+            img.onload = () => {
+                if (settled) return;
+                settled = true;
+                if (timer) clearTimeout(timer);
+                const w = img.naturalWidth || 0;
+                const h = img.naturalHeight || 0;
+                if (w < 60 || h < 20 || (w / h) < 0.72) {
+                    resolve(null);
+                    return;
+                }
+                const metrics = computeLogoOpticalMetrics(w, h, false);
+                const spec = { url: safeUrl, ...metrics, arcLabel: '' };
+                discoveredLogoSpecs.set(safeUrl, spec);
+                preloadedLogoImages.set(safeUrl, {
+                    img,
+                    decodePromise: Promise.resolve(),
+                    spec
+                });
+                resolve(safeUrl);
+            };
+            img.onerror = () => {
+                if (settled) return;
+                settled = true;
+                if (timer) clearTimeout(timer);
+                resolve(null);
+            };
+            img.src = safeUrl;
+        });
+    }
+
+    const activeFetch = requestFn || (typeof fetch === 'function' ? fetch : null);
+    if (!activeFetch) return null;
+    try {
+        const res = await activeFetch(safeUrl, { method: 'GET' });
+        if (!res || !res.ok) return null;
+        const contentType = res.headers && typeof res.headers.get === 'function'
+            ? String(res.headers.get('content-type') || '')
+            : 'image/png';
+        if (contentType && !/^image\//i.test(contentType)) return null;
+        const metrics = computeLogoOpticalMetrics(480, 135, false);
+        discoveredLogoSpecs.set(safeUrl, { url: safeUrl, ...metrics });
+        return safeUrl;
+    } catch {
+        return null;
+    }
+}
+
+async function discoverAnimeLogo(animeOrQuery, options = {}) {
+    const input = typeof animeOrQuery === 'string'
+        ? { title: animeOrQuery }
+        : (animeOrQuery && typeof animeOrQuery === 'object' ? animeOrQuery : null);
+    if (!input) return '';
+
+    const rawTitle = String(input.title || '').trim();
+    const rawJpTitle = String(input.japaneseTitle || '').trim();
+    const titleKey = rawTitle ? normalizeAnimeLogoKey(rawTitle) : '';
+    const jpKey = rawJpTitle && rawJpTitle !== 'N/A' ? normalizeAnimeLogoKey(rawJpTitle) : '';
+
+    const exactCatalog = (titleKey && byKey.get(titleKey))
+        || (input.id && byId.get(String(input.id)))
+        || (jpKey && byKey.get(jpKey))
+        || null;
+    if (exactCatalog) {
+        return exactCatalog.url;
+    }
+
+    const existingCustom = sanitizeAnimeLogoUrl(input.logoUrl);
+    if (existingCustom) {
+        return existingCustom;
+    }
+
+    const cachedDiscovered = (input.id && discoveredLogoByAnimeKey.get(`id:${input.id}`))
+        || (titleKey && discoveredLogoByAnimeKey.get(titleKey))
+        || (jpKey && discoveredLogoByAnimeKey.get(jpKey));
+    if (cachedDiscovered) {
+        return cachedDiscovered;
+    }
+
+    const malId = input.malId || input.mal_id || '';
+    const kitsuId = input.kitsuId || input.kitsu_id || '';
+    const cacheKey = `${malId}|${kitsuId}|${titleKey}|${jpKey}`;
+    if (!malId && !kitsuId && !titleKey && !jpKey) return '';
+
+    if (discoveryPromiseCache.has(cacheKey)) {
+        return discoveryPromiseCache.get(cacheKey);
+    }
+
+    const baseFetch = options.request || (typeof fetch === 'function' ? fetch : null);
+    const validateOpts = {
+        requestFn: options.request || null,
+        probeImage: options.probeImage || null
+    };
+
+    const rememberDiscovered = (url) => {
+        if (!url) return '';
+        if (input.id) discoveredLogoByAnimeKey.set(`id:${input.id}`, url);
+        if (titleKey) discoveredLogoByAnimeKey.set(titleKey, url);
+        if (jpKey) discoveredLogoByAnimeKey.set(jpKey, url);
+        if (typeof animeOrQuery === 'object' && animeOrQuery && !animeOrQuery.logoUrl) {
+            animeOrQuery.logoUrl = url;
+        }
+        return url;
+    };
+
+    const task = (async () => {
+        let resolvedMalId = malId;
+        const searchTitles = [];
+        const pushSearchTitle = (value) => {
+            const clean = String(value || '').trim();
+            if (!clean || clean === 'N/A' || clean.length < 2) return;
+            if (!searchTitles.some((existing) => existing.toLowerCase() === clean.toLowerCase())) {
+                searchTitles.push(clean);
+            }
+        };
+
+        pushSearchTitle(rawTitle);
+        const strippedBase = stripSeasonSuffixForBaseSearch(rawTitle);
+        if (strippedBase && strippedBase !== rawTitle) {
+            pushSearchTitle(strippedBase);
+        }
+        pushSearchTitle(rawJpTitle);
+
+        // 1. If we don't have malId or kitsuId yet, resolve via Jikan search
+        if (!resolvedMalId && !kitsuId && searchTitles.length > 0 && baseFetch) {
+            const jikanUrl = `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(searchTitles[0])}&limit=3&sfw=true`;
+            const jikanData = await fetchJsonSafe(baseFetch, jikanUrl);
+            const firstHit = Array.isArray(jikanData?.data) ? jikanData.data[0] : null;
+            if (firstHit) {
+                if (firstHit.mal_id) resolvedMalId = firstHit.mal_id;
+                pushSearchTitle(firstHit.title_english);
+                pushSearchTitle(firstHit.title);
+            }
+        }
+
+        // 2. Query api.ani.zip/mappings using malId or kitsuId
+        if ((resolvedMalId || kitsuId) && baseFetch) {
+            const queryParam = resolvedMalId
+                ? `mal_id=${encodeURIComponent(resolvedMalId)}`
+                : `kitsu_id=${encodeURIComponent(kitsuId)}`;
+            const aniZipData = await fetchJsonSafe(baseFetch, `https://api.ani.zip/mappings?${queryParam}`);
+            if (aniZipData && typeof aniZipData === 'object') {
+                pushSearchTitle(aniZipData.titles?.en);
+                pushSearchTitle(aniZipData.titles?.['x-jat']);
+
+                const candidateUrls = [];
+                const imdbId = String(aniZipData.mappings?.imdb_id || '').trim();
+                if (/^tt\d+$/i.test(imdbId)) {
+                    candidateUrls.push(toWeservClearlogoUrl(`https://images.metahub.space/logo/medium/${imdbId}/img`));
+                }
+                if (Array.isArray(aniZipData.images)) {
+                    for (const img of aniZipData.images) {
+                        if (img && img.coverType === 'Clearlogo' && typeof img.url === 'string' && !/\/icons\//i.test(img.url)) {
+                            candidateUrls.push(toWeservClearlogoUrl(img.url));
+                        }
+                    }
+                }
+                for (const candidate of candidateUrls) {
+                    const valid = await validateLogoCandidateUrl(candidate, validateOpts);
+                    if (valid) return rememberDiscovered(valid);
+                }
+            }
+        }
+
+        // 3. Query Cinemeta (Stremio catalog -> IMDb ID -> Metahub official clearlogo)
+        if (baseFetch) {
+            for (const queryTitle of searchTitles.slice(0, 3)) {
+                const targetNorm = normalizeAnimeLogoKey(queryTitle);
+                for (const catalogType of ['series', 'movie']) {
+                    const cinemetaUrl = `https://v3-cinemeta.strem.io/catalog/${catalogType}/top/search=${encodeURIComponent(queryTitle)}.json`;
+                    const cinemetaData = await fetchJsonSafe(baseFetch, cinemetaUrl);
+                    const metas = Array.isArray(cinemetaData?.metas) ? cinemetaData.metas : [];
+                    if (!metas.length) continue;
+
+                    const sortedMetas = metas
+                        .filter((meta) => meta && /^tt\d+$/i.test(String(meta.id || meta.imdb_id || '')))
+                        .sort((a, b) => {
+                            const aNorm = normalizeAnimeLogoKey(a.name || '');
+                            const bNorm = normalizeAnimeLogoKey(b.name || '');
+                            const aScore = aNorm === targetNorm ? 3 : (aNorm.includes(targetNorm) || targetNorm.includes(aNorm) ? 2 : 1);
+                            const bScore = bNorm === targetNorm ? 3 : (bNorm.includes(targetNorm) || targetNorm.includes(bNorm) ? 2 : 1);
+                            return bScore - aScore;
+                        });
+
+                    for (const meta of sortedMetas.slice(0, 2)) {
+                        const imdbId = String(meta.id || meta.imdb_id).trim();
+                        const candidate = toWeservClearlogoUrl(`https://images.metahub.space/logo/medium/${imdbId}/img`);
+                        const valid = await validateLogoCandidateUrl(candidate, validateOpts);
+                        if (valid) return rememberDiscovered(valid);
+                    }
+                }
+            }
+        }
+
+        // 4. Fallback to Logopedia (logos.fandom.com MediaWiki API)
+        if (baseFetch && searchTitles.length > 0) {
+            const logoSearchQuery = `${searchTitles[0]} logo`;
+            const searchApiUrl = `https://logos.fandom.com/api.php?action=query&list=search&srsearch=${encodeURIComponent(logoSearchQuery)}&srnamespace=6&srlimit=4&format=json&origin=*`;
+            const searchData = await fetchJsonSafe(baseFetch, searchApiUrl);
+            const hits = Array.isArray(searchData?.query?.search) ? searchData.query.search : [];
+            for (const hit of hits) {
+                const fileTitle = String(hit?.title || '').trim();
+                if (!fileTitle || /\.(svg|gif)$/i.test(fileTitle)) continue;
+                const infoUrl = `https://logos.fandom.com/api.php?action=query&titles=${encodeURIComponent(fileTitle)}&prop=imageinfo&iiprop=url&format=json&origin=*`;
+                const infoData = await fetchJsonSafe(baseFetch, infoUrl);
+                const pages = infoData?.query?.pages ? Object.values(infoData.query.pages) : [];
+                const rawImgUrl = pages[0]?.imageinfo?.[0]?.url || '';
+                if (!rawImgUrl) continue;
+                const candidate = toWeservClearlogoUrl(rawImgUrl);
+                const valid = await validateLogoCandidateUrl(candidate, validateOpts);
+                if (valid) return rememberDiscovered(valid);
+            }
+        }
+
+        // 5. Final fallback: if the anime is a new season of a franchise in ANIME_LOGO_CATALOG
+        if (titleKey) {
+            for (const item of ANIME_LOGO_CATALOG) {
+                const baseKey = normalizeAnimeLogoKey(item.title);
+                if (baseKey.length >= 5 && titleKey.startsWith(baseKey)) {
+                    return rememberDiscovered(item.url);
+                }
+            }
+        }
+
+        return '';
+    })();
+
+    discoveryPromiseCache.set(cacheKey, task);
+    try {
+        return await task;
+    } finally {
+        discoveryPromiseCache.delete(cacheKey);
+    }
+}
+
 module.exports = {
     ANIME_LOGO_CATALOG,
     normalizeAnimeLogoKey,
+    sanitizeAnimeLogoUrl,
+    computeLogoOpticalMetrics,
+    toWeservClearlogoUrl,
     resolveAnimeLogo,
+    discoverAnimeLogo,
     preloadAnimeLogo,
     scheduleAnimeLogoWarmup
 };

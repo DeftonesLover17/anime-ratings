@@ -166,7 +166,7 @@ async function readJson(request, limit = MAX_JSON_BYTES) {
 
 function catalogAnimeError(input) {
     if (!input || typeof input !== 'object' || Array.isArray(input)) return 'Dados do anime inválidos.';
-    for (const key of ['id', 'title', 'japaneseTitle', 'synopsis', 'coverUrl', 'studioLogoUrl', 'studio', 'season']) {
+    for (const key of ['id', 'title', 'japaneseTitle', 'synopsis', 'coverUrl', 'logoUrl', 'studioLogoUrl', 'studio', 'season']) {
         if (input[key] != null && typeof input[key] !== 'string') return 'Campo de anime inválido: ' + key + '.';
     }
     if (input.episodes != null && typeof input.episodes !== 'string' &&

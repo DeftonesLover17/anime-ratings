@@ -1550,7 +1550,7 @@ class AppState {
         this.save();
     }
 
-    addNewAnime(title, japaneseTitle, synopsis, genres, studio, season, episodes, coverUrl, studioLogoUrl = '') {
+    addNewAnime(title, japaneseTitle, synopsis, genres, studio, season, episodes, coverUrl, studioLogoUrl = '', logoUrl = '') {
         if (!isCurrentUserAdmin()) {
             throw new Error('Apenas o administrador pode adicionar animes.');
         }
@@ -1572,6 +1572,7 @@ class AppState {
             coverUrl: coverUrl.trim() || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=600&auto=format&fit=crop',
             genres: genres.map(g => g.trim()).filter(Boolean),
             studio: studioName,
+            logoUrl: window.AnivoidUI?.animeLogoPresentation?.sanitizeAnimeLogoUrl?.(logoUrl) || '',
             studioLogoUrl: resolvedStudioLogo,
             season: season.trim() || 'Outras',
             episodes: episodes.trim() || 'Desconhecido',
@@ -1951,6 +1952,10 @@ function updateCatalogLivePreview() {
     const title = document.getElementById('form-anime-title')?.value.trim();
     const jpTitle = document.getElementById('form-anime-jp-title')?.value.trim();
     const studio = document.getElementById('form-anime-studio')?.value.trim();
+    const animeLogo = document.getElementById('form-anime-logo')?.value.trim();
+    if (animeLogo) {
+        window.AnivoidUI?.animeLogoPresentation?.preloadAnimeLogo?.({ title, japaneseTitle: jpTitle, logoUrl: animeLogo }, 'high');
+    }
     const studioLogo = document.getElementById('form-studio-logo')?.value.trim();
     const season = document.getElementById('form-anime-season')?.value.trim();
     const episodes = document.getElementById('form-anime-episodes')?.value.trim();
@@ -2066,6 +2071,10 @@ function openAnimeCatalogModal(anime = null) {
         document.getElementById('form-anime-season').value = decodeCatalogText(anime.season);
         document.getElementById('form-anime-episodes').value = decodeCatalogText(anime.episodes);
         document.getElementById('form-anime-cover').value = anime.coverUrl || '';
+        const animeLogoInput = document.getElementById('form-anime-logo');
+        if (animeLogoInput) {
+            animeLogoInput.value = anime.logoUrl || window.AnivoidUI?.animeLogoPresentation?.resolveAnimeLogo?.(anime)?.url || '';
+        }
         document.getElementById('form-studio-logo').value = anime.studioLogoUrl || '';
         document.getElementById('form-anime-genres').value = Array.isArray(anime.genres)
             ? anime.genres.map(decodeCatalogText).join(', ')
@@ -4685,15 +4694,15 @@ function renderAnimeDetailBody(anime) {
     }
     const detailTitleEl = document.getElementById('detail-title');
     if (detailTitleEl) {
-        const logoSpec = window.AnivoidUI?.animeLogoPresentation?.resolveAnimeLogo(anime);
-        const safeLogoUrl = logoSpec ? window.AnivoidUI.imageUrl(logoSpec.url) : '';
-        if (logoSpec && safeLogoUrl) {
-            window.AnivoidUI?.animeLogoPresentation?.preloadAnimeLogo?.(logoSpec, 'high');
+        const applyLogoSpecToDetail = (spec) => {
+            const safeLogoUrl = spec ? window.AnivoidUI.imageUrl(spec.url) : '';
+            if (!spec || !safeLogoUrl) return false;
+            window.AnivoidUI?.animeLogoPresentation?.preloadAnimeLogo?.(spec, 'high');
             detailTitleEl.classList.add('av-detail-title-has-logo');
-            detailTitleEl.dataset.logoTier = logoSpec.tier || 'standard';
-            detailTitleEl.dataset.logoLight = logoSpec.lightTone ? 'true' : 'false';
+            detailTitleEl.dataset.logoTier = spec.tier || 'standard';
+            detailTitleEl.dataset.logoLight = spec.lightTone ? 'true' : 'false';
             detailTitleEl.setAttribute('aria-label', String(anime.title || '').replace(/&#39;/g, "'"));
-            detailTitleEl.innerHTML = `<img class="av-detail-title-logo" src="${safeLogoUrl}" width="${logoSpec.width}" height="${logoSpec.height}" alt="${escapeHtml(anime.title)}" loading="eager" fetchpriority="high" decoding="sync"><span class="av-detail-logo-fallback" hidden>${escapeHtml(anime.title)}</span>`;
+            detailTitleEl.innerHTML = `<img class="av-detail-title-logo" src="${safeLogoUrl}" width="${spec.width}" height="${spec.height}" alt="${escapeHtml(anime.title)}" loading="eager" fetchpriority="high" decoding="sync"><span class="av-detail-logo-fallback" hidden>${escapeHtml(anime.title)}</span>`;
             const logoImg = detailTitleEl.querySelector('.av-detail-title-logo');
             if (logoImg) {
                 logoImg.addEventListener('error', () => {
@@ -4704,12 +4713,24 @@ function renderAnimeDetailBody(anime) {
                     detailTitleEl.innerHTML = escapeHtml(anime.title);
                 }, { once: true });
             }
-        } else {
+            return true;
+        };
+        const logoSpec = window.AnivoidUI?.animeLogoPresentation?.resolveAnimeLogo(anime);
+        if (!applyLogoSpecToDetail(logoSpec)) {
             detailTitleEl.classList.remove('av-detail-title-has-logo');
             delete detailTitleEl.dataset.logoTier;
             delete detailTitleEl.dataset.logoLight;
             detailTitleEl.removeAttribute('aria-label');
             detailTitleEl.innerHTML = escapeHtml(anime.title);
+            const discoverFn = window.AnivoidUI?.animeLogoPresentation?.discoverAnimeLogo;
+            if (typeof discoverFn === 'function') {
+                Promise.resolve(discoverFn(anime)).then((discoveredUrl) => {
+                    if (!discoveredUrl || state.activeDetailAnimeId !== animeId) return;
+                    anime.logoUrl = discoveredUrl;
+                    const nextSpec = window.AnivoidUI?.animeLogoPresentation?.resolveAnimeLogo(anime);
+                    applyLogoSpecToDetail(nextSpec);
+                }).catch(() => {});
+            }
         }
     }
     document.getElementById('detail-japanese-title').innerHTML = escapeHtml(anime.japaneseTitle);
@@ -5015,6 +5036,35 @@ function setupFormSubmissions() {
             studioInput.addEventListener('blur', fillKnownLogo);
         }
 
+        const titleInput = document.getElementById('form-anime-title');
+        const jpTitleInput = document.getElementById('form-anime-jp-title');
+        const animeLogoInput = document.getElementById('form-anime-logo');
+        if (titleInput && animeLogoInput && !titleInput.dataset.animeLogoHooked) {
+            titleInput.dataset.animeLogoHooked = 'true';
+            const fillDiscoveredAnimeLogo = async () => {
+                if (animeLogoInput.value.trim()) return;
+                const rawTitle = titleInput.value.trim();
+                const rawJp = jpTitleInput?.value.trim() || '';
+                if (rawTitle.length < 2) return;
+                const discoverFn = window.AnivoidUI?.animeLogoPresentation?.discoverAnimeLogo;
+                if (typeof discoverFn !== 'function') return;
+                const originalPlaceholder = animeLogoInput.placeholder;
+                animeLogoInput.placeholder = 'Buscando logo oficial em inglês...';
+                try {
+                    const foundLogo = await discoverFn({ title: rawTitle, japaneseTitle: rawJp });
+                    if (foundLogo && !animeLogoInput.value.trim()) {
+                        animeLogoInput.value = foundLogo;
+                        updateCatalogLivePreview();
+                    }
+                } catch (_) {
+                } finally {
+                    animeLogoInput.placeholder = originalPlaceholder;
+                }
+            };
+            titleInput.addEventListener('change', fillDiscoveredAnimeLogo);
+            titleInput.addEventListener('blur', fillDiscoveredAnimeLogo);
+        }
+
         bindElementOnce(addAnimeForm, 'catalogPreviewInput', 'input', updateCatalogLivePreview);
         bindElementOnce(addAnimeForm, 'catalogPreviewChange', 'change', updateCatalogLivePreview);
 
@@ -5045,6 +5095,7 @@ function setupFormSubmissions() {
             const season = document.getElementById('form-anime-season').value;
             const episodes = document.getElementById('form-anime-episodes').value;
             const coverUrl = document.getElementById('form-anime-cover').value;
+            let logoUrl = document.getElementById('form-anime-logo')?.value.trim() || '';
             const studioLogoUrl = document.getElementById('form-studio-logo')?.value || '';
             
             // Genres (comma separated list)
@@ -5059,6 +5110,16 @@ function setupFormSubmissions() {
                     submitButton.textContent = animeId ? 'Salvando Alterações...' : 'Adicionando Anime...';
                 }
                 try {
+                    if (!logoUrl && window.AnivoidUI?.animeLogoPresentation?.discoverAnimeLogo) {
+                        if (submitButton) submitButton.textContent = 'Buscando Logo Oficial...';
+                        logoUrl = await window.AnivoidUI.animeLogoPresentation.discoverAnimeLogo({ title, japaneseTitle }).catch(() => '') || '';
+                        const animeLogoField = document.getElementById('form-anime-logo');
+                        if (animeLogoField && logoUrl) animeLogoField.value = logoUrl;
+                        if (submitButton) submitButton.textContent = animeId ? 'Salvando Alterações...' : 'Adicionando Anime...';
+                    }
+                    if (logoUrl) {
+                        window.AnivoidUI?.animeLogoPresentation?.preloadAnimeLogo?.({ title, japaneseTitle, logoUrl }, 'high');
+                    }
                     const response = await fetch(API_BASE_URL + '/api/admin/animes', {
                         method: 'POST',
                         headers: authHeaders({ 'Content-Type': 'application/json' }),
@@ -5073,6 +5134,7 @@ function setupFormSubmissions() {
                                 season,
                                 episodes,
                                 coverUrl,
+                                logoUrl,
                                 studioLogoUrl
                             }
                         })

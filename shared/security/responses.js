@@ -34,7 +34,7 @@ function commentResponse(value) {
         likes: texts(value?.likes), replies: list(value?.replies).map(reply => select(reply, ['id', 'friendId', 'friendName', 'reply', 'timestamp', 'editedAt', 'updatedAt'])) };
 }
 function animeResponse(value) {
-    return { ...select(value, ['id', 'title', 'japaneseTitle', 'synopsis', 'coverUrl', 'studioLogoUrl', 'studio', 'status', 'season', 'episodes', 'mal_id', 'malId', 'kitsuId', 'type', 'year', 'createdAt', 'updatedAt']),
+    return { ...select(value, ['id', 'title', 'japaneseTitle', 'synopsis', 'coverUrl', 'logoUrl', 'studioLogoUrl', 'studio', 'status', 'season', 'episodes', 'mal_id', 'malId', 'kitsuId', 'type', 'year', 'createdAt', 'updatedAt']),
         genres: texts(value?.genres), ratings: Object.fromEntries(Object.entries(record(value?.ratings)).map(([id, rating]) => [id, rating === null ? null : ratingResponse(rating)])),
         comments: list(value?.comments).map(commentResponse) };
 }

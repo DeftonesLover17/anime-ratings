@@ -6,8 +6,12 @@ const { DEFAULT_ANIMES } = require('../frontend/catalog/default-animes');
 const { imageUrl } = require('../frontend/shared/dom');
 const {
     ANIME_LOGO_CATALOG,
-    resolveAnimeLogo
+    resolveAnimeLogo,
+    discoverAnimeLogo,
+    toWeservClearlogoUrl
 } = require('../frontend/site/anime-logo-presentation');
+const policy = require('../shared/security/policy');
+const responses = require('../shared/security/responses');
 
 test('every anime logo catalog entry exists on disk with valid optical metrics', () => {
     assert.ok(ANIME_LOGO_CATALOG.length >= 79);
@@ -129,4 +133,109 @@ test('all default catalog animes and multi-season titles resolve to an English c
     });
     assert.ok(cyberpunk2);
     assert.equal(cyberpunk2.url, 'logos/animes/cyberpunk-edgerunners-ii.png');
+});
+
+test('discoverAnimeLogo and resolveAnimeLogo support newly added animes automatically', async () => {
+    // 1. Exact catalog match returns local clearlogo immediately without external calls
+    let networkCalled = false;
+    const catalogUrl = await discoverAnimeLogo(
+        { title: 'Steins;Gate 0' },
+        {
+            request: async () => {
+                networkCalled = true;
+                return { ok: false };
+            }
+        }
+    );
+    assert.equal(catalogUrl, 'logos/animes/steins-gate-0.png');
+    assert.equal(networkCalled, false);
+
+    // 2. Newly added anime resolves via ani.zip mappings -> IMDb ID -> Metahub + Weserv clearlogo
+    const oshiNoKoTarget = {
+        id: 'a_new_oshinoko',
+        title: 'Oshi no Ko',
+        japaneseTitle: '【推しの子】',
+        malId: 52034
+    };
+    const expectedMetahubWeserv = toWeservClearlogoUrl('https://images.metahub.space/logo/medium/tt21030032/img');
+
+    const discoveredOshi = await discoverAnimeLogo(oshiNoKoTarget, {
+        request: async (url) => {
+            if (String(url).includes('api.ani.zip/mappings?mal_id=52034')) {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        titles: { en: 'Oshi No Ko' },
+                        mappings: { imdb_id: 'tt21030032' },
+                        images: []
+                    })
+                };
+            }
+            return { ok: false, json: async () => ({}) };
+        },
+        probeImage: async (candidateUrl) => {
+            assert.equal(candidateUrl, expectedMetahubWeserv);
+            return { width: 520, height: 158 };
+        }
+    });
+
+    assert.equal(discoveredOshi, expectedMetahubWeserv);
+    assert.equal(oshiNoKoTarget.logoUrl, expectedMetahubWeserv);
+
+    const resolvedOshi = resolveAnimeLogo(oshiNoKoTarget);
+    assert.ok(resolvedOshi);
+    assert.equal(resolvedOshi.url, expectedMetahubWeserv);
+    assert.equal(resolvedOshi.width, 520);
+    assert.equal(resolvedOshi.height, 158);
+    assert.equal(resolvedOshi.tier, 'standard');
+
+    // 3. Cinemeta fallback when ani.zip has no mapping
+    const blueLockTarget = {
+        id: 'a_new_bluelock',
+        title: 'Blue Lock',
+        japaneseTitle: 'ブルーロック'
+    };
+    const expectedBlueLockWeserv = toWeservClearlogoUrl('https://images.metahub.space/logo/medium/tt15222080/img');
+
+    const discoveredBlueLock = await discoverAnimeLogo(blueLockTarget, {
+        request: async (url) => {
+            const u = String(url);
+            if (u.includes('v3-cinemeta.strem.io/catalog/series/top/search=')) {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        metas: [{ id: 'tt15222080', name: 'Blue Lock' }]
+                    })
+                };
+            }
+            return { ok: false, json: async () => ({}) };
+        },
+        probeImage: async (candidateUrl) => {
+            if (candidateUrl === expectedBlueLockWeserv) {
+                return { width: 500, height: 185 };
+            }
+            return null;
+        }
+    });
+
+    assert.equal(discoveredBlueLock, expectedBlueLockWeserv);
+    const resolvedBlueLock = resolveAnimeLogo(blueLockTarget);
+    assert.ok(resolvedBlueLock);
+    assert.equal(resolvedBlueLock.url, expectedBlueLockWeserv);
+    assert.equal(resolvedBlueLock.tier, 'stacked');
+
+    // 4. Security policy and response sanitizer accept and preserve logoUrl
+    assert.equal(
+        policy.catalogAnimeError({
+            title: 'Blue Lock',
+            logoUrl: expectedBlueLockWeserv
+        }),
+        ''
+    );
+    const projected = responses.animeResponse({
+        id: 'a_new_bluelock',
+        title: 'Blue Lock',
+        logoUrl: expectedBlueLockWeserv
+    });
+    assert.equal(projected.logoUrl, expectedBlueLockWeserv);
 });

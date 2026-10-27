@@ -1,3 +1,5 @@
+const { discoverAnimeLogo: defaultDiscoverAnimeLogo } = require('../site/anime-logo-presentation');
+
 const normalizeAnimeSearchText = (value) => String(value || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -54,7 +56,7 @@ function scoreAnimeRelevance(anime, rawQuery) {
 }
 
 function initCatalogAutocomplete({ document, studioMetadata, standardStudioName, escapeHtml, getStudioLogo, updateCatalogLivePreview,
-    request = fetch, setTimer = setTimeout, clearTimer = clearTimeout }) {
+    request = fetch, setTimer = setTimeout, clearTimer = clearTimeout, discoverAnimeLogo = defaultDiscoverAnimeLogo }) {
     // --- MYANIMELIST AUTOCOMPLETE SEARCH (JIKAN API) ---
     const animeTitleInput = document.getElementById('form-anime-title');
     const suggestionsBox = document.getElementById('form-anime-suggestions');
@@ -747,6 +749,26 @@ function initCatalogAutocomplete({ document, studioMetadata, standardStudioName,
                         coverInput.value = image;
                     }
 
+                    const animeLogoInput = document.getElementById('form-anime-logo');
+                    if (animeLogoInput && typeof discoverAnimeLogo === 'function') {
+                        animeLogoInput.value = '';
+                        const originalLogoPlaceholder = animeLogoInput.placeholder;
+                        animeLogoInput.placeholder = 'Buscando logo oficial em inglês...';
+                        Promise.resolve(discoverAnimeLogo({
+                            title,
+                            japaneseTitle: jpTitle,
+                            malId: anime.isKitsu ? '' : (anime.mal_id || ''),
+                            kitsuId: anime.kitsuId || ''
+                        })).then((logoUrl) => {
+                            if (logoUrl && !animeLogoInput.value.trim()) {
+                                animeLogoInput.value = logoUrl;
+                                updateCatalogLivePreview();
+                            }
+                        }).catch(() => {}).finally(() => {
+                            animeLogoInput.placeholder = originalLogoPlaceholder;
+                        });
+                    }
+
                     const synopsisInput = document.getElementById('form-anime-synopsis');
                     if (synopsisInput) {
                         synopsisInput.value = anime.synopsis || '';
@@ -764,6 +786,7 @@ function initCatalogAutocomplete({ document, studioMetadata, standardStudioName,
                         document.getElementById('form-anime-season'),
                         document.getElementById('form-anime-genres'),
                         document.getElementById('form-anime-cover'),
+                        document.getElementById('form-anime-logo'),
                         document.getElementById('form-anime-synopsis')
                     ].filter(Boolean);
 
