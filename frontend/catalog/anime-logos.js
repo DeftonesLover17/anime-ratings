@@ -790,11 +790,11 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a32"
         ],
-        "width": 520,
-        "height": 113,
-        "ar": 4.6,
-        "tier": "standard",
-        "lightTone": false
+        "width": 670,
+        "height": 238,
+        "ar": 2.82,
+        "tier": "stacked",
+        "lightTone": true
     },
     {
         "slug": "code-geass-lelouch-of-the-rebellion",
