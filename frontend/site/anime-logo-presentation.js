@@ -312,17 +312,31 @@ const ANIME_LOGO_CATALOG = [
         "slug": "cyberpunk-edgerunners",
         "url": "logos/animes/cyberpunk-edgerunners.png",
         "title": "Cyberpunk: Edgerunners",
-        "aliases": [
-            "CYBERPUNK: EDGERUNNERS II",
-            "Cyberpunk: Edgerunners 2"
-        ],
+        "aliases": [],
         "ids": [
-            "a17",
-            "a_1792804514219_dusez7"
+            "a17"
         ],
         "width": 783,
         "height": 193,
         "ar": 4.06,
+        "tier": "standard",
+        "lightTone": false
+    },
+    {
+        "slug": "cyberpunk-edgerunners-ii",
+        "url": "logos/animes/cyberpunk-edgerunners-ii.png",
+        "title": "CYBERPUNK: EDGERUNNERS II",
+        "aliases": [
+            "Cyberpunk: Edgerunners II",
+            "Cyberpunk: Edgerunners 2",
+            "サイバーパンク: エッジランナーズ II"
+        ],
+        "ids": [
+            "a_1792804514219_dusez7"
+        ],
+        "width": 823,
+        "height": 224,
+        "ar": 3.67,
         "tier": "standard",
         "lightTone": false
     },

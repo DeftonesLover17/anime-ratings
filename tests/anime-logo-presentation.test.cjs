@@ -45,4 +45,11 @@ test('all default catalog animes and multi-season titles resolve to an English c
     assert.ok(monster);
     assert.equal(monster.url, 'logos/animes/monster.png');
     assert.equal(monster.lightTone, true);
+
+    const cyberpunk2 = resolveAnimeLogo({
+        id: 'a_1792804514219_dusez7',
+        title: 'CYBERPUNK: EDGERUNNERS II'
+    });
+    assert.ok(cyberpunk2);
+    assert.equal(cyberpunk2.url, 'logos/animes/cyberpunk-edgerunners-ii.png');
 });
