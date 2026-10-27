@@ -1,4 +1,5 @@
 const policy = require('../../shared/security/policy');
+const { parseStoredState } = require('../../shared/state-integrity');
 const { API_LIMITS } = require('../../shared/security/rate-limits');
 const identity = require('../../shared/security/identity');
 const { createEmailVerification } = require('../security/email-verification');
@@ -38,7 +39,7 @@ function createAccountRoutes({
             readState((error, text) => {
                 if (error) return reject(error);
                 try {
-                    resolve(JSON.parse(text));
+                    resolve(parseStoredState(text));
                 } catch (err) {
                     reject(err);
                 }

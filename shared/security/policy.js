@@ -164,7 +164,29 @@ async function readJson(request, limit = MAX_JSON_BYTES) {
     return body;
 }
 
+function catalogAnimeError(input) {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) return 'Dados do anime inválidos.';
+    for (const key of ['id', 'title', 'japaneseTitle', 'synopsis', 'coverUrl', 'studioLogoUrl', 'studio', 'season']) {
+        if (input[key] != null && typeof input[key] !== 'string') return 'Campo de anime inválido: ' + key + '.';
+    }
+    if (input.episodes != null && typeof input.episodes !== 'string' &&
+        !(typeof input.episodes === 'number' && Number.isFinite(input.episodes))) return 'Campo de anime inválido: episodes.';
+    if (input.genres != null && (!Array.isArray(input.genres) || input.genres.some(genre => typeof genre !== 'string'))) return 'Campo de anime inválido: genres.';
+    if (typeof input.id === 'string' && input.id.length > 120) return 'Identificador de anime muito longo.';
+    return '';
+}
+
 function profilePatch(user, fields, users) {
+    if (!fields || typeof fields !== 'object' || Array.isArray(fields))
+        throw new SecurityError(400, 'INVALID_PROFILE_FIELDS', 'Campos de perfil inválidos.');
+    for (const key of PROFILE_FIELDS) {
+        if (!Object.hasOwn(fields, key) || fields[key] === null) continue;
+        const value = fields[key];
+        const valid = ['favoriteGenres', 'favoriteStudios', 'favoriteAnimes'].includes(key)
+            ? Array.isArray(value) && value.every(item => typeof item === 'string')
+            : typeof value === 'string';
+        if (!valid) throw new SecurityError(400, 'INVALID_PROFILE_FIELDS', 'Campo de perfil inválido: ' + key + '.');
+    }
     const patch = Object.fromEntries(
         PROFILE_FIELDS.filter((key) => Object.hasOwn(fields, key)).map(
             (key) => [key, fields[key]]
@@ -230,6 +252,7 @@ module.exports = {
     mutationPolicy,
     readJson,
     profilePatch,
+    catalogAnimeError,
     authToken,
     sessionCookie,
     expiredCookie,

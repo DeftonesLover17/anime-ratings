@@ -60,3 +60,15 @@ test('missing studio stays visible without a dead link and the next valid credit
     assert.equal(opened, 'Trigger');
     assert.match(button.innerHTML, /logos\/trigger\.png/);
 });
+
+test('malformed imported studio records do not interrupt catalog loading', () => {
+    const crafted = { toString: null };
+    assert.equal(studioForAnime({ studio: crafted, studios: [null, { name: crafted }] }), 'Desconhecido');
+    const anime = { relationships: { animeProductions: { data: [null, { id: 'p1' }] } } };
+    const included = [
+        { type: crafted, id: 'bad' },
+        { type: 'animeProductions', id: 'p1', attributes: { role: 'studio' }, relationships: { producer: { data: { id: '1' } } } },
+        { type: 'producers', id: '1', attributes: { name: crafted } }
+    ];
+    assert.equal(kitsuStudio(anime, included), '');
+});

@@ -1,6 +1,7 @@
 import syncTools from '../../shared/sync-state.js';
 import stateIntegrity from '../../shared/state-integrity.js';
 import studioMetadata from '../../shared/studio-metadata.js';
+import catalogIdentity from '../../shared/catalog-identity.js';
 import identity from '../../shared/security/identity.js';
 import textSanitizers from '../../shared/security/text-sanitizers.js';
 import security from '../../shared/security/policy.js';
@@ -13,11 +14,12 @@ import recoveryStoreTools from '../../backend/cloudflare/recovery-store.js';
 import rateTools from '../../shared/security/rate-limits.js';
 import d1RateTools from '../../backend/cloudflare/rate-limit.js';
 const { standardStudioName } = studioMetadata;
-const { escapeHtml, sanitizeColor, sanitizeTextArray } = textSanitizers;
+const { normalizeAnimeIdentity } = catalogIdentity;
+const { textValue, escapeHtml, sanitizeColor, sanitizeTextArray } = textSanitizers;
 const normalizeUsername = identity.legacyId;
 const consumeRateLimit = d1RateTools.createD1RateLimiter();
 const { API_LIMITS } = rateTools;
-const { mergeClientState } = syncTools;
+const { mergeClientState, snapshotError } = syncTools;
 const { parseStoredState } = stateIntegrity;
 const storageReady = new WeakMap();
 const REQUEST_LIMITS = Symbol('requestRateLimits');
@@ -80,15 +82,6 @@ function sameUsername(a, b) {
 
 function findRegisteredUserByIdentifier(state, identifier) {
     return identity.findLoginUser(state, identifier);
-}
-
-function normalizeAnimeIdentity(value) {
-    return String(value || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, ' ')
-        .trim();
 }
 
 function hasMeaningfulRating(rating) {
@@ -173,7 +166,7 @@ function isSafeDataImage(value) {
 }
 
 function sanitizeImageUrl(url) {
-    const value = String(url || '').trim();
+    const value = textValue(url).trim();
     if (!value) return '';
 
     if (isSafeDataImage(value)) return value.replace(/\s+/g, '');
@@ -192,7 +185,7 @@ function sanitizeImageUrl(url) {
 }
 
 function sanitizeAvatar(avatar) {
-    const value = String(avatar || '').trim();
+    const value = textValue(avatar).trim();
     const safeImage = sanitizeImageUrl(value);
     if (safeImage) return safeImage;
     if (!value || /^data:/i.test(value) || /^https?:\/\//i.test(value) || value.length > 16) return '👤';
@@ -811,31 +804,6 @@ function createActivity(authorUser, type, anime, details) {
     };
 }
 
-function mergeClientActivities(mergedActivities, localActivities, authorUser, loggedInUser) {
-    const loggedInId = normalizeUsername(loggedInUser);
-    if (!loggedInId || !Array.isArray(localActivities)) return;
-
-    localActivities.slice(0, 100).forEach(activity => {
-        if (!activity || !activity.animeId || !activity.details) return;
-        const activityUserId = normalizeUsername(activity.username);
-        if (activityUserId && activityUserId !== loggedInId) return;
-
-        mergedActivities.push({
-            id: activity.id ? String(activity.id).slice(0, 120) : `act_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
-            username: authorUser.username,
-            userColor: authorUser.color || '#FF4500',
-            userAvatar: authorUser.avatar || '&#128100;',
-            type: String(activity.type || 'activity').slice(0, 60),
-            animeId: String(activity.animeId).slice(0, 120),
-            animeTitle: String(activity.animeTitle || 'Anime').slice(0, 180),
-            details: String(activity.details).slice(0, 300),
-            timestamp: activity.timestamp && !Number.isNaN(new Date(activity.timestamp).getTime())
-                ? String(activity.timestamp).slice(0, 40)
-                : new Date().toISOString()
-        });
-    });
-}
-
 function compactActivities(activities, limit = 80) {
     const seenIds = new Set();
     const seenEvents = new Set();
@@ -989,7 +957,7 @@ async function handleRegister(request, env) {
 
 async function handlePatchUser(request, env) {
     const body = await parseJsonBody(request);
-    if (!body || !body.username || !body.fields) return json({ error: 'Missing username or fields' }, 400);
+    if (!body || !identity.validUsernameReference(body.username) || !body.fields) return json({ error: 'Missing username or fields' }, 400);
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
@@ -1030,6 +998,8 @@ async function handleSyncState(request, env) {
     if (!body) return json({ error: 'Invalid JSON body' }, 400);
     if (!body.baseState || !Array.isArray(body.baseState.animes)) return json({ error: 'Atualize a pagina antes de sincronizar.', code: 'CLIENT_UPDATE_REQUIRED' }, 409);
     const localState = body.localState || body;
+    const snapshotProblem = snapshotError(body.baseState) || snapshotError(localState);
+    if (snapshotProblem) return json({ error: snapshotProblem }, 400);
     const serverState = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, serverState);
     if (auth.response) return auth.response;
@@ -1044,14 +1014,15 @@ async function handleSyncState(request, env) {
 async function handleAdminUpsertAnime(request, env) {
     const body = await parseJsonBody(request);
     const input = body && body.anime;
-    if (!input || typeof input !== 'object') return json({ error: 'Dados do anime sao obrigatorios.' }, 400);
+    const inputError = security.catalogAnimeError(input);
+    if (inputError) return json({ error: inputError }, 400);
 
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
     if (!isAdminUser(auth.user, env, state)) return json({ error: 'Apenas o administrador pode alterar o catalogo.' }, 403);
 
-    const requestedId = String(input.id || '').trim();
+    const requestedId = typeof input.id === 'string' ? input.id.trim() : '';
     const existingIndex = requestedId
         ? state.animes.findIndex(anime => anime && anime.id === requestedId)
         : -1;
@@ -1097,7 +1068,7 @@ async function handleAdminUpsertAnime(request, env) {
 
 async function handleAdminDeleteAnime(request, env) {
     const body = await parseJsonBody(request);
-    const animeId = String(body && body.animeId || '').trim();
+    const animeId = typeof body?.animeId === 'string' ? body.animeId.trim() : '';
     if (!animeId) return json({ error: 'Anime obrigatorio.' }, 400);
 
     const state = await readState(env);
@@ -1132,7 +1103,7 @@ async function handleAdminDeleteAnime(request, env) {
 
 async function handleFriendRequest(request, env) {
     const body = await parseJsonBody(request);
-    if (!body || !body.to) return json({ error: 'Missing target username' }, 400);
+    if (!body || !identity.validUsernameReference(body.to)) return json({ error: 'Missing target username' }, 400);
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
@@ -1188,7 +1159,7 @@ async function handleFriendRequest(request, env) {
 
 async function handleRespondFriendRequest(request, env) {
     const body = await parseJsonBody(request);
-    if (!body || !body.target || !body.action) return json({ error: 'Missing parameters' }, 400);
+    if (!body || !identity.validUsernameReference(body.target) || !body.action) return json({ error: 'Missing parameters' }, 400);
     if (!['accept', 'reject', 'decline'].includes(body.action)) return json({ error: 'Ação inválida' }, 400);
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
@@ -1223,7 +1194,7 @@ async function handleRespondFriendRequest(request, env) {
 
 async function handleCancelFriendRequest(request, env) {
     const body = await parseJsonBody(request);
-    if (!body || !body.target) return json({ error: 'Missing target username' }, 400);
+    if (!body || !identity.validUsernameReference(body.target)) return json({ error: 'Missing target username' }, 400);
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
@@ -1238,11 +1209,12 @@ async function handleCancelFriendRequest(request, env) {
 
 async function handleSetFriendship(request, env) {
     const body = await parseJsonBody(request);
-    if (!body || !body.target) return json({ error: 'Missing target username' }, 400);
+    if (!body || !identity.validUsernameReference(body.target)) return json({ error: 'Missing target username' }, 400);
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
     if (!isAdminUser(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
+    if (body.username != null && !identity.validUsernameReference(body.username)) return json({ error: 'Invalid username' }, 400);
     const sourceUser = findRegisteredUser(state, body.username || auth.user.username);
     const targetUser = findRegisteredUser(state, body.target);
     if (!sourceUser || !targetUser) return json({ error: 'User not found' }, 404);
@@ -1254,7 +1226,7 @@ async function handleSetFriendship(request, env) {
 
 async function handleRemoveFriend(request, env) {
     const body = await parseJsonBody(request);
-    if (!body || !body.target) return json({ error: 'Missing parameters' }, 400);
+    if (!body || !identity.validUsernameReference(body.target)) return json({ error: 'Missing parameters' }, 400);
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
@@ -1268,7 +1240,7 @@ async function handleRemoveFriend(request, env) {
 
 async function handleClearUserRatings(request, env) {
     const body = await parseJsonBody(request);
-    if (!body || !body.username || !Array.isArray(body.animeIds)) return json({ error: 'Missing username or animeIds' }, 400);
+    if (!body || !identity.validUsernameReference(body.username) || !Array.isArray(body.animeIds)) return json({ error: 'Missing username or animeIds' }, 400);
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
@@ -1509,7 +1481,7 @@ async function handleAdminOverview(request, env) {
 
 async function handleAdminDeleteUser(request, env) {
     const body = await parseJsonBody(request);
-    if (!body || !body.username) return json({ error: 'Missing username' }, 400);
+    if (!body || !identity.validUsernameReference(body.username)) return json({ error: 'Missing username' }, 400);
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
@@ -1597,7 +1569,7 @@ async function handleAdminResetPassword(request, env) {
         return json({ error: 'ADMIN_RESET_KEY nao configurada no Cloudflare Pages.' }, 503);
     }
 
-    const resetKey = String(request.headers.get('X-Admin-Reset-Key') || (body && body.resetKey) || '').trim();
+    const resetKey = textValue(request.headers.get('X-Admin-Reset-Key') || (body && body.resetKey)).trim();
     const identifier = body && (body.identifier || body.email || body.username);
     const keyLimited = await enforceRateLimit(request, env, 'admin-password-reset-key', 10, 1000 * 60 * 30);
     if (keyLimited) return keyLimited;
@@ -1607,7 +1579,7 @@ async function handleAdminResetPassword(request, env) {
     }
 
     const newPassword = body && body.newPassword;
-    if (!identifier || !newPassword) {
+    if (typeof identifier !== 'string' || !identifier.trim() || identifier.length > 254 || !newPassword) {
         return json({ error: 'identifier e newPassword sao obrigatorios.' }, 400);
     }
 
@@ -1641,7 +1613,7 @@ async function handleAdminResetLegacyPasswords(request, env) {
         return json({ error: 'ADMIN_RESET_KEY nao configurada no Cloudflare Pages.' }, 503);
     }
 
-    const resetKey = String(request.headers.get('X-Admin-Reset-Key') || (body && body.resetKey) || '').trim();
+    const resetKey = textValue(request.headers.get('X-Admin-Reset-Key') || (body && body.resetKey)).trim();
     const keyLimited = await enforceRateLimit(request, env, 'admin-bulk-password-reset-key', 6, 1000 * 60 * 30);
     if (keyLimited) return keyLimited;
 
@@ -1690,7 +1662,7 @@ async function handleAdminRequirePasswordChange(request, env) {
         return json({ error: 'ADMIN_RESET_KEY nao configurada no Cloudflare Pages.' }, 503);
     }
 
-    const resetKey = String(request.headers.get('X-Admin-Reset-Key') || (body && body.resetKey) || '').trim();
+    const resetKey = textValue(request.headers.get('X-Admin-Reset-Key') || (body && body.resetKey)).trim();
     const keyLimited = await enforceRateLimit(request, env, 'admin-require-password-change-key', 10, 1000 * 60 * 30);
     if (keyLimited) return keyLimited;
 
@@ -1699,7 +1671,7 @@ async function handleAdminRequirePasswordChange(request, env) {
     }
 
     const identifiers = Array.isArray(body && body.identifiers) ? body.identifiers : [];
-    if (!identifiers.length && !body.all) {
+    if (identifiers.some(identifier => typeof identifier !== 'string' || !identifier.trim() || identifier.length > 254) || (!identifiers.length && !body.all)) {
         return json({ error: 'Envie identifiers ou all=true.' }, 400);
     }
 

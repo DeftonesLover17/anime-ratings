@@ -60,6 +60,7 @@ npm start
 | `styles.css` | Estilos legados, incluindo o preload preservado. |
 | `functions/api/[[path]].js` | API de produção para Cloudflare Pages/D1. |
 | `server.js` | API alternativa Node, com armazenamento em arquivo ou Postgres. |
+| `shared/catalog-identity.js` | Normalização única dos títulos usada para detectar animes duplicados nas duas APIs. |
 | `shared/security/` | Identidade, unicidade, autorização, política de senha, origem, limites JSON e campos editáveis. |
 | `shared/security/responses.js` | Projeções explícitas sem credenciais para API, cache e exportações do navegador. |
 | `shared/security/public-paths.js` | Allowlist comum de arquivos públicos dos servidores; assets compilados identificados por hash. |

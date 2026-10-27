@@ -29,3 +29,14 @@ A revisão percorreu os 132 arquivos de código, configuração, documentação 
 - A aceitação ou rejeição de amizade exige agora um convite recebido pelo membro autenticado nas duas APIs. Antes, um membro podia chamar a rota de aceitação sem convite e criar uma amizade unilateralmente autorizada pelo servidor.
 - O servidor Node rejeita corpos JSON `null` ou arrays na sincronização e nomes de tipos inesperados nas operações sociais, sem encerrar o processo.
 - Node e Cloudflare usam a mesma validação das coleções essenciais do estado persistido. Um JSON válido mas incompleto falha antes de uma gravação que poderia substituir dados por listas vazias.
+
+## Rodada seguinte: entradas e catálogo
+
+- Identificadores de usuário vindos do JSON agora são validados antes das consultas nas rotas sociais e administrativas. Objetos malformados retornam 400, sem encerrar o Node nem alterar o estado.
+- As rotas de conta do Node usam a mesma validação estrutural do estado persistido adotada por login e sincronização. Uma troca de perfil ou senha não grava sobre um estado incompleto.
+- Campos de perfil, IDs e metadados do catálogo com tipos inesperados são recusados antes da mutação. Os sanitizadores de texto, imagem e estúdio tratam valores externos sem conversões que possam lançar exceções.
+- A sincronização recusa coleções incompletas antes do merge e salva somente os campos previstos de atividades novas; campos adicionais enviados pelo cliente não entram no estado persistido.
+- O cadastro administrativo de anime no Node chamava uma função de normalização inexistente. A regra agora é compartilhada com Cloudflare, preserva a detecção de duplicatas com acentos e diferencia títulos escritos só em japonês.
+- A função antiga de merge de atividades no adaptador Cloudflare, sem chamadas, foi removida.
+
+Verificação final desta rodada: `npm test` aprovou 169 testes; `npm run build:pages` concluiu; `git diff --check` não encontrou erro. A última passagem pelos fluxos alterados não encontrou outra falha reproduzível. Isso não constitui prova de ausência absoluta de defeitos, especialmente para serviços externos e cenários de produção que não podem ser reproduzidos integralmente nos testes locais.

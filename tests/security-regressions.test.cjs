@@ -656,3 +656,89 @@ test('concurrent verification consumes the proof exactly once and state conflict
         { code: 'INVALID_VERIFICATION' }
     );
 });
+
+test('Cloudflare rejects crafted user references before lookup or mutation', async t => {
+    const { env, send, login } = await fixture(t);
+    const cookie = await login('Ana');
+    const before = JSON.stringify(await api.readState(env));
+    const crafted = { toString: null };
+    for (const [route, body] of [
+        ['/api/patch-user', { username: crafted, fields: {} }],
+        ['/api/send-friend-request', { to: crafted }],
+        ['/api/respond-friend-request', { target: crafted, action: 'accept' }],
+        ['/api/cancel-friend-request', { target: crafted }],
+        ['/api/remove-friend', { target: crafted }],
+        ['/api/clear-user-ratings', { username: crafted, animeIds: ['a1'] }],
+        ['/api/admin/set-friendship', { target: crafted }],
+        ['/api/admin/delete-user', { username: crafted }]
+    ]) {
+        const response = await send(route, body, cookie);
+        assert.equal(response.status, 400, route);
+    }
+    assert.equal(JSON.stringify(await api.readState(env)), before);
+});
+
+test('Cloudflare rejects malformed profile, catalog and administrative fields', async t => {
+    const { env, send, login } = await fixture(t);
+    const member = await login('Ana');
+    const admin = await login('Felipe!');
+    const before = JSON.stringify(await api.readState(env));
+    const crafted = { toString: null };
+    for (const [route, body, cookie] of [
+        ['/api/patch-user', { username: 'Ana', fields: { avatar: crafted } }, member],
+        ['/api/patch-user', { username: 'Ana', fields: { favoriteGenres: [crafted] } }, member],
+        ['/api/admin/animes', { anime: { title: 'New', studio: crafted } }, admin],
+        ['/api/admin/animes', { anime: { id: crafted, title: 'New' } }, admin],
+        ['/api/admin/animes', { anime: { title: crafted } }, admin],
+        ['/api/admin/delete-anime', { animeId: crafted }, admin],
+        ['/api/admin/set-friendship', { target: 'Ana', username: crafted }, admin]
+    ]) {
+        const response = await send(route, body, cookie);
+        assert.equal(response.status, 400, route);
+    }
+    env.ADMIN_RESET_KEY = 'LocalFixtureOnlyKey';
+    const malformedKey = await send('/api/admin/reset-password', { resetKey: crafted, identifier: 'Ana', newPassword: 'NewLocal12345' });
+    assert.equal(malformedKey.status, 403);
+    for (const [route, body] of [
+        ['/api/admin/reset-password', { identifier: crafted, newPassword: 'NewLocal12345' }],
+        ['/api/admin/require-password-change', { identifiers: [crafted] }]
+    ]) {
+        const response = await send(route, body, '', { 'X-Admin-Reset-Key': 'LocalFixtureOnlyKey' });
+        assert.equal(response.status, 400, route);
+    }
+    assert.equal(JSON.stringify(await api.readState(env)), before);
+});
+
+test('Cloudflare rejects incomplete sync collections before writing', async t => {
+    const { env, send, login } = await fixture(t);
+    const cookie = await login('Ana');
+    const before = JSON.stringify(await api.readState(env));
+    const baseState = { animes: [{ id: 'a1', ratings: {}, comments: [] }] };
+    const crafted = { toString: null };
+    for (const localState of [
+        { animes: [{ id: 'a1', comments: [] }] },
+        { animes: [{ id: 'a1', ratings: {}, comments: {} }] },
+        { animes: [{ id: 'a1', ratings: { ana: { episodeRatings: { 1: crafted } } }, comments: [] }] },
+        { animes: [{ id: 'a1', ratings: {}, comments: [] }], activities: [{ id: 'act1', timestamp: crafted }] }
+    ]) {
+        const response = await send('/api/sync-state', { baseState, localState }, cookie);
+        assert.equal(response.status, 400);
+    }
+    assert.equal(JSON.stringify(await api.readState(env)), before);
+});
+
+test('Cloudflare admin adds an anime and rejects normalized duplicate titles', async t => {
+    const { env, send, login } = await fixture(t);
+    const cookie = await login('Felipe!');
+    const added = await send('/api/admin/animes', { anime: { title: 'Novo Anime', studio: 'Trigger', episodes: '12', genres: ['Ação'] } }, cookie);
+    assert.equal(added.status, 200);
+    const created = (await added.json()).anime;
+    assert.equal(created.title, 'Novo Anime');
+    const duplicate = await send('/api/admin/animes', { anime: { title: 'Novo Ânime', studio: 'Trigger' } }, cookie);
+    assert.equal(duplicate.status, 409);
+    assert.equal((await api.readState(env)).animes.filter(anime => anime.title === 'Novo Anime').length, 1);
+    const japaneseA = await send('/api/admin/animes', { anime: { title: '星の旅', studio: 'Trigger' } }, cookie);
+    const japaneseB = await send('/api/admin/animes', { anime: { title: '月の旅', studio: 'Trigger' } }, cookie);
+    assert.equal(japaneseA.status, 200);
+    assert.equal(japaneseB.status, 200);
+});

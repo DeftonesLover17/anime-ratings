@@ -6,7 +6,7 @@ function isUnknownStudio(value) {
 }
 
 function titleKey(value) {
-    return String(value || '').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+    return (typeof value === 'string' ? value : '').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 }
 
 // Exact title aliases only: a franchise can change studios between installments.
@@ -28,13 +28,13 @@ function verifiedStudio(...titles) {
 
 function studioForAnime(anime = {}) {
     if (!anime || typeof anime !== 'object') return 'Desconhecido';
-    if (!isUnknownStudio(anime.studio)) return anime.studio.trim();
-    const imported = Array.isArray(anime.studios) ? anime.studios.find((studio) => !isUnknownStudio(studio?.name)) : null;
+    if (typeof anime.studio === 'string' && !isUnknownStudio(anime.studio)) return anime.studio.trim();
+    const imported = Array.isArray(anime.studios) ? anime.studios.find((studio) => typeof studio?.name === 'string' && !isUnknownStudio(studio.name)) : null;
     return imported?.name.trim() || verifiedStudio(anime.title, anime.title_english, anime.japaneseTitle, anime.title_japanese) || 'Desconhecido';
 }
 
 function standardStudioName(name) {
-    const raw = String(name || '').trim();
+    const raw = (typeof name === 'string' ? name : '').trim();
     if (!raw) return 'Desconhecido';
 
     const known = {
@@ -85,14 +85,16 @@ function standardStudioName(name) {
 }
 
 function kitsuStudio(anime, included = []) {
-    const resources = new Map((Array.isArray(included) ? included : []).filter(Boolean).map((item) => [`${item.type}:${item.id}`, item]));
+    const resources = new Map((Array.isArray(included) ? included : []).filter(item => item && typeof item.type === 'string' && typeof item.id === 'string').map((item) => [`${item.type}:${item.id}`, item]));
     const references = anime?.relationships?.animeProductions?.data;
     for (const reference of Array.isArray(references) ? references : []) {
+        if (!reference || typeof reference.id !== 'string') continue;
         const production = resources.get(`animeProductions:${reference.id}`);
-        if (String(production?.attributes?.role || '').trim().toLowerCase() !== 'studio') continue;
+        if ((typeof production?.attributes?.role === 'string' ? production.attributes.role : '').trim().toLowerCase() !== 'studio') continue;
         const producerId = production.relationships?.producer?.data?.id;
+        if (typeof producerId !== 'string') continue;
         const name = resources.get(`producers:${producerId}`)?.attributes?.name;
-        if (!isUnknownStudio(name)) return name.trim();
+        if (typeof name === 'string' && !isUnknownStudio(name)) return name.trim();
     }
     return '';
 }

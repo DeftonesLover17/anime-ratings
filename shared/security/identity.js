@@ -1,9 +1,11 @@
 const legacyId = (value) =>
-    String(value || '')
+    (typeof value === 'string' ? value : '')
         .toLowerCase()
         .replace(/[^a-z0-9]/g, '');
 const usernameKey = (value) =>
     typeof value === 'string' ? value.trim().toLowerCase() : '';
+const validUsernameReference = (value) =>
+    typeof value === 'string' && value.trim().length > 0 && value.length <= 254;
 const emailKey = (value) =>
     typeof value === 'string' ? value.trim().toLowerCase() : '';
 const list = (value) =>
@@ -111,6 +113,7 @@ function assignAccountIds(state, randomId) {
 module.exports = {
     legacyId,
     usernameKey,
+    validUsernameReference,
     emailKey,
     uniqueUser,
     findLoginUser,

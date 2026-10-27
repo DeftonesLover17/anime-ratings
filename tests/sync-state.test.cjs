@@ -103,3 +103,21 @@ test('display escaping fixes stored entities and still escapes markup', () => {
     assert.equal(escapeHtml('A &amp; B'), 'A &amp; B');
     assert.equal(escapeHtml('&lt;img src=x onerror=alert(1)&gt;'), '&lt;img src=x onerror=alert(1)&gt;');
 });
+
+test('sync rejects malformed collections and drops extra client activity fields', () => {
+    const { snapshotError } = require('../shared/sync-state');
+    const base = fixture();
+    const local = copy(base);
+    local.animes[0].comments = { id: 'c1' };
+    assert.match(snapshotError(local), /inválid/);
+    local.animes[0].comments = [];
+    delete local.animes[0].ratings;
+    assert.match(snapshotError(local), /inválid/);
+    const valid = copy(base);
+    valid.activities.push({ id: 'act1', username: 'Ana', type: 'rating', animeId: 'a1', details: 'avaliou', timestamp: '2026-01-01T00:00:00Z', hiddenPayload: 'discard-me' });
+    assert.equal(snapshotError(valid), '');
+    const merged = mergeClientState(valid, base, base, 'Ana');
+    assert.equal(merged.activities[0].hiddenPayload, undefined);
+    assert.equal(merged.activities[0].details, 'avaliou');
+    assert.equal(require('../shared/sync-state').commentMetadata({ episode: { toString: null } }).episode, null);
+});

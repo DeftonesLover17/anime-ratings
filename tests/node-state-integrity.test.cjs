@@ -19,5 +19,6 @@ test('Node rejects a structurally incomplete state without replacing it during a
     assert.equal((await send('/api/get-state')).status, 500);
     assert.equal((await send('/api/register', { username: 'NewMember', email: 'new@example.invalid', password: 'NewMember123' })).status, 500);
     assert.equal((await send('/api/sync-state', { baseState: { animes: [] }, localState: { animes: [] } })).status, 500);
+    assert.equal((await send('/api/patch-user', { username: 'Ana', fields: {} })).status, 500);
     assert.equal(await fs.readFile(stateFile, 'utf8'), incomplete);
 });

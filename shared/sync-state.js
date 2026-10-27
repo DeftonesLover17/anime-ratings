@@ -7,7 +7,7 @@
     const commentFields = ['friendName', 'comment', 'timestamp', 'kind', 'title', 'episode', 'spoiler'];
     const blockedKeys = new Set(['__proto__', 'prototype', 'constructor']);
     const copy = value => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
-    const userId = value => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const userId = value => (typeof value === 'string' ? value : '').toLowerCase().replace(/[^a-z0-9]/g, '');
     const equal = (a, b) => {
         if (a === b) return true;
         if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
@@ -34,13 +34,39 @@
     function commentMetadata(record) {
         const metadata = {};
         if (record?.kind === 'review' || record?.kind === 'comment') metadata.kind = record.kind;
-        if (Object.hasOwn(record || {}, 'title')) metadata.title = String(record.title || '').trim().slice(0, 160);
+        if (Object.hasOwn(record || {}, 'title')) metadata.title = (typeof record.title === 'string' ? record.title : '').trim().slice(0, 160);
         if (Object.hasOwn(record || {}, 'spoiler')) metadata.spoiler = record.spoiler === true;
         if (Object.hasOwn(record || {}, 'episode')) {
-            const episode = Number(record.episode);
+            const rawEpisode = record.episode;
+            const episode = typeof rawEpisode === 'string' || typeof rawEpisode === 'number' ? Number(rawEpisode) : NaN;
             metadata.episode = Number.isSafeInteger(episode) && episode > 0 ? episode : null;
         }
         return metadata;
+    }
+
+    const isRecord = value => value && typeof value === 'object' && !Array.isArray(value);
+    function snapshotError(state) {
+        if (!isRecord(state) || !Array.isArray(state.animes)) return 'Estado de sincronização inválido.';
+        if (state.registeredUsers != null && (!Array.isArray(state.registeredUsers) || state.registeredUsers.some(user => !isRecord(user)))) return 'Perfis de sincronização inválidos.';
+        if (state.activities != null && (!Array.isArray(state.activities) || state.activities.some(activity => !isRecord(activity) || typeof activity.id !== 'string' ||
+            ['username', 'type', 'animeId', 'animeTitle', 'details', 'timestamp'].some(key => activity[key] != null && typeof activity[key] !== 'string')))) return 'Atividades de sincronização inválidas.';
+        for (const anime of state.animes) {
+            if (!isRecord(anime) || typeof anime.id !== 'string' || !isRecord(anime.ratings) || !Array.isArray(anime.comments)) return 'Obra de sincronização inválida.';
+            for (const rating of Object.values(anime.ratings)) {
+                if (rating === null) continue;
+                if (!isRecord(rating)) return 'Avaliação de sincronização inválida.';
+                for (const key of ['episodeRatings', 'watchedEpisodesMap']) {
+                    if (rating[key] == null) continue;
+                    if (!isRecord(rating[key]) || Object.values(rating[key]).some(value => !['string', 'number', 'boolean'].includes(typeof value))) return 'Avaliação de sincronização inválida.';
+                }
+            }
+            for (const comment of anime.comments) {
+                if (!isRecord(comment) || typeof comment.id !== 'string' ||
+                    (comment.likes != null && !Array.isArray(comment.likes)) ||
+                    (comment.replies != null && (!Array.isArray(comment.replies) || comment.replies.some(reply => !isRecord(reply) || typeof reply.id !== 'string')))) return 'Comentário de sincronização inválido.';
+            }
+        }
+        return '';
     }
 
     function clientSnapshot(state, username) {
@@ -147,14 +173,14 @@
         next.activities ||= [];
         for (const activity of local.activities.slice(0, 100)) {
             if (!activity.id || knownActivities.has(activity.id) || committedActivities.has(activity.id)) continue;
-            next.activities.push({ ...activity, username: me?.username || username, userColor: me?.color || '#FF4500', userAvatar: me?.avatar || '👤' });
+            next.activities.push({ ...select(activity, ['id', 'type', 'animeId', 'animeTitle', 'details', 'timestamp']), username: me?.username || username, userColor: me?.color || '#FF4500', userAvatar: me?.avatar || '👤' });
             committedActivities.add(activity.id);
         }
         next.activities = next.activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 80);
         return next;
     }
 
-    const api = Object.freeze({ applyChanges, clientSnapshot, mergeClientState, equal, commentMetadata });
+    const api = Object.freeze({ applyChanges, clientSnapshot, snapshotError, mergeClientState, equal, commentMetadata });
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.AnivoidSync = api;
 })(typeof globalThis === 'object' ? globalThis : this);

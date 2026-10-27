@@ -1,11 +1,12 @@
 require('dotenv').config();
 const http = require('http');
-const { mergeClientState } = require('./shared/sync-state');
+const { mergeClientState, snapshotError } = require('./shared/sync-state');
 const { parseStoredState } = require('./shared/state-integrity');
 const studioMetadata = require('./shared/studio-metadata');
+const { normalizeAnimeIdentity } = require('./shared/catalog-identity');
 const { standardStudioName } = studioMetadata;
 const identity = require('./shared/security/identity');
-const { escapeHtml, sanitizeColor, sanitizeTextArray } = require('./shared/security/text-sanitizers');
+const { textValue, escapeHtml, sanitizeColor, sanitizeTextArray } = require('./shared/security/text-sanitizers');
 const security = require('./shared/security/policy');
 const responseTools = require('./shared/security/responses');
 const { classifyPublicPath } = require('./shared/security/public-paths');
@@ -62,7 +63,7 @@ const MIME_TYPES = {
 };
 
 function sanitizeImageUrl(url) {
-    const value = String(url || '').trim();
+    const value = textValue(url).trim();
     if (!value) return '';
 
     if (/^data:image\/(png|jpe?g|gif|webp);base64,/i.test(value)) {
@@ -122,7 +123,7 @@ function isCompleteDataImage(value) {
 }
 
 function sanitizeAvatar(avatar) {
-    const value = String(avatar || '').trim();
+    const value = textValue(avatar).trim();
     const safeImage = sanitizeImageUrl(value);
     if (safeImage) return safeImage;
     if (!value || /^data:/i.test(value) || /^https?:\/\//i.test(value) || value.length > 16) return '👤';
@@ -969,6 +970,8 @@ const server = http.createServer(async (req, res) => {
                 return;
             }
             if (!payload.baseState || !Array.isArray(payload.baseState.animes)) { sendJson(res, 409, { error: 'Atualize a pagina antes de sincronizar.', code: 'CLIENT_UPDATE_REQUIRED' }); return; }
+            const snapshotProblem = snapshotError(payload.baseState) || snapshotError(payload.localState || payload);
+            if (snapshotProblem) { sendJson(res, 400, { error: snapshotProblem }); return; }
             for (let attempt = 0; attempt < 3; attempt++) {
                 try {
                     const serverState = await new Promise((resolve, reject) => readState((error, text) => {
@@ -1001,8 +1004,9 @@ const server = http.createServer(async (req, res) => {
             try {
                 const payload = JSON.parse(body);
                 const input = payload && payload.anime;
-                if (!input || typeof input !== 'object') {
-                    sendJson(res, 400, { error: 'Dados do anime sao obrigatorios.' });
+                const inputError = security.catalogAnimeError(input);
+                if (inputError) {
+                    sendJson(res, 400, { error: inputError });
                     return;
                 }
                 readParsedState(res, state => {
@@ -1013,7 +1017,7 @@ const server = http.createServer(async (req, res) => {
                         return;
                     }
 
-                    const requestedId = String(input.id || '').trim();
+                    const requestedId = typeof input.id === 'string' ? input.id.trim() : '';
                     const existingIndex = requestedId
                         ? state.animes.findIndex(anime => anime && anime.id === requestedId)
                         : -1;
@@ -1071,7 +1075,7 @@ const server = http.createServer(async (req, res) => {
         req.on('end', () => {
             try {
                 const payload = JSON.parse(body);
-                const animeId = String(payload && payload.animeId || '').trim();
+                const animeId = typeof payload?.animeId === 'string' ? payload.animeId.trim() : '';
                 if (!animeId) {
                     sendJson(res, 400, { error: 'Anime obrigatorio.' });
                     return;
@@ -1121,7 +1125,7 @@ const server = http.createServer(async (req, res) => {
         req.on('end', () => {
             try {
                 const { username, animeIds } = JSON.parse(body);
-                if (typeof username !== 'string' || !username.trim() || !Array.isArray(animeIds)) {
+                if (!identity.validUsernameReference(username) || !Array.isArray(animeIds)) {
                     sendJson(res, 400, { error: 'Missing username or animeIds' });
                     return;
                 }
@@ -1162,7 +1166,7 @@ const server = http.createServer(async (req, res) => {
         req.on('end', () => {
             try {
                 const { to } = JSON.parse(body);
-                if (!to) {
+                if (!identity.validUsernameReference(to)) {
                     sendJson(res, 400, { error: 'Missing target username' });
                     return;
                 }
@@ -1252,7 +1256,7 @@ const server = http.createServer(async (req, res) => {
         req.on('end', () => {
             try {
                 const { target, action } = JSON.parse(body);
-                if (!target || !action) {
+                if (!identity.validUsernameReference(target) || !action) {
                     sendJson(res, 400, { error: 'Missing parameters' });
                     return;
                 }
@@ -1312,7 +1316,7 @@ const server = http.createServer(async (req, res) => {
             let target;
             try { target = JSON.parse(body)?.target; }
             catch { sendJson(res, 400, { error: 'Invalid JSON' }); return; }
-            if (!target) { sendJson(res, 400, { error: 'Missing target username' }); return; }
+            if (!identity.validUsernameReference(target)) { sendJson(res, 400, { error: 'Missing target username' }); return; }
 
             readParsedState(res, state => {
                 const authUser = requireAuthenticatedUser(req, res, state);
@@ -1343,7 +1347,7 @@ const server = http.createServer(async (req, res) => {
         req.on('end', () => {
             try {
                 const { username, target } = JSON.parse(body);
-                if (!target) {
+                if (!identity.validUsernameReference(target) || (username != null && !identity.validUsernameReference(username))) {
                     sendJson(res, 400, { error: 'Missing target username' });
                     return;
                 }
@@ -1393,7 +1397,7 @@ const server = http.createServer(async (req, res) => {
         req.on('end', () => {
             try {
                 const { target } = JSON.parse(body);
-                if (typeof target !== 'string' || !target.trim()) {
+                if (!identity.validUsernameReference(target)) {
                     sendJson(res, 400, { error: 'Missing parameters' });
                     return;
                 }

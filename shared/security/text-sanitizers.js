@@ -1,5 +1,11 @@
+function textValue(value) {
+    return typeof value === 'string' || (typeof value === 'number' && Number.isFinite(value))
+        ? String(value || '')
+        : '';
+}
+
 function decodeHtmlEntities(value) {
-    return String(value || '')
+    return textValue(value)
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
         .replace(/&quot;/g, '"')
@@ -20,7 +26,7 @@ function escapeHtml(value, maxLength = 5000) {
 }
 
 function sanitizeColor(color) {
-    const value = String(color || '').trim();
+    const value = textValue(color).trim();
     return /^#[0-9a-fA-F]{6}$/.test(value) ? value : '#FF4500';
 }
 
@@ -30,4 +36,4 @@ function sanitizeTextArray(values, maxItems = 20, maxLength = 80) {
         : [];
 }
 
-module.exports = { escapeHtml, sanitizeColor, sanitizeTextArray };
+module.exports = { textValue, escapeHtml, sanitizeColor, sanitizeTextArray };
