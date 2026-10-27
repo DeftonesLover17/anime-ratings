@@ -289,7 +289,11 @@ function createWorkbench(host, initialModel, shared) {
                     `<button type="button" data-episode="${episode}" aria-pressed="${episode === selected}" aria-label="Episódio ${episode}, ${committed(episode) === null ? 'sem nota' : 'nota ' + formatScore(committed(episode))}"><span>${String(episode).padStart(2, '0')}</span><span>Episódio ${String(episode).padStart(2, '0')}<small>${shared.drafts.has(draftKey(episode)) ? 'Rascunho' : episodeWatched(rating(), episode) ? 'Assistido' : 'Ainda não assistido'}</small></span>${scoreMarkup(committed(episode))}</button>`,
             )
             .join('');
-        picker.innerHTML = page.episodes
+        const allEpisodes = Array.from(
+            { length: total },
+            (_, index) => index + 1,
+        );
+        picker.innerHTML = allEpisodes
             .map(
                 (episode) =>
                     `<option value="${episode}" ${episode === selected ? 'selected' : ''}>Episódio ${String(episode).padStart(2, '0')} · ${formatScore(committed(episode))}</option>`,
