@@ -187,10 +187,9 @@ input.av-score-range::-moz-range-thumb { width: 11px; height: 11px; background: 
 @media(max-width:760px) {
     .av-workbench { grid-template-columns: 1fr; }
     .av-episode-index { padding: 22px 0; border-right: 0; border-bottom: 1px solid var(--av-line); }
-    .av-rail-heading,.av-episode-buttons,.av-episode-index > .av-quiet { display: none; }
+    .av-rail-heading,.av-episode-buttons,.av-episode-index > .av-quiet,.av-episode-pagination { display: none !important; }
     .av-mobile-picker { display: flex; flex-direction: column; gap: 12px; font-size: 11px; color: var(--av-muted); }
     .av-mobile-picker select { min-height: 48px; padding: 12px; font-size: 14px; color: var(--av-ink); background: var(--av-surface); border: 1px solid var(--av-line); border-radius: 2px; }
-    .av-episode-pagination { margin-top: 12px; padding-top: 0; border-top: 0; }
     .av-rating-editor { padding: 25px 0; }
     .av-editor-heading { margin-bottom: 25px; }
     .av-editor-heading h3 { font-size: 27px; }
