@@ -200,3 +200,13 @@ test('revoking owner access during the drawer exit cancels the privileged handof
     assert.equal(calls, 0);
     assert.equal(f.drawer.phase, 'closed');
 });
+
+test('rendering reviewers with empty friends list shows guest login prompt and hides logout', () => {
+    const f = fixture();
+    f.drawer.renderReviewers([], null, () => {});
+    const emptyState = f.list.children[0];
+    assert.ok(emptyState);
+    assert.equal(emptyState.className, 'av-account-empty-state');
+    assert.match(emptyState.innerHTML, /Você não está conectado/);
+    assert.match(emptyState.innerHTML, /id="drawer-login-action"/);
+});
