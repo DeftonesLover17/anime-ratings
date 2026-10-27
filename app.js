@@ -3089,6 +3089,13 @@ function hideRegistrationGate() {
         regGate.classList.remove('flex');
     }
     document.body.classList.remove('overflow-hidden');
+    if (!window.location.hash || window.location.hash === '#featured-banner-wrapper' || window.location.hash === '#anime-grid-section') {
+        if (!window.__anivoidHasEnteredSite) {
+            window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+            if (document.documentElement) document.documentElement.scrollTop = 0;
+            if (document.body) document.body.scrollTop = 0;
+        }
+    }
 }
 
 function removeLegacyRecoveryAccessLinks() {
@@ -3188,6 +3195,12 @@ function initMotionSuite() {
                     );
                 }
             });
+
+            if (!window.__anivoidHasEnteredSite && (!window.location.hash || window.location.hash === '#featured-banner-wrapper' || window.location.hash === '#anime-grid-section')) {
+                try {
+                    window.lenis.scrollTo(0, { immediate: true, force: true });
+                } catch (_) {}
+            }
 
             // Connect Lenis to GSAP ticker if available, or fallback to requestAnimationFrame
             if (typeof gsap !== 'undefined') {
@@ -3318,7 +3331,17 @@ function startApp() {
     if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
         window.history.scrollRestoration = 'manual';
     }
-    window.AnivoidUI.site.navigation.configure({ open: openAnimeDetail, studio: (name, animate) => window.switchTabToStudio(name, animate), catalog: () => window.switchTabToAll('#anime-grid-section', true), featured: () => window.switchTabToFeatured() });
+    window.__anivoidHasEnteredSite = false;
+    window.AnivoidUI.site.navigation.configure({
+        open: openAnimeDetail,
+        studio: (name, animate) => window.switchTabToStudio(name, animate),
+        catalog: () => window.switchTabToAll('#anime-grid-section', true),
+        featured: () => {
+            const isInitial = !window.__anivoidHasEnteredSite;
+            window.__anivoidHasEnteredSite = true;
+            window.switchTabToFeatured(isInitial);
+        }
+    });
     // 1. Reveal Elements on Scroll
     const revealObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
@@ -3497,7 +3520,12 @@ function setupSplashScreen() {
         splashScreen.classList.add('hidden');
         splashScreen.style.display = 'none';
         if (!window.location.hash || window.location.hash === '#featured-banner-wrapper' || window.location.hash === '#anime-grid-section') {
-            window.scrollTo({ top: 0, behavior: 'instant' });
+            if (window.lenis?.scrollTo) {
+                try { window.lenis.scrollTo(0, { immediate: true, force: true }); } catch (_) {}
+            }
+            window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+            if (document.documentElement) document.documentElement.scrollTop = 0;
+            if (document.body) document.body.scrollTop = 0;
         }
         const hasKnownAccount = Boolean(localStorage.getItem('anivoid_logged_in_username'));
         const isSyncing = Boolean(state.syncInFlight || !state.initialSyncDone);
@@ -4110,13 +4138,22 @@ function renderStudiosDirectory() {
     if (container) projectUI.renderStudios(container, activeStudioName);
 }
 
-window.switchTabToFeatured = () => {
+window.switchTabToFeatured = (immediate = false) => {
     window.switchTabToAll('#featured-banner-wrapper', false);
     if (window.lenis) {
-        window.lenis.scrollTo(0, { duration: 0.85 });
+        if (immediate) {
+            try { window.lenis.scrollTo(0, { immediate: true, force: true }); } catch (_) {}
+        } else {
+            window.lenis.scrollTo(0, { duration: 0.85 });
+        }
     } else {
-        window.scrollTo({ top: 0, behavior: 'instant' });
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
         document.getElementById('featured-banner-wrapper')?.scrollIntoView({ behavior: 'instant' });
+    }
+    if (immediate) {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        if (document.documentElement) document.documentElement.scrollTop = 0;
+        if (document.body) document.body.scrollTop = 0;
     }
 };
 

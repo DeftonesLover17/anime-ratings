@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createNavigation } = require('../frontend/site/navigation');
 const { createScenes } = require('../frontend/site/scenes');
+const { createSite } = require('../frontend/site/index');
 
 test('deep links wait for the preserved intro, and the empty route opens discovery', () => {
     let introVisible = true;
@@ -155,4 +156,59 @@ test('a native transition startup failure still renders and releases its media t
     assert.equal(rendered, 1);
     assert.equal(source.style.viewTransitionName, '');
     assert.equal(source.dataset.avTransitionOwner, undefined);
+});
+
+test('site enter performs immediate scroll snap to 0 without delayed smooth scroll', () => {
+    const scrollToCalls = [];
+    const lenisScrollToCalls = [];
+    const location = { hash: '', href: 'https://example.org/' };
+    const makeEl = (extra = {}) => ({
+        style: {},
+        querySelectorAll: () => [],
+        querySelector: () => null,
+        classList: { add() {}, remove() {}, contains: () => false },
+        getAttribute: () => null,
+        setAttribute() {},
+        addEventListener() {},
+        removeEventListener() {},
+        ...extra,
+    });
+    const splash = makeEl({ id: 'splash-screen' });
+    const elements = {
+        'splash-screen': splash,
+        'anime-grid-section': makeEl(),
+        'featured-banner-wrapper': makeEl(),
+        'anime-detail-page': makeEl(),
+    };
+    const browser = {
+        location,
+        document: {
+            body: { classList: { add() {} } },
+            getElementById: (id) => elements[id] || null,
+            documentElement: { scrollTop: 500 },
+        },
+        getComputedStyle: (el) => ({ display: el === splash ? 'none' : 'block' }),
+        addEventListener() {},
+        matchMedia: () => ({ matches: false, addEventListener() {} }),
+        IntersectionObserver: class {
+            observe() {}
+            unobserve() {}
+        },
+        scrollTo: (...args) => scrollToCalls.push(args),
+        lenis: {
+            scrollTo: (...args) => lenisScrollToCalls.push(args),
+        },
+        MutationObserver: class {
+            constructor() {}
+            observe() {}
+            disconnect() {}
+        },
+    };
+    const site = createSite(browser, false);
+    site.mount();
+    assert.ok(scrollToCalls.length > 0 || lenisScrollToCalls.length > 0);
+    if (lenisScrollToCalls.length > 0) {
+        assert.equal(lenisScrollToCalls[0][0], 0);
+        assert.equal(lenisScrollToCalls[0][1].immediate, true);
+    }
 });

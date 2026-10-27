@@ -67,12 +67,25 @@ function createSite(browser, animate) {
             observer.disconnect();
             reveal(browser.document.getElementById('featured-banner-wrapper'));
             reveal(browser.document.getElementById('anime-grid-section'));
-            navigation.applyRoute(true);
-            if (!browser.location.hash || browser.location.hash === '#featured-banner-wrapper' || browser.location.hash === '#anime-grid-section') {
-                if (typeof browser.scrollTo === 'function') {
-                    browser.scrollTo({ top: 0, behavior: 'instant' });
+            const snapToHero = () => {
+                if (!browser.location.hash || browser.location.hash === '#featured-banner-wrapper' || browser.location.hash === '#anime-grid-section') {
+                    if (browser.lenis?.scrollTo) {
+                        try { browser.lenis.scrollTo(0, { immediate: true, force: true }); } catch (_) {}
+                    }
+                    if (typeof browser.scrollTo === 'function') {
+                        try { browser.scrollTo({ top: 0, left: 0, behavior: 'instant' }); } catch (_) {}
+                    }
+                    if (browser.document?.documentElement) {
+                        browser.document.documentElement.scrollTop = 0;
+                    }
+                    if (browser.document?.body) {
+                        browser.document.body.scrollTop = 0;
+                    }
                 }
-            }
+            };
+            snapToHero();
+            navigation.applyRoute(true);
+            snapToHero();
         };
         const observer = new browser.MutationObserver(enter);
         if (splash)
