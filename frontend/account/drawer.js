@@ -141,10 +141,28 @@ function createAccountDrawer(browser, motion, { canManageSystem = () => false, r
             fragment.append(button);
         });
         if (!friends.length) {
-            const empty = document.createElement('p');
-            empty.className = 'av-account-empty';
-            empty.textContent = 'Nenhum avaliador disponível.';
+            const empty = document.createElement('div');
+            empty.className = 'av-account-empty-state';
+            empty.innerHTML = `<p class="av-account-empty">Você não está conectado.</p><button type="button" id="drawer-login-action" class="av-account-login-cta"><span>Entrar na sua conta</span>${arrow}</button>`;
+            const loginBtn = empty.querySelector ? empty.querySelector('#drawer-login-action') : null;
+            if (loginBtn && loginBtn.addEventListener) {
+                loginBtn.addEventListener('click', () => {
+                    close({ animate: false });
+                    const gate = document.getElementById('registration-gate');
+                    if (gate) {
+                        gate.classList.remove('hidden');
+                        gate.classList.add('flex');
+                        document.body.classList.add('overflow-hidden');
+                        document.body.classList.add('auth-gate-active');
+                        document.getElementById('tab-login')?.click();
+                    }
+                });
+            }
             fragment.append(empty);
+        }
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            logoutBtn.style.display = friends.length ? '' : 'none';
         }
         container.replaceChildren(fragment);
     }

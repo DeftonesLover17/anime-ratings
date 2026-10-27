@@ -78,6 +78,10 @@
 .av-account-check { color: var(--av-accent); }
 .av-account-check svg { width: 18px; height: 18px; }
 .av-account-empty { color: var(--av-muted); font-size: 12px; line-height: 1.6; }
+.av-account-empty-state { display: flex; flex-direction: column; gap: 12px; padding: 14px 12px; }
+.av-account-login-cta { display: inline-flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 10px 16px; border: 1px solid var(--av-accent); background: color-mix(in srgb, var(--av-accent) 12%, transparent); color: var(--av-ink); font: 600 13px/1 var(--av-display); letter-spacing: -0.01em; cursor: pointer; transition: all .18s ease; }
+.av-account-login-cta:hover { background: var(--av-accent); color: #fff; }
+.av-account-login-cta svg { width: 16px; height: 16px; }
 .av-account-footer { flex-shrink: 0; padding: 16px 32px 22px; padding-bottom: max(22px,env(safe-area-inset-bottom)); border-top: 1px solid var(--av-line); }
 .av-account-logout { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; min-height: 44px; padding: 7px 0; border: 0; background: transparent; color: var(--score-low); text-align: left; font: 500 13px/1.6 var(--av-body); }
 .av-account-logout svg { width: 18px; height: 18px; }

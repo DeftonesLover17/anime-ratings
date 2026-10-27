@@ -3476,7 +3476,7 @@ function setupSplashScreen() {
 function initUI() {
     removeLegacyRecoveryAccessLinks();
 
-    // If no friends, show registration gate and stop
+    // If no friends, manage registration gate
     if (state.friends.length === 0) {
         if (state.loggedInUser) {
             hideRegistrationGate();
@@ -3489,10 +3489,9 @@ function initUI() {
                 showRegistrationGate();
             }
         }
-        return;
+    } else {
+        hideRegistrationGate();
     }
-
-    hideRegistrationGate();
 
     // Render current selection
     const currentFriend = state.getCurrentFriend();
@@ -3657,6 +3656,26 @@ function updateProfileIndicator() {
     const activeName = document.getElementById('active-name');
     const profileIndicator = document.getElementById('profile-indicator');
     const badge = document.getElementById('friend-requests-badge');
+
+    if (!friend) {
+        if (activeAvatar) {
+            activeAvatar.innerHTML = '<span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white/10 text-white/70 text-[11px] font-mono">👤</span>';
+        }
+        if (activeName) {
+            activeName.innerHTML = 'Entrar';
+        }
+        if (profileIndicator) {
+            profileIndicator.classList.remove('profile-orbit-control');
+            profileIndicator.style.removeProperty('--profile-color');
+            profileIndicator.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+            profileIndicator.style.boxShadow = 'none';
+        }
+        if (badge) badge.classList.add('hidden');
+        window.AnivoidUI.access.refresh();
+        setAdminCatalogControlsVisibility();
+        updateNotificationBadges();
+        return;
+    }
 
     if (activeAvatar) {
         if (friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))) {
@@ -4662,16 +4681,21 @@ function renderAnimeDetailBody(anime) {
     // Active Friend info and Read-Only badge check
     const currentFriend = state.getCurrentFriend();
     const loggedInUsername = localStorage.getItem('anivoid_logged_in_username') || '';
-    const isReadOnly = state.currentFriendId !== loggedInUsername.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const isReadOnly = !currentFriend || state.currentFriendId !== loggedInUsername.toLowerCase().replace(/[^a-z0-9]/g, '');
     
     const activeFriendLabel = document.getElementById('active-friend-name-label');
     if (activeFriendLabel) {
-        activeFriendLabel.style.color = getUserDisplayNameColor(currentFriend, currentFriend.color);
-        const adminBadge = getUserBadgesHtml(currentFriend);
-        if (isReadOnly) {
-            activeFriendLabel.innerHTML = `${escapeHtml(currentFriend.name)}${adminBadge} <span class="text-[9px] bg-white/10 text-white/50 border border-white/5 px-2 py-0.5 rounded-md ml-1 font-mono tracking-normal font-normal">Apenas Leitura</span>`;
+        if (currentFriend) {
+            activeFriendLabel.style.color = getUserDisplayNameColor(currentFriend, currentFriend.color);
+            const adminBadge = getUserBadgesHtml(currentFriend);
+            if (isReadOnly) {
+                activeFriendLabel.innerHTML = `${escapeHtml(currentFriend.name)}${adminBadge} <span class="text-[9px] bg-white/10 text-white/50 border border-white/5 px-2 py-0.5 rounded-md ml-1 font-mono tracking-normal font-normal">Apenas Leitura</span>`;
+            } else {
+                activeFriendLabel.innerHTML = `<span class="block leading-tight">${escapeHtml(currentFriend.name)}</span><span class="flex flex-wrap gap-1 mt-1">${adminBadge}</span>`;
+            }
         } else {
-            activeFriendLabel.innerHTML = `<span class="block leading-tight">${escapeHtml(currentFriend.name)}</span><span class="flex flex-wrap gap-1 mt-1">${adminBadge}</span>`;
+            activeFriendLabel.style.color = '#9ca3af';
+            activeFriendLabel.innerHTML = `<span class="block leading-tight">Visitante</span> <span class="text-[9px] bg-white/10 text-white/50 border border-white/5 px-2 py-0.5 rounded-md ml-1 font-mono tracking-normal font-normal">Apenas Leitura</span>`;
         }
     }
 
