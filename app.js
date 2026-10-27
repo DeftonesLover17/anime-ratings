@@ -813,54 +813,7 @@ class AppState {
                     // Update breakdown list
                     const breakdownContainer = document.getElementById('detail-ratings-breakdown');
                     if (breakdownContainer) {
-                        breakdownContainer.innerHTML = '';
-                        this.friends.forEach(friend => {
-                            const rating = anime.ratings?.[friend.id];
-                            const status = rating?.status || 'Plan to Watch';
-                            const epsWatched = rating?.episodesWatched || 0;
-                            const totalEps = parseInt(anime.episodes) || 0;
-                            const overall = rating?.overall || '-';
-                            const statusObj = STATUS_MAP[status] || STATUS_MAP['Plan to Watch'];
-                            
-                            const ratedEpsCount = rating?.episodeRatings ? Object.keys(rating.episodeRatings).length : 0;
-                            let ratedText = '';
-                            if (totalEps === 1) {
-                                ratedText = ratedEpsCount > 0 ? 'filme avaliado' : 'sem nota';
-                            } else {
-                                ratedText = ratedEpsCount > 0 ? `${ratedEpsCount} eps avaliados` : 'sem notas de ep';
-                            }
-                            
-                            const overallColorInfo = getScoreColor(overall);
-                            const overallTextStyle = overall !== '-' ? `color: ${overallColorInfo.text}; text-shadow: 0 0 6px ${overallColorInfo.glow}` : 'color: #7f8c8d';
-                            
-                            const card = document.createElement('div');
-                            const isFriendAdmin = friend.id === 'felipe' || (friend.name && friend.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe');
-                            const adminBadge = getUserBadgesHtml(friend);
-                            card.className = `glass-panel border rounded-2xl p-4 flex justify-between items-center text-sm cursor-pointer hover:border-brand/25 transition-colors ${isFriendAdmin ? 'border-brand/35 shadow-[0_0_15px_rgba(255,69,0,0.12)] bg-brand/[0.03]' : 'border-white/5'}`;
-                            const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
-                                ? `<img src="${friend.avatar}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">`
-                                : `<span class="text-2xl">${friend.avatar || '👤'}</span>`;
-                            card.innerHTML = `
-                                <div class="flex items-center gap-3">
-                                    ${avatarHtml}
-                                    <div>
-                                        <p class="font-semibold text-white" style="color: ${getUserDisplayNameColor(friend, friend.color)}">${friend.name}${adminBadge}</p>
-                                        <div class="flex items-center gap-2 mt-1">
-                                            <span class="text-[8px] uppercase tracking-wider font-mono px-2 py-0.5 border ${statusObj.border} ${statusObj.bg} ${statusObj.text} rounded-full">
-                                                ${statusObj.label} (${epsWatched}/${totalEps > 0 ? totalEps : '?'})
-                                            </span>
-                                            <span class="text-[9px] text-gray-500 font-mono">${ratedText}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="flex flex-col items-end">
-                                    <span class="text-[9px] uppercase text-gray-500 font-mono">Nota</span>
-                                    <span class="text-lg font-serif font-bold" style="${overallTextStyle}">${overall}</span>
-                                </div>
-                            `;
-                            card.addEventListener('click', () => renderPlayerProfileModal(friend.id));
-                            breakdownContainer.appendChild(card);
-                        });
+                        renderDetailRatingsBreakdown(breakdownContainer, anime, this.friends);
                     }
                 }
             }
@@ -3457,53 +3410,7 @@ function startApp() {
                     // Update breakdown list
                     const breakdownContainer = document.getElementById('detail-ratings-breakdown');
                     if (breakdownContainer) {
-                        breakdownContainer.innerHTML = '';
-                        state.friends.forEach(friend => {
-                            const rating = anime.ratings?.[friend.id];
-                            const status = rating?.status || 'Plan to Watch';
-                            const epsWatched = rating?.episodesWatched || 0;
-                            const totalEps = parseInt(anime.episodes) || 0;
-                            const overall = rating?.overall || '-';
-                            const statusObj = STATUS_MAP[status] || STATUS_MAP['Plan to Watch'];
-                            
-                            const ratedEpsCount = rating?.episodeRatings ? Object.keys(rating.episodeRatings).length : 0;
-                            let ratedText = '';
-                            if (totalEps === 1) {
-                                ratedText = ratedEpsCount > 0 ? 'filme avaliado' : 'sem nota';
-                            } else {
-                                ratedText = ratedEpsCount > 0 ? `${ratedEpsCount} eps avaliados` : 'sem notas de ep';
-                            }
-                            
-                            const overallColorInfo = getScoreColor(overall);
-                            const overallTextStyle = overall !== '-' ? `color: ${overallColorInfo.text}; text-shadow: 0 0 6px ${overallColorInfo.glow}` : 'color: #7f8c8d';
-                            
-                            const card = document.createElement('div');
-                            const isFriendAdmin = friend.id === 'felipe' || (friend.name && friend.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe');
-                            const adminBadge = getUserBadgesHtml(friend);
-                            card.className = `glass-panel border rounded-2xl p-4 flex justify-between items-center text-sm ${isFriendAdmin ? 'border-brand/35 shadow-[0_0_15px_rgba(255,69,0,0.12)] bg-brand/[0.03]' : 'border-white/5'}`;
-                            const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
-                                ? `<img src="${friend.avatar}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">`
-                                : `<span class="text-2xl">${friend.avatar || '👤'}</span>`;
-                            card.innerHTML = `
-                                <div class="flex items-center gap-3">
-                                    ${avatarHtml}
-                                    <div>
-                                        <p class="font-semibold text-white" style="color: ${getUserDisplayNameColor(friend, friend.color)}">${friend.name}${adminBadge}</p>
-                                        <div class="flex items-center gap-2 mt-1">
-                                            <span class="text-[8px] uppercase tracking-wider font-mono px-2 py-0.5 border ${statusObj.border} ${statusObj.bg} ${statusObj.text} rounded-full">
-                                                ${statusObj.label} (${epsWatched}/${totalEps > 0 ? totalEps : '?'})
-                                            </span>
-                                            <span class="text-[9px] text-gray-500 font-mono">${ratedText}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="flex flex-col items-end">
-                                    <span class="text-[9px] uppercase text-gray-500 font-mono">Nota</span>
-                                    <span class="text-lg font-serif font-bold" style="${overallTextStyle}">${overall}</span>
-                                </div>
-                            `;
-                            breakdownContainer.appendChild(card);
-                        });
+                        renderDetailRatingsBreakdown(breakdownContainer, anime, state.friends);
                     }
                 }
             }
@@ -4849,58 +4756,107 @@ function renderAnimeDetailBody(anime) {
     // Group Members breakdown card container
     const breakdownContainer = document.getElementById('detail-ratings-breakdown');
     if (breakdownContainer) {
-        breakdownContainer.innerHTML = '';
-        state.friends.forEach(friend => {
-            const rating = anime.ratings?.[friend.id];
-            const status = rating?.status || 'Plan to Watch';
-            const epsWatched = rating?.episodesWatched || 0;
-            const totalEps = parseInt(anime.episodes) || 0;
-            const overall = rating?.overall || '-';
-            const statusObj = STATUS_MAP[status] || STATUS_MAP['Plan to Watch'];
-            
-            // Count rated episodes for this friend
-            const ratedEpsCount = rating?.episodeRatings ? Object.keys(rating.episodeRatings).length : 0;
-            let ratedText = '';
-            if (totalEps === 1) {
-                ratedText = ratedEpsCount > 0 ? 'filme avaliado' : 'sem nota';
-            } else {
-                ratedText = ratedEpsCount > 0 ? `${ratedEpsCount} eps avaliados` : 'sem notas de ep';
-            }
-            
-            const overallColorInfo = getScoreColor(overall);
-            const overallTextStyle = overall !== '-' ? `color: ${overallColorInfo.text}; text-shadow: 0 0 6px ${overallColorInfo.glow}` : 'color: #7f8c8d';
-
-            const card = document.createElement('div');
-            const isFriendAdmin = friend.id === 'felipe' || (friend.name && friend.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe');
-            const adminBadge = getUserBadgesHtml(friend);
-            card.className = `glass-panel border rounded-2xl p-4 flex justify-between items-center text-sm cursor-pointer hover:border-brand/25 transition-colors ${isFriendAdmin ? 'border-brand/35 shadow-[0_0_15px_rgba(255,69,0,0.12)] bg-brand/[0.03]' : 'border-white/5'}`;
-            const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
-                ? `<img src="${friend.avatar}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">`
-                : `<span class="text-2xl">${friend.avatar || '👤'}</span>`;
-            card.innerHTML = `
-                <div class="flex items-center gap-3">
-                    ${avatarHtml}
-                    <div>
-                        <p class="font-semibold text-white" style="color: ${getUserDisplayNameColor(friend, friend.color)}">${friend.name}${adminBadge}</p>
-                        <div class="flex items-center gap-2 mt-1">
-                            <span class="text-[8px] uppercase tracking-wider font-mono px-2 py-0.5 border ${statusObj.border} ${statusObj.bg} ${statusObj.text} rounded-full">
-                                ${statusObj.label} (${epsWatched}/${totalEps > 0 ? totalEps : '?'})
-                            </span>
-                            <span class="text-[9px] text-gray-500 font-mono">${ratedText}</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="flex flex-col items-end">
-                    <span class="text-[9px] uppercase text-gray-500 font-mono">Nota</span>
-                    <span class="text-lg font-serif font-bold" style="${overallTextStyle}">${overall}</span>
-                </div>
-            `;
-            card.addEventListener('click', () => renderPlayerProfileModal(friend.id));
-            breakdownContainer.appendChild(card);
-        });
+        renderDetailRatingsBreakdown(breakdownContainer, anime, state.friends);
     }
 }
+
+
+function renderDetailRatingsBreakdown(container, anime, friendsList) {
+    if (!container || !anime) return;
+    container.innerHTML = '';
+    const friends = friendsList || [];
+    const totalEps = parseInt(anime.episodes) || 0;
+
+    const statusKeyMap = {
+        'Watching': 'watching',
+        'Completed': 'completed',
+        'On Hold': 'on-hold',
+        'Dropped': 'dropped',
+        'Plan to Watch': 'plan-to-watch'
+    };
+
+    friends.forEach(friend => {
+        const rating = anime.ratings?.[friend.id];
+        const status = rating?.status || 'Plan to Watch';
+        const epsWatched = rating?.episodesWatched || 0;
+        const overall = rating?.overall || '-';
+        const statusObj = STATUS_MAP[status] || STATUS_MAP['Plan to Watch'];
+        const statusKey = statusKeyMap[status] || 'plan-to-watch';
+
+        // Count rated episodes for this friend
+        const ratedEpsCount = rating?.episodeRatings ? Object.keys(rating.episodeRatings).length : 0;
+        let progressDetail = '';
+        if (totalEps === 1) {
+            progressDetail = ratedEpsCount > 0 ? 'Filme avaliado' : (status === 'Completed' ? 'Filme assistido' : 'Filme');
+        } else if (totalEps > 0) {
+            const watchedText = `${epsWatched}/${totalEps} eps`;
+            const ratedText = ratedEpsCount > 0 ? `${ratedEpsCount} avaliados` : null;
+            progressDetail = ratedText ? `${watchedText} · ${ratedText}` : watchedText;
+        } else {
+            progressDetail = ratedEpsCount > 0 ? `${ratedEpsCount} eps avaliados` : (epsWatched > 0 ? `${epsWatched} eps assistidos` : 'Sem notas');
+        }
+
+        const isFriendAdmin = friend.id === 'felipe' || (friend.name && friend.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe');
+        const adminBadge = getUserBadgesHtml(friend);
+
+        const rawName = friend.name || 'Membro';
+        const isYou = rawName.includes('(Você)');
+        const displayName = isYou ? rawName.replace(/\s*\(Você\)/i, '').trim() : rawName;
+
+        const overallColorInfo = getScoreColor(overall);
+        const overallFormatted = overall !== '-' && !isNaN(parseFloat(overall))
+            ? parseFloat(overall).toFixed(1).replace('.', ',')
+            : (overall !== '-' ? overall : '—');
+        const scoreStyle = overall !== '-' ? `color: ${overallColorInfo.text};` : 'color: var(--av-muted);';
+
+        const card = document.createElement('article');
+        card.className = `av-member-card glass-panel ${isFriendAdmin ? 'is-curator' : ''}`;
+        card.setAttribute('role', 'button');
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('aria-label', `Perfil de ${escapeHtml(displayName)}, nota ${overallFormatted}`);
+
+        const avatarHtml = friend.avatar && (friend.avatar.startsWith('data:') || friend.avatar.startsWith('http'))
+            ? `<img src="${friend.avatar}" class="av-member-avatar-img rounded-full" alt="${escapeHtml(displayName)}">`
+            : `<span class="av-member-avatar-fallback">${friend.avatar || '👤'}</span>`;
+
+        card.innerHTML = `
+            <div class="av-member-info">
+                <div class="av-member-avatar-wrap">
+                    ${avatarHtml}
+                </div>
+                <div class="av-member-details">
+                    <div class="av-member-identity">
+                        <span class="av-member-name" style="color: ${getUserDisplayNameColor(friend, friend.color)}">${escapeHtml(displayName)}</span>
+                        ${isYou ? '<span class="av-member-you">você</span>' : ''}
+                        <div class="av-member-badges">${adminBadge}</div>
+                    </div>
+                    <div class="av-member-status-line">
+                        <span class="av-member-status-chip av-status-${statusKey}">
+                            <span class="av-status-dot"></span>
+                            <span>${statusObj.label}</span>
+                        </span>
+                        <span class="av-member-progress">${progressDetail}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="av-member-score-col">
+                <small class="av-member-score-label">Nota</small>
+                <span class="av-member-score-value font-serif font-bold ${overall === '-' ? 'is-empty' : ''}" style="${scoreStyle}">${overallFormatted}</span>
+            </div>
+        `;
+
+        card.addEventListener('click', () => renderPlayerProfileModal(friend.id));
+        card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                renderPlayerProfileModal(friend.id);
+            }
+        });
+        container.appendChild(card);
+    });
+}
+
 
 // The community module owns composition, drafts and publication rendering.
 function renderComments(anime) {

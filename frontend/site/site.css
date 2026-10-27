@@ -655,49 +655,282 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
     color: var(--av-ink);
 }
 
-/* Member Breakdown Cards */
+/* Member Breakdown Cards - Awwwards Luxury Editorial Design */
 .av-app #detail-ratings-breakdown {
     display: grid;
     gap: 16px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-top: 14px;
+    margin-top: 18px;
 }
 
-.av-app #detail-ratings-breakdown .glass-panel {
+.av-app #detail-ratings-breakdown .glass-panel,
+.av-app .av-member-card {
+    position: relative;
     border-radius: 14px !important;
-    background: color-mix(in srgb, var(--av-surface) 50%, transparent) !important;
+    background: color-mix(in srgb, var(--av-surface) 65%, transparent) !important;
     border: 1px solid var(--av-line) !important;
     padding: 18px 22px !important;
     display: flex !important;
     justify-content: space-between !important;
     align-items: center !important;
-    transition: all 0.25s var(--av-ease) !important;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2) !important;
+    gap: 16px;
+    cursor: pointer;
+    transition: all 0.24s var(--av-ease) !important;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25) !important;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    overflow: hidden;
 }
 
-.av-app #detail-ratings-breakdown .glass-panel:hover {
+.av-app #detail-ratings-breakdown .glass-panel:hover,
+.av-app .av-member-card:hover {
     border-color: color-mix(in srgb, var(--av-accent) 45%, var(--av-line)) !important;
-    background: color-mix(in srgb, var(--av-surface) 85%, transparent) !important;
+    background: color-mix(in srgb, var(--av-surface) 90%, transparent) !important;
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 12px color-mix(in srgb, var(--av-accent) 15%, transparent) !important;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.38), 0 0 16px color-mix(in srgb, var(--av-accent) 12%, transparent) !important;
 }
 
-.av-app #detail-ratings-breakdown img.rounded-full {
+.av-app .av-member-card.is-curator {
+    border-color: color-mix(in srgb, var(--av-accent) 30%, var(--av-line)) !important;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--av-accent) 4.5%, var(--av-surface)) 0%, color-mix(in srgb, var(--av-surface) 75%, transparent) 100%) !important;
+}
+
+.av-app .av-member-card.is-curator:hover {
+    border-color: color-mix(in srgb, var(--av-accent) 55%, var(--av-line)) !important;
+}
+
+.av-app .av-member-info {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.av-app .av-member-avatar-wrap {
+    flex-shrink: 0;
     width: 44px;
     height: 44px;
     border-radius: 50%;
+    overflow: hidden;
     border: 1.5px solid var(--av-line);
-    padding: 2px;
     background: var(--av-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    transition: border-color .2s ease;
 }
 
-.av-app #detail-ratings-breakdown .font-serif.font-bold {
-    font-family: var(--av-display) !important;
-    font-size: 28px !important;
-    font-weight: 600 !important;
-    letter-spacing: -0.04em !important;
+.av-app .av-member-card:hover .av-member-avatar-wrap {
+    border-color: var(--av-muted);
+}
+
+.av-app .av-member-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.av-app .av-member-avatar-fallback {
+    font-size: 22px;
+    line-height: 1;
+}
+
+.av-app .av-member-details {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.av-app .av-member-identity {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    line-height: 1.2;
+}
+
+.av-app .av-member-name {
+    font-family: var(--av-display, sans-serif);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--av-ink);
+}
+
+.av-app .av-member-you {
+    font-family: var(--av-body, sans-serif);
+    font-size: 8.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--av-muted);
+    padding: 1.5px 6px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--av-line) 65%, transparent);
+    border: 1px solid var(--av-line);
+    line-height: 1.3;
+}
+
+.av-app .av-member-badges {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+/* Subdued Awwwards Micro-Badges for Breakdown Cards */
+.av-app #detail-ratings-breakdown .premium-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 3.5px !important;
+    padding: 2.5px 7.5px !important;
+    font-family: var(--av-body, sans-serif) !important;
+    font-size: 8.5px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.09em !important;
+    text-transform: uppercase !important;
+    border-radius: 9999px !important;
+    border: 1px solid var(--av-line) !important;
+    background: color-mix(in srgb, var(--av-surface) 90%, transparent) !important;
+    color: var(--av-muted) !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    animation: none !important;
+    transform: none !important;
+    vertical-align: middle;
+    white-space: nowrap;
+    margin: 0 !important;
+}
+
+.av-app #detail-ratings-breakdown .premium-badge:hover {
+    transform: none !important;
+}
+
+.av-app #detail-ratings-breakdown .premium-badge iconify-icon {
+    font-size: 10px !important;
+}
+
+.av-app #detail-ratings-breakdown .premium-badge-admin {
+    border-color: rgba(255, 121, 87, 0.35) !important;
+    background: rgba(255, 121, 87, 0.1) !important;
+    color: #ff9691 !important;
+}
+
+.av-app #detail-ratings-breakdown .premium-badge-founder {
+    border-color: rgba(245, 158, 11, 0.35) !important;
+    background: rgba(245, 158, 11, 0.1) !important;
+    color: #fcd34d !important;
+}
+
+/* Status Chips - Refined Editorial Pills */
+.av-app .av-member-status-line {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex-wrap: wrap;
+}
+
+.av-app .av-member-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--av-body, sans-serif);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2.5px 8px;
+    border-radius: 9999px;
+    border: 1px solid transparent;
+    line-height: 1.35;
+    white-space: nowrap;
+}
+
+.av-app .av-member-status-chip .av-status-dot {
+    width: 4.5px;
+    height: 4.5px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+}
+
+.av-app .av-member-status-chip.av-status-completed {
+    background: rgba(96, 165, 250, 0.12);
+    border-color: rgba(96, 165, 250, 0.3);
+    color: #93c5fd;
+}
+
+.av-app .av-member-status-chip.av-status-watching {
+    background: rgba(52, 211, 153, 0.12);
+    border-color: rgba(52, 211, 153, 0.3);
+    color: #6ee7b7;
+}
+
+.av-app .av-member-status-chip.av-status-on-hold {
+    background: rgba(251, 191, 36, 0.12);
+    border-color: rgba(251, 191, 36, 0.3);
+    color: #fcd34d;
+}
+
+.av-app .av-member-status-chip.av-status-dropped {
+    background: rgba(248, 113, 113, 0.12);
+    border-color: rgba(248, 113, 113, 0.3);
+    color: #fca5a5;
+}
+
+.av-app .av-member-status-chip.av-status-plan-to-watch {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--av-line);
+    color: var(--av-muted);
+}
+
+.av-app .av-member-progress {
+    font-family: var(--av-body, sans-serif);
+    font-size: 11px;
+    color: var(--av-muted);
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+
+/* Score Column */
+.av-app .av-member-score-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    text-align: right;
+    flex-shrink: 0;
+    padding-left: 8px;
+}
+
+.av-app .av-member-score-label {
+    font-family: var(--av-body, sans-serif);
+    font-size: 8.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--av-muted);
+    margin-bottom: 2px;
+    line-height: 1;
+}
+
+.av-app #detail-ratings-breakdown .font-serif.font-bold,
+.av-app .av-member-score-value {
+    font-family: var(--av-display, sans-serif) !important;
+    font-size: 30px !important;
+    font-weight: 700 !important;
     line-height: 1 !important;
+    letter-spacing: -0.04em !important;
     font-variant-numeric: tabular-nums;
+}
+
+.av-app .av-member-score-value.is-empty {
+    color: var(--av-muted) !important;
+    font-size: 20px !important;
 }
 
 /* History Section - Editorial Timeline */
