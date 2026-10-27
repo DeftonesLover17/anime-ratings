@@ -1,3 +1,4 @@
+const { createAwwwardsSelect } = require('../shared/custom-select');
 const {
     element,
     escapeHtml: e,
@@ -150,6 +151,7 @@ function createWorkbench(host, initialModel, shared) {
     const checkbox = $('.av-watched input');
     const rail = $('.av-episode-buttons');
     const picker = $('.av-mobile-picker select');
+    const customPicker = createAwwwardsSelect(picker, { triggerClass: 'av-episode-trigger', width: '100%', maxHeight: '300px' });
     const error = $('#av-score-error');
     const next = $('[data-next]');
     const retry = $('.av-retry');
@@ -299,6 +301,7 @@ function createWorkbench(host, initialModel, shared) {
                     `<option value="${episode}" ${episode === selected ? 'selected' : ''}>Episódio ${String(episode).padStart(2, '0')} · ${formatScore(committed(episode))}</option>`,
             )
             .join('');
+        customPicker?.sync();
         $('[data-page="-1"]').disabled = page.start <= 1;
         $('[data-page="1"]').disabled = page.end >= total;
         $('.av-episode-pagination span').textContent =
@@ -643,6 +646,7 @@ function createWorkbench(host, initialModel, shared) {
         },
         destroy() {
             disposed = true;
+            customPicker?.destroy();
         },
     };
 }

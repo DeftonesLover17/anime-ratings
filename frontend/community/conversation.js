@@ -1,3 +1,4 @@
+const { createAwwwardsSelect } = require('../shared/custom-select');
 const {
     escapeHtml: e,
     element,
@@ -40,6 +41,9 @@ function createConversation(host, initialModel, drafts) {
     const status = $('.av-composer-feedback');
     const retry = $('[data-retry]');
     const feed = $('.av-text-feed');
+    const orderSelect = $('[name=order]');
+    const customScope = createAwwwardsSelect(scope, { triggerClass: 'av-scope-trigger', width: '100%' });
+    const customOrder = createAwwwardsSelect(orderSelect, { triggerClass: 'av-order-trigger', align: 'right' });
 
     function dateLabel(value) {
         try {
@@ -94,6 +98,7 @@ function createConversation(host, initialModel, drafts) {
             scope.append(option);
         }
         scope.value = previous === 'work' ? 'work' : String(episode);
+        customScope?.sync();
     }
 
     function publication(post) {
@@ -380,6 +385,8 @@ function createConversation(host, initialModel, drafts) {
         destroy() {
             saveDraft();
             disposed = true;
+            customScope?.destroy();
+            customOrder?.destroy();
         },
     };
 }
