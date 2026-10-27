@@ -329,17 +329,8 @@ body ::-webkit-scrollbar {
 /* Dropdown Drawer Container (In-DOM Glass Surface) */
 .av-dropdown-drawer,
 .select-options-list {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
-    right: 0;
-    width: 100%;
-    z-index: 10050;
     max-height: 280px;
     overflow-y: auto;
-    display: flex;
-    flex-direction: column !important;
-    gap: 3px;
     background: rgba(13, 14, 18, 0.95);
     backdrop-filter: blur(28px) saturate(190%);
     -webkit-backdrop-filter: blur(28px) saturate(190%);
@@ -351,6 +342,46 @@ body ::-webkit-scrollbar {
     will-change: transform, opacity;
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+/* Explicit Hidden State: Never Allow Display to Fight Hidden */
+.av-dropdown-drawer.hidden,
+.select-options-list.hidden,
+.av-dropdown-drawer[hidden],
+.select-options-list[hidden] {
+    display: none !important;
+    pointer-events: none !important;
+}
+
+/* Open State Flex Layout */
+.av-dropdown-drawer:not(.hidden),
+.select-options-list:not(.hidden) {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+/* Custom Select Specific Positioning */
+.av-custom-select-wrap .select-options-list {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    width: 100%;
+    z-index: 10050;
+}
+
+.av-custom-select-wrap .select-options-list.av-dropdown-right {
+    left: auto;
+    right: 0;
+    width: auto;
+    min-width: 180px;
+}
+
+.av-custom-select-wrap .select-options-list.av-dropdown-dropup {
+    top: auto;
+    bottom: calc(100% + 6px);
+    transform-origin: bottom center;
 }
 
 .av-dropdown-drawer::-webkit-scrollbar,
@@ -369,19 +400,6 @@ body ::-webkit-scrollbar {
 .av-dropdown-drawer::-webkit-scrollbar-thumb:hover,
 .select-options-list::-webkit-scrollbar-thumb:hover {
     background: var(--av-accent, #ff7957);
-}
-
-/* Positioning Modifiers */
-.select-options-list.av-dropdown-right {
-    left: auto;
-    right: 0;
-    width: auto;
-    min-width: 180px;
-}
-.select-options-list.av-dropdown-dropup {
-    top: auto;
-    bottom: calc(100% + 6px);
-    transform-origin: bottom center;
 }
 
 /* Open / Close Physics */
