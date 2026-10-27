@@ -269,25 +269,125 @@ body ::-webkit-scrollbar {
 
 
 /* ==========================================================================
-   Awwwards-Tier Micro-Physics Dropdown Drawer & Reveal System
+   ANIVØID Custom Select & Micro-Physics Dropdown Drawer System
    ========================================================================== */
 
-.av-dropdown-drawer,
-.select-options-list {
-    background: rgba(13, 14, 18, 0.94) !important;
-    backdrop-filter: blur(28px) saturate(190%) !important;
-    -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.09) !important;
-    box-shadow: 0 24px 50px -12px rgba(0, 0, 0, 0.88), 0 0 0 1px rgba(255, 255, 255, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
-    border-radius: 14px !important;
-    padding: 6px !important;
-    transform-origin: top center;
-    will-change: transform, opacity;
+/* Custom Select Root Wrapper */
+.av-custom-select-wrap {
+    position: relative;
+    display: inline-block;
+}
+.av-custom-select-wrap.w-full {
+    display: block;
+    width: 100%;
 }
 
+/* Custom Select Trigger Button */
+.av-custom-select-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: color-mix(in srgb, var(--av-surface, #121610) 85%, transparent);
+    color: var(--av-ink, #f1f0e8);
+    border: 1px solid var(--av-line, rgba(255, 255, 255, 0.09));
+    border-radius: 8px;
+    font-family: var(--av-body, sans-serif);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+    transition: border-color 0.2s var(--av-ease, ease), background-color 0.2s var(--av-ease, ease), box-shadow 0.2s var(--av-ease, ease), transform 0.16s var(--av-ease, ease);
+    user-select: none;
+}
+
+.av-custom-select-trigger:hover {
+    border-color: rgba(255, 255, 255, 0.28);
+    background-color: var(--av-surface, #121610);
+    color: #ffffff;
+}
+
+.av-custom-select-trigger:focus-visible {
+    outline: none !important;
+    border-color: var(--av-accent, #ff7957) !important;
+    box-shadow: 0 0 0 3px rgba(255, 121, 87, 0.22) !important;
+}
+
+.av-custom-select-trigger .select-chevron {
+    width: 14px;
+    height: 14px;
+    transition: transform 0.22s var(--av-ease, cubic-bezier(0.16, 1, 0.3, 1));
+    color: var(--av-muted, rgba(255, 255, 255, 0.5));
+    flex-shrink: 0;
+}
+
+.av-custom-select-trigger:hover .select-chevron {
+    color: var(--av-accent, #ff7957);
+}
+
+/* Dropdown Drawer Container (In-DOM Glass Surface) */
+.av-dropdown-drawer,
+.select-options-list {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    width: 100%;
+    z-index: 10050;
+    max-height: 280px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column !important;
+    gap: 3px;
+    background: rgba(13, 14, 18, 0.95);
+    backdrop-filter: blur(28px) saturate(190%);
+    -webkit-backdrop-filter: blur(28px) saturate(190%);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    box-shadow: 0 24px 50px -12px rgba(0, 0, 0, 0.88), 0 0 0 1px rgba(255, 255, 255, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    padding: 6px;
+    transform-origin: top center;
+    will-change: transform, opacity;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.av-dropdown-drawer::-webkit-scrollbar,
+.select-options-list::-webkit-scrollbar {
+    width: 6px;
+}
+.av-dropdown-drawer::-webkit-scrollbar-track,
+.select-options-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+.av-dropdown-drawer::-webkit-scrollbar-thumb,
+.select-options-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 9999px;
+}
+.av-dropdown-drawer::-webkit-scrollbar-thumb:hover,
+.select-options-list::-webkit-scrollbar-thumb:hover {
+    background: var(--av-accent, #ff7957);
+}
+
+/* Positioning Modifiers */
+.select-options-list.av-dropdown-right {
+    left: auto;
+    right: 0;
+    width: auto;
+    min-width: 180px;
+}
+.select-options-list.av-dropdown-dropup {
+    top: auto;
+    bottom: calc(100% + 6px);
+    transform-origin: bottom center;
+}
+
+/* Open / Close Physics */
 .av-dropdown-drawer:not(.hidden):not(.av-closing),
 .select-options-list:not(.hidden):not(.av-closing) {
-    animation: avDrawerOpen 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+    animation: avDrawerOpen 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
 }
 
 .av-dropdown-drawer.av-closing,
@@ -329,43 +429,94 @@ body ::-webkit-scrollbar {
     align-items: center;
     width: 100%;
     box-sizing: border-box;
-    border-radius: 10px;
-    font-family: var(--av-mono, monospace);
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: rgba(255, 255, 255, 0.68);
+    border-radius: 8px;
+    font-family: var(--av-body, sans-serif);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    color: var(--av-ink, #f1f0e8);
     background: transparent;
     border: 1px solid transparent;
     cursor: pointer;
     user-select: none;
-    min-height: 40px;
+    min-height: 44px;
+    padding: 10px 14px;
     transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-    opacity: 0;
-    animation: avItemReveal 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    animation-delay: calc(var(--item-idx, 0) * 26ms + 30ms);
+    opacity: 1;
 }
 
-.av-dropdown-item:hover {
+.select-options-list .av-dropdown-item {
+    animation: avItemReveal 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation-delay: calc(var(--item-idx, 0) * 24ms + 20ms);
+}
+
+.av-dropdown-item:hover,
+.av-dropdown-item.av-option-highlighted {
     color: #ffffff;
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.06);
-    transform: translateX(2px);
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.08);
+    transform: translateX(3px);
 }
 
 .av-dropdown-item:active {
-    transform: scale(0.96);
+    transform: scale(0.97);
 }
 
 .av-dropdown-item:focus-visible {
-    outline: 2px solid var(--accent, #e50914);
-    outline-offset: 1px;
+    outline: 2px solid var(--av-accent, #ff7957);
+    outline-offset: -1px;
+}
+
+.av-dropdown-item.av-option-selected {
+    color: #ffffff !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    font-weight: 600 !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Selected Pill Beam (Glowing Amber Vertical Bar) */
+.av-dropdown-item .av-selected-pill-beam {
+    position: absolute;
+    left: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 18px;
+    border-radius: 9999px;
+    background: var(--av-accent, #ff7957);
+    box-shadow: 0 0 10px var(--av-accent, #ff7957);
+}
+
+/* Selected Checkmark Icon */
+.av-dropdown-item .av-check-icon {
+    color: var(--av-accent, #ff7957);
+    margin-left: auto;
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+}
+
+/* Screen reader only utility (Global WCAG Accessible Helper) */
+.av-sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
 }
 
 @keyframes avItemReveal {
     0% {
         opacity: 0;
-        transform: translateY(8px);
+        transform: translateY(6px);
     }
     100% {
         opacity: 1;
@@ -373,7 +524,7 @@ body ::-webkit-scrollbar {
     }
 }
 
-/* Text Masking & Cinematic Reveal */
+/* Text Masking & Clean Layout */
 .av-option-label {
     display: inline-flex;
     align-items: center;
@@ -383,23 +534,12 @@ body ::-webkit-scrollbar {
 }
 
 .av-option-text {
-    display: inline-block;
-    animation: avTextReveal 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
-    animation-delay: calc(var(--item-idx, 0) * 26ms + 45ms);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-
-@keyframes avTextReveal {
-    0% {
-        opacity: 0;
-        transform: translateY(100%);
-    }
-    100% {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    color: inherit;
+    font-family: inherit;
+    font-size: inherit;
 }
 
 /* Luminous Status Jewel Indicators */

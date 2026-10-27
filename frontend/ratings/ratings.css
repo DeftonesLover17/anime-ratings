@@ -41,6 +41,10 @@
 .av-mobile-picker select { appearance: none; -webkit-appearance: none; -moz-appearance: none; min-height: 52px; padding: 13px 46px 13px 18px; font: 600 14px/1.4 var(--av-body); color: var(--av-ink); background-color: color-mix(in srgb, var(--av-surface) 92%, transparent); border: 1px solid var(--av-line); border-radius: 12px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23ff7957' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: calc(100% - 16px) center; background-size: 16px 16px; cursor: pointer; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28); transition: border-color 0.2s var(--av-ease), background-color 0.2s var(--av-ease), box-shadow 0.2s var(--av-ease); }
 .av-mobile-picker select:hover { border-color: rgba(255, 121, 87, 0.45); background-color: var(--av-surface); }
 .av-mobile-picker select:focus-visible { outline: none; border-color: var(--av-accent); box-shadow: 0 0 0 3px rgba(255, 121, 87, 0.22); }
+.av-mobile-picker .av-custom-select-wrap { display: block; width: 100%; }
+.av-mobile-picker .av-custom-select-trigger { width: 100%; min-height: 52px; padding: 14px 18px; border-radius: 12px; font-size: 14px; font-weight: 600; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28); }
+.av-mobile-picker .av-custom-select-trigger .select-chevron { color: var(--av-accent); }
+
 .av-rating-editor { padding: 28px 0 30px 38px; min-width: 0; }
 .av-editor-heading { display: flex; align-items: start; justify-content: space-between; gap: 20px; margin-bottom: 25px; }
 .av-editor-heading h3 { font: 600 32px/1.2 var(--av-display); letter-spacing: -.05em; margin-top: 8px; }

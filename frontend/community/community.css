@@ -76,6 +76,29 @@
 .av-feed-empty > span { display: block; font-size: 40px; color: var(--av-accent); margin-bottom: 25px; }
 .av-feed-empty h4 { font: 600 32px/1.2 var(--av-display); letter-spacing: -.045em; max-width: 20ch; }
 .av-feed-empty p { font-size: 12px; line-height: 1.8; color: var(--av-muted); margin-top: 20px; max-width: 42ch; }
+
+/* Custom Select Variants: Community Feed Header & Review Composer */
+.av-feed-header .av-custom-select-trigger {
+    min-height: 38px;
+    height: 38px;
+    padding: 0 16px;
+    border-radius: 9999px;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+}
+.av-review-form .av-custom-select-wrap {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+}
+.av-review-form .av-custom-select-trigger {
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-size: 13px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+}
 @media(max-width:950px) { .av-conversation-grid { grid-template-columns: 1fr; gap: 50px; } .av-composer { max-width: 650px; } }
 @media(max-width:760px) {
     .av-conversation-grid { padding-top: 24px; }
