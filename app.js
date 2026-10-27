@@ -4705,6 +4705,17 @@ function renderAnimeDetailBody(anime) {
             detailTitleEl.innerHTML = `<img class="av-detail-title-logo" src="${safeLogoUrl}" width="${spec.width}" height="${spec.height}" alt="${escapeHtml(anime.title)}" loading="eager" fetchpriority="high" decoding="sync"><span class="av-detail-logo-fallback" hidden>${escapeHtml(anime.title)}</span>`;
             const logoImg = detailTitleEl.querySelector('.av-detail-title-logo');
             if (logoImg) {
+                logoImg.addEventListener('load', () => {
+                    if (logoImg.naturalWidth > 0 && logoImg.naturalHeight > 0) {
+                        const computeMetrics = window.AnivoidUI?.animeLogoPresentation?.computeLogoOpticalMetrics;
+                        if (typeof computeMetrics === 'function') {
+                            const exact = computeMetrics(logoImg.naturalWidth, logoImg.naturalHeight, spec.lightTone);
+                            logoImg.width = exact.width;
+                            logoImg.height = exact.height;
+                            detailTitleEl.dataset.logoTier = exact.tier || 'standard';
+                        }
+                    }
+                }, { once: true });
                 logoImg.addEventListener('error', () => {
                     detailTitleEl.classList.remove('av-detail-title-has-logo');
                     delete detailTitleEl.dataset.logoTier;
@@ -5041,24 +5052,45 @@ function setupFormSubmissions() {
         const animeLogoInput = document.getElementById('form-anime-logo');
         if (titleInput && animeLogoInput && !titleInput.dataset.animeLogoHooked) {
             titleInput.dataset.animeLogoHooked = 'true';
-            const fillDiscoveredAnimeLogo = async () => {
-                if (animeLogoInput.value.trim()) return;
+            animeLogoInput.addEventListener('input', () => {
+                delete animeLogoInput.dataset.autoFilled;
+                delete animeLogoInput.dataset.autoForTitle;
+            });
+            const fillDiscoveredAnimeLogo = async (evt) => {
+                if (evt && evt.type === 'blur') {
+                    await new Promise((resolve) => setTimeout(resolve, 160));
+                }
                 const rawTitle = titleInput.value.trim();
                 const rawJp = jpTitleInput?.value.trim() || '';
                 if (rawTitle.length < 2) return;
+                if (
+                    animeLogoInput.value.trim() &&
+                    (animeLogoInput.dataset.autoFilled !== 'true' || animeLogoInput.dataset.autoForTitle === rawTitle)
+                ) {
+                    return;
+                }
                 const discoverFn = window.AnivoidUI?.animeLogoPresentation?.discoverAnimeLogo;
                 if (typeof discoverFn !== 'function') return;
+                const seq = (document.__anivoidLogoDiscoverySeq = (document.__anivoidLogoDiscoverySeq || 0) + 1);
+                if (animeLogoInput.dataset.autoFilled === 'true' && animeLogoInput.dataset.autoForTitle !== rawTitle) {
+                    animeLogoInput.value = '';
+                }
                 const originalPlaceholder = animeLogoInput.placeholder;
                 animeLogoInput.placeholder = 'Buscando logo oficial em inglês...';
                 try {
                     const foundLogo = await discoverFn({ title: rawTitle, japaneseTitle: rawJp });
-                    if (foundLogo && !animeLogoInput.value.trim()) {
+                    if (seq !== document.__anivoidLogoDiscoverySeq) return;
+                    if (foundLogo && (!animeLogoInput.value.trim() || animeLogoInput.dataset.autoFilled === 'true')) {
                         animeLogoInput.value = foundLogo;
+                        animeLogoInput.dataset.autoFilled = 'true';
+                        animeLogoInput.dataset.autoForTitle = rawTitle;
                         updateCatalogLivePreview();
                     }
                 } catch (_) {
                 } finally {
-                    animeLogoInput.placeholder = originalPlaceholder;
+                    if (seq === document.__anivoidLogoDiscoverySeq) {
+                        animeLogoInput.placeholder = originalPlaceholder;
+                    }
                 }
             };
             titleInput.addEventListener('change', fillDiscoveredAnimeLogo);
@@ -5095,7 +5127,16 @@ function setupFormSubmissions() {
             const season = document.getElementById('form-anime-season').value;
             const episodes = document.getElementById('form-anime-episodes').value;
             const coverUrl = document.getElementById('form-anime-cover').value;
-            let logoUrl = document.getElementById('form-anime-logo')?.value.trim() || '';
+            const animeLogoFieldEl = document.getElementById('form-anime-logo');
+            let logoUrl = animeLogoFieldEl?.value.trim() || '';
+            if (
+                logoUrl &&
+                animeLogoFieldEl?.dataset.autoFilled === 'true' &&
+                animeLogoFieldEl?.dataset.autoForTitle &&
+                animeLogoFieldEl.dataset.autoForTitle !== title.trim()
+            ) {
+                logoUrl = '';
+            }
             const studioLogoUrl = document.getElementById('form-studio-logo')?.value || '';
             
             // Genres (comma separated list)

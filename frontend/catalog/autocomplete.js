@@ -751,7 +751,10 @@ function initCatalogAutocomplete({ document, studioMetadata, standardStudioName,
 
                     const animeLogoInput = document.getElementById('form-anime-logo');
                     if (animeLogoInput && typeof discoverAnimeLogo === 'function') {
+                        const seq = (document.__anivoidLogoDiscoverySeq = (document.__anivoidLogoDiscoverySeq || 0) + 1);
                         animeLogoInput.value = '';
+                        animeLogoInput.dataset.autoFilled = 'true';
+                        animeLogoInput.dataset.autoForTitle = String(title || '').trim();
                         const originalLogoPlaceholder = animeLogoInput.placeholder;
                         animeLogoInput.placeholder = 'Buscando logo oficial em inglês...';
                         Promise.resolve(discoverAnimeLogo({
@@ -760,12 +763,17 @@ function initCatalogAutocomplete({ document, studioMetadata, standardStudioName,
                             malId: anime.isKitsu ? '' : (anime.mal_id || ''),
                             kitsuId: anime.kitsuId || ''
                         })).then((logoUrl) => {
-                            if (logoUrl && !animeLogoInput.value.trim()) {
+                            if (seq !== document.__anivoidLogoDiscoverySeq) return;
+                            if (logoUrl && (!animeLogoInput.value.trim() || animeLogoInput.dataset.autoFilled === 'true')) {
                                 animeLogoInput.value = logoUrl;
+                                animeLogoInput.dataset.autoFilled = 'true';
+                                animeLogoInput.dataset.autoForTitle = String(title || '').trim();
                                 updateCatalogLivePreview();
                             }
                         }).catch(() => {}).finally(() => {
-                            animeLogoInput.placeholder = originalLogoPlaceholder;
+                            if (seq === document.__anivoidLogoDiscoverySeq) {
+                                animeLogoInput.placeholder = originalLogoPlaceholder;
+                            }
                         });
                     }
 

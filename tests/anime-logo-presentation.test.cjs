@@ -8,6 +8,7 @@ const {
     ANIME_LOGO_CATALOG,
     resolveAnimeLogo,
     discoverAnimeLogo,
+    computeLogoOpticalMetrics,
     toWeservClearlogoUrl
 } = require('../frontend/site/anime-logo-presentation');
 const policy = require('../shared/security/policy');
@@ -238,4 +239,10 @@ test('discoverAnimeLogo and resolveAnimeLogo support newly added animes automati
         logoUrl: expectedBlueLockWeserv
     });
     assert.equal(projected.logoUrl, expectedBlueLockWeserv);
+
+    // 5. Optical tier classification matches CSS data-logo-tier values
+    assert.equal(computeLogoOpticalMetrics(560, 80).tier, 'wide');
+    assert.equal(computeLogoOpticalMetrics(520, 120).tier, 'standard');
+    assert.equal(computeLogoOpticalMetrics(420, 210).tier, 'stacked');
+    assert.equal(computeLogoOpticalMetrics(240, 200).tier, 'emblem');
 });

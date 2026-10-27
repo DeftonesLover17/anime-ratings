@@ -1527,7 +1527,7 @@ function computeLogoOpticalMetrics(width = 480, height = 135, lightTone = false)
     const safeH = Number.isFinite(Number(height)) && Number(height) > 0 ? Math.round(Number(height)) : 135;
     const ar = Number((safeW / safeH).toFixed(2));
     let tier = 'standard';
-    if (ar >= 5.2) tier = 'ultra-wide';
+    if (ar >= 5.2) tier = 'wide';
     else if (ar >= 3.0) tier = 'standard';
     else if (ar >= 1.5) tier = 'stacked';
     else tier = 'emblem';
@@ -1791,7 +1791,32 @@ async function validateLogoCandidateUrl(candidateUrl, { requestFn, probeImage } 
             ? String(res.headers.get('content-type') || '')
             : 'image/png';
         if (contentType && !/^image\//i.test(contentType)) return null;
-        const metrics = computeLogoOpticalMetrics(480, 135, false);
+        let width = 480;
+        let height = 135;
+        if (typeof res.arrayBuffer === 'function') {
+            try {
+                const buf = new Uint8Array(await res.arrayBuffer());
+                if (
+                    buf.length >= 24 &&
+                    buf[0] === 0x89 &&
+                    buf[1] === 0x50 &&
+                    buf[2] === 0x4e &&
+                    buf[3] === 0x47
+                ) {
+                    const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+                    const pngW = view.getUint32(16, false);
+                    const pngH = view.getUint32(20, false);
+                    if (pngW < 60 || pngH < 20 || (pngW / pngH) < 0.72) {
+                        return null;
+                    }
+                    width = pngW;
+                    height = pngH;
+                }
+            } catch {
+                // Keep default optical metrics if buffer is unavailable in mock response
+            }
+        }
+        const metrics = computeLogoOpticalMetrics(width, height, false);
         discoveredLogoSpecs.set(safeUrl, { url: safeUrl, ...metrics });
         return safeUrl;
     } catch {
