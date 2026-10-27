@@ -9,8 +9,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a1"
         ],
-        "width": 320,
-        "height": 290,
+        "width": 238,
+        "height": 216,
         "ar": 1.1,
         "tier": "emblem",
         "lightTone": false
@@ -25,9 +25,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1792961834825_bw318g"
         ],
-        "width": 309,
-        "height": 293,
-        "ar": 1.05,
+        "width": 228,
+        "height": 216,
+        "ar": 1.06,
         "tier": "emblem",
         "lightTone": false
     },
@@ -42,8 +42,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1792962014649_q27neh"
         ],
-        "width": 393,
-        "height": 371,
+        "width": 229,
+        "height": 216,
         "ar": 1.06,
         "tier": "emblem",
         "lightTone": false
@@ -59,8 +59,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1792963328611_emx3o5"
         ],
-        "width": 515,
-        "height": 487,
+        "width": 228,
+        "height": 216,
         "ar": 1.06,
         "tier": "emblem",
         "lightTone": false
@@ -76,8 +76,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1792963451393_r7ztva"
         ],
-        "width": 522,
-        "height": 494,
+        "width": 228,
+        "height": 216,
         "ar": 1.06,
         "tier": "emblem",
         "lightTone": false
@@ -92,8 +92,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1792963080369_tq45gw"
         ],
-        "width": 321,
-        "height": 294,
+        "width": 236,
+        "height": 216,
         "ar": 1.09,
         "tier": "emblem",
         "lightTone": false
@@ -108,8 +108,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1779842442445"
         ],
-        "width": 780,
-        "height": 219,
+        "width": 520,
+        "height": 146,
         "ar": 3.56,
         "tier": "standard",
         "lightTone": false
@@ -126,8 +126,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a2"
         ],
-        "width": 780,
-        "height": 266,
+        "width": 460,
+        "height": 157,
         "ar": 2.93,
         "tier": "stacked",
         "lightTone": false
@@ -142,8 +142,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1779842335659"
         ],
-        "width": 784,
-        "height": 240,
+        "width": 520,
+        "height": 159,
         "ar": 3.27,
         "tier": "standard",
         "lightTone": false
@@ -158,8 +158,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a3"
         ],
-        "width": 784,
-        "height": 240,
+        "width": 520,
+        "height": 159,
         "ar": 3.27,
         "tier": "standard",
         "lightTone": false
@@ -174,9 +174,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1779823414867"
         ],
-        "width": 782,
-        "height": 139,
-        "ar": 5.63,
+        "width": 560,
+        "height": 100,
+        "ar": 5.6,
         "tier": "wide",
         "lightTone": false
     },
@@ -190,9 +190,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a4"
         ],
-        "width": 1397,
-        "height": 284,
-        "ar": 4.92,
+        "width": 520,
+        "height": 106,
+        "ar": 4.91,
         "tier": "standard",
         "lightTone": false
     },
@@ -206,9 +206,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a5"
         ],
-        "width": 789,
-        "height": 296,
-        "ar": 2.67,
+        "width": 460,
+        "height": 173,
+        "ar": 2.66,
         "tier": "stacked",
         "lightTone": false
     },
@@ -222,8 +222,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a6"
         ],
-        "width": 539,
-        "height": 299,
+        "width": 333,
+        "height": 185,
         "ar": 1.8,
         "tier": "stacked",
         "lightTone": false
@@ -236,9 +236,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a7"
         ],
-        "width": 786,
-        "height": 161,
-        "ar": 4.88,
+        "width": 520,
+        "height": 107,
+        "ar": 4.86,
         "tier": "standard",
         "lightTone": false
     },
@@ -250,8 +250,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1779841679531"
         ],
-        "width": 702,
-        "height": 300,
+        "width": 433,
+        "height": 185,
         "ar": 2.34,
         "tier": "stacked",
         "lightTone": false
@@ -266,9 +266,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a8"
         ],
-        "width": 780,
-        "height": 187,
-        "ar": 4.17,
+        "width": 520,
+        "height": 125,
+        "ar": 4.16,
         "tier": "standard",
         "lightTone": false
     },
@@ -282,8 +282,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1780115319837"
         ],
-        "width": 1084,
-        "height": 296,
+        "width": 520,
+        "height": 142,
         "ar": 3.66,
         "tier": "standard",
         "lightTone": false
@@ -298,8 +298,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1780116042599"
         ],
-        "width": 1124,
-        "height": 316,
+        "width": 520,
+        "height": 146,
         "ar": 3.56,
         "tier": "standard",
         "lightTone": false
@@ -314,8 +314,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1792900689720_38yeo2"
         ],
-        "width": 1124,
-        "height": 354,
+        "width": 508,
+        "height": 160,
         "ar": 3.18,
         "tier": "standard",
         "lightTone": false
@@ -330,8 +330,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1792902450694_03j4go"
         ],
-        "width": 1000,
-        "height": 334,
+        "width": 460,
+        "height": 154,
         "ar": 2.99,
         "tier": "stacked",
         "lightTone": false
@@ -346,9 +346,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1792902122468_mhz2fj"
         ],
-        "width": 1000,
-        "height": 377,
-        "ar": 2.65,
+        "width": 460,
+        "height": 173,
+        "ar": 2.66,
         "tier": "stacked",
         "lightTone": false
     },
@@ -362,8 +362,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a9"
         ],
-        "width": 671,
-        "height": 290,
+        "width": 428,
+        "height": 185,
         "ar": 2.31,
         "tier": "stacked",
         "lightTone": false
@@ -376,9 +376,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a10"
         ],
-        "width": 794,
-        "height": 183,
-        "ar": 4.34,
+        "width": 520,
+        "height": 120,
+        "ar": 4.33,
         "tier": "standard",
         "lightTone": false
     },
@@ -390,9 +390,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a11"
         ],
-        "width": 1176,
-        "height": 624,
-        "ar": 1.88,
+        "width": 349,
+        "height": 185,
+        "ar": 1.89,
         "tier": "stacked",
         "lightTone": true
     },
@@ -404,8 +404,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a12"
         ],
-        "width": 781,
-        "height": 284,
+        "width": 460,
+        "height": 167,
         "ar": 2.75,
         "tier": "stacked",
         "lightTone": true
@@ -418,9 +418,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a13"
         ],
-        "width": 785,
-        "height": 112,
-        "ar": 7.01,
+        "width": 560,
+        "height": 80,
+        "ar": 7,
         "tier": "wide",
         "lightTone": true
     },
@@ -434,9 +434,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a14"
         ],
-        "width": 783,
-        "height": 159,
-        "ar": 4.92,
+        "width": 520,
+        "height": 106,
+        "ar": 4.91,
         "tier": "standard",
         "lightTone": false
     },
@@ -450,9 +450,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a15"
         ],
-        "width": 783,
-        "height": 154,
-        "ar": 5.08,
+        "width": 520,
+        "height": 102,
+        "ar": 5.1,
         "tier": "standard",
         "lightTone": false
     },
@@ -464,9 +464,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a16"
         ],
-        "width": 784,
-        "height": 143,
-        "ar": 5.48,
+        "width": 560,
+        "height": 102,
+        "ar": 5.49,
         "tier": "wide",
         "lightTone": true
     },
@@ -478,8 +478,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a17"
         ],
-        "width": 783,
-        "height": 193,
+        "width": 520,
+        "height": 128,
         "ar": 4.06,
         "tier": "standard",
         "lightTone": false
@@ -496,9 +496,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1792804514219_dusez7"
         ],
-        "width": 823,
-        "height": 224,
-        "ar": 3.67,
+        "width": 520,
+        "height": 142,
+        "ar": 3.66,
         "tier": "standard",
         "lightTone": false
     },
@@ -510,9 +510,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a18"
         ],
-        "width": 784,
-        "height": 111,
-        "ar": 7.06,
+        "width": 560,
+        "height": 79,
+        "ar": 7.09,
         "tier": "wide",
         "lightTone": false
     },
@@ -524,9 +524,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a19"
         ],
-        "width": 756,
-        "height": 292,
-        "ar": 2.59,
+        "width": 460,
+        "height": 178,
+        "ar": 2.58,
         "tier": "stacked",
         "lightTone": false
     },
@@ -540,9 +540,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a20"
         ],
-        "width": 784,
-        "height": 178,
-        "ar": 4.4,
+        "width": 520,
+        "height": 118,
+        "ar": 4.41,
         "tier": "standard",
         "lightTone": false
     },
@@ -558,9 +558,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a20_s2"
         ],
-        "width": 784,
-        "height": 211,
-        "ar": 3.72,
+        "width": 520,
+        "height": 140,
+        "ar": 3.71,
         "tier": "standard",
         "lightTone": false
     },
@@ -576,9 +576,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a20_s3"
         ],
-        "width": 784,
-        "height": 215,
-        "ar": 3.65,
+        "width": 520,
+        "height": 143,
+        "ar": 3.64,
         "tier": "standard",
         "lightTone": false
     },
@@ -590,8 +590,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a21"
         ],
-        "width": 784,
-        "height": 187,
+        "width": 520,
+        "height": 124,
         "ar": 4.19,
         "tier": "standard",
         "lightTone": false
@@ -606,9 +606,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1779822952207"
         ],
-        "width": 784,
-        "height": 120,
-        "ar": 6.53,
+        "width": 560,
+        "height": 86,
+        "ar": 6.51,
         "tier": "wide",
         "lightTone": true
     },
@@ -620,9 +620,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a22"
         ],
-        "width": 784,
-        "height": 130,
-        "ar": 6.03,
+        "width": 560,
+        "height": 93,
+        "ar": 6.02,
         "tier": "wide",
         "lightTone": true
     },
@@ -636,8 +636,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a23"
         ],
-        "width": 787,
-        "height": 236,
+        "width": 520,
+        "height": 156,
         "ar": 3.33,
         "tier": "standard",
         "lightTone": true
@@ -652,9 +652,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a24"
         ],
-        "width": 783,
-        "height": 82,
-        "ar": 9.55,
+        "width": 560,
+        "height": 59,
+        "ar": 9.49,
         "tier": "wide",
         "lightTone": true
     },
@@ -666,8 +666,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a25"
         ],
-        "width": 584,
-        "height": 289,
+        "width": 374,
+        "height": 185,
         "ar": 2.02,
         "tier": "stacked",
         "lightTone": true
@@ -682,8 +682,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a26"
         ],
-        "width": 789,
-        "height": 256,
+        "width": 493,
+        "height": 160,
         "ar": 3.08,
         "tier": "standard",
         "lightTone": false
@@ -698,8 +698,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a27"
         ],
-        "width": 729,
-        "height": 295,
+        "width": 457,
+        "height": 185,
         "ar": 2.47,
         "tier": "stacked",
         "lightTone": false
@@ -714,9 +714,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1779980900626"
         ],
-        "width": 782,
-        "height": 225,
-        "ar": 3.48,
+        "width": 520,
+        "height": 150,
+        "ar": 3.47,
         "tier": "standard",
         "lightTone": false
     },
@@ -730,8 +730,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a28"
         ],
-        "width": 536,
-        "height": 294,
+        "width": 337,
+        "height": 185,
         "ar": 1.82,
         "tier": "stacked",
         "lightTone": true
@@ -744,9 +744,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a29"
         ],
-        "width": 786,
-        "height": 127,
-        "ar": 6.19,
+        "width": 560,
+        "height": 90,
+        "ar": 6.22,
         "tier": "wide",
         "lightTone": false
     },
@@ -758,9 +758,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a30"
         ],
-        "width": 518,
-        "height": 290,
-        "ar": 1.79,
+        "width": 330,
+        "height": 185,
+        "ar": 1.78,
         "tier": "stacked",
         "lightTone": false
     },
@@ -774,9 +774,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a31"
         ],
-        "width": 782,
-        "height": 121,
-        "ar": 6.46,
+        "width": 560,
+        "height": 87,
+        "ar": 6.44,
         "tier": "wide",
         "lightTone": true
     },
@@ -790,9 +790,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a32"
         ],
-        "width": 781,
-        "height": 170,
-        "ar": 4.59,
+        "width": 520,
+        "height": 113,
+        "ar": 4.6,
         "tier": "standard",
         "lightTone": false
     },
@@ -806,9 +806,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a33"
         ],
-        "width": 792,
-        "height": 179,
-        "ar": 4.42,
+        "width": 520,
+        "height": 118,
+        "ar": 4.41,
         "tier": "standard",
         "lightTone": false
     },
@@ -820,9 +820,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a34"
         ],
-        "width": 784,
-        "height": 155,
-        "ar": 5.06,
+        "width": 520,
+        "height": 103,
+        "ar": 5.05,
         "tier": "standard",
         "lightTone": false
     },
@@ -834,8 +834,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a35"
         ],
-        "width": 507,
-        "height": 294,
+        "width": 319,
+        "height": 185,
         "ar": 1.72,
         "tier": "stacked",
         "lightTone": false
@@ -850,8 +850,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a36"
         ],
-        "width": 784,
-        "height": 264,
+        "width": 460,
+        "height": 155,
         "ar": 2.97,
         "tier": "stacked",
         "lightTone": false
@@ -864,8 +864,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a37"
         ],
-        "width": 354,
-        "height": 291,
+        "width": 263,
+        "height": 216,
         "ar": 1.22,
         "tier": "emblem",
         "lightTone": false
@@ -880,9 +880,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a38"
         ],
-        "width": 794,
-        "height": 109,
-        "ar": 7.28,
+        "width": 560,
+        "height": 77,
+        "ar": 7.27,
         "tier": "wide",
         "lightTone": false
     },
@@ -896,9 +896,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a39"
         ],
-        "width": 794,
-        "height": 166,
-        "ar": 4.78,
+        "width": 520,
+        "height": 109,
+        "ar": 4.77,
         "tier": "standard",
         "lightTone": false
     },
@@ -910,8 +910,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a40"
         ],
-        "width": 472,
-        "height": 290,
+        "width": 301,
+        "height": 185,
         "ar": 1.63,
         "tier": "stacked",
         "lightTone": false
@@ -926,9 +926,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a41"
         ],
-        "width": 782,
-        "height": 113,
-        "ar": 6.92,
+        "width": 560,
+        "height": 81,
+        "ar": 6.91,
         "tier": "wide",
         "lightTone": true
     },
@@ -942,8 +942,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a42"
         ],
-        "width": 241,
-        "height": 290,
+        "width": 180,
+        "height": 216,
         "ar": 0.83,
         "tier": "emblem",
         "lightTone": false
@@ -956,8 +956,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a43"
         ],
-        "width": 398,
-        "height": 290,
+        "width": 296,
+        "height": 216,
         "ar": 1.37,
         "tier": "emblem",
         "lightTone": false
@@ -972,8 +972,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a44"
         ],
-        "width": 649,
-        "height": 290,
+        "width": 414,
+        "height": 185,
         "ar": 2.24,
         "tier": "stacked",
         "lightTone": false
@@ -986,8 +986,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a45"
         ],
-        "width": 785,
-        "height": 273,
+        "width": 460,
+        "height": 160,
         "ar": 2.88,
         "tier": "stacked",
         "lightTone": false
@@ -1002,8 +1002,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a46"
         ],
-        "width": 501,
-        "height": 294,
+        "width": 315,
+        "height": 185,
         "ar": 1.7,
         "tier": "stacked",
         "lightTone": false
@@ -1018,9 +1018,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a47"
         ],
-        "width": 798,
-        "height": 106,
-        "ar": 7.53,
+        "width": 560,
+        "height": 74,
+        "ar": 7.57,
         "tier": "wide",
         "lightTone": false
     },
@@ -1034,9 +1034,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a48"
         ],
-        "width": 774,
-        "height": 176,
-        "ar": 4.4,
+        "width": 520,
+        "height": 118,
+        "ar": 4.41,
         "tier": "standard",
         "lightTone": false
     },
@@ -1050,9 +1050,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a49"
         ],
-        "width": 783,
-        "height": 127,
-        "ar": 6.17,
+        "width": 560,
+        "height": 91,
+        "ar": 6.15,
         "tier": "wide",
         "lightTone": false
     },
@@ -1066,8 +1066,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a50"
         ],
-        "width": 793,
-        "height": 247,
+        "width": 514,
+        "height": 160,
         "ar": 3.21,
         "tier": "standard",
         "lightTone": false
@@ -1083,8 +1083,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1791779409281_59tyje"
         ],
-        "width": 480,
-        "height": 295,
+        "width": 301,
+        "height": 185,
         "ar": 1.63,
         "tier": "stacked",
         "lightTone": false
@@ -1113,8 +1113,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a52"
         ],
-        "width": 796,
-        "height": 118,
+        "width": 560,
+        "height": 83,
         "ar": 6.75,
         "tier": "wide",
         "lightTone": false
@@ -1127,8 +1127,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a53"
         ],
-        "width": 779,
-        "height": 128,
+        "width": 560,
+        "height": 92,
         "ar": 6.09,
         "tier": "wide",
         "lightTone": true
@@ -1141,9 +1141,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a54"
         ],
-        "width": 782,
-        "height": 214,
-        "ar": 3.65,
+        "width": 520,
+        "height": 142,
+        "ar": 3.66,
         "tier": "standard",
         "lightTone": true
     },
@@ -1155,9 +1155,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a55"
         ],
-        "width": 780,
-        "height": 143,
-        "ar": 5.45,
+        "width": 560,
+        "height": 103,
+        "ar": 5.44,
         "tier": "wide",
         "lightTone": false
     },
@@ -1169,8 +1169,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a56"
         ],
-        "width": 622,
-        "height": 295,
+        "width": 390,
+        "height": 185,
         "ar": 2.11,
         "tier": "stacked",
         "lightTone": false
@@ -1183,9 +1183,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a57"
         ],
-        "width": 785,
-        "height": 235,
-        "ar": 3.34,
+        "width": 520,
+        "height": 156,
+        "ar": 3.33,
         "tier": "standard",
         "lightTone": false
     },
@@ -1200,8 +1200,8 @@ const ANIME_LOGO_CATALOG = [
             "a58",
             "a_1779890061763"
         ],
-        "width": 556,
-        "height": 304,
+        "width": 338,
+        "height": 185,
         "ar": 1.83,
         "tier": "stacked",
         "lightTone": false
@@ -1216,9 +1216,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a59"
         ],
-        "width": 780,
-        "height": 220,
-        "ar": 3.55,
+        "width": 520,
+        "height": 147,
+        "ar": 3.54,
         "tier": "standard",
         "lightTone": false
     },
@@ -1232,9 +1232,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a60"
         ],
-        "width": 788,
-        "height": 187,
-        "ar": 4.21,
+        "width": 520,
+        "height": 123,
+        "ar": 4.23,
         "tier": "standard",
         "lightTone": true
     },
@@ -1246,8 +1246,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1779822526578"
         ],
-        "width": 781,
-        "height": 243,
+        "width": 514,
+        "height": 160,
         "ar": 3.21,
         "tier": "standard",
         "lightTone": false
@@ -1260,8 +1260,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1779823662272"
         ],
-        "width": 756,
-        "height": 294,
+        "width": 460,
+        "height": 179,
         "ar": 2.57,
         "tier": "stacked",
         "lightTone": true
@@ -1276,9 +1276,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1779890211077"
         ],
-        "width": 790,
-        "height": 262,
-        "ar": 3.02,
+        "width": 482,
+        "height": 160,
+        "ar": 3.01,
         "tier": "standard",
         "lightTone": false
     },
@@ -1292,9 +1292,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1779980415391"
         ],
-        "width": 790,
-        "height": 298,
-        "ar": 2.65,
+        "width": 460,
+        "height": 174,
+        "ar": 2.64,
         "tier": "stacked",
         "lightTone": false
     },
@@ -1306,9 +1306,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1779944228528"
         ],
-        "width": 783,
-        "height": 222,
-        "ar": 3.53,
+        "width": 520,
+        "height": 147,
+        "ar": 3.54,
         "tier": "standard",
         "lightTone": false
     },
@@ -1320,8 +1320,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1779944487220"
         ],
-        "width": 650,
-        "height": 292,
+        "width": 412,
+        "height": 185,
         "ar": 2.23,
         "tier": "stacked",
         "lightTone": false
@@ -1334,8 +1334,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1779988676937"
         ],
-        "width": 792,
-        "height": 284,
+        "width": 460,
+        "height": 165,
         "ar": 2.79,
         "tier": "stacked",
         "lightTone": false
@@ -1351,8 +1351,8 @@ const ANIME_LOGO_CATALOG = [
             "a_1780023385637",
             "a_1780023417015"
         ],
-        "width": 783,
-        "height": 152,
+        "width": 520,
+        "height": 101,
         "ar": 5.15,
         "tier": "standard",
         "lightTone": true
@@ -1367,8 +1367,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1780024345533"
         ],
-        "width": 782,
-        "height": 282,
+        "width": 460,
+        "height": 166,
         "ar": 2.77,
         "tier": "stacked",
         "lightTone": false
@@ -1381,9 +1381,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1780096931039"
         ],
-        "width": 774,
-        "height": 295,
-        "ar": 2.62,
+        "width": 460,
+        "height": 175,
+        "ar": 2.63,
         "tier": "stacked",
         "lightTone": false
     },
@@ -1395,8 +1395,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1780097201950"
         ],
-        "width": 555,
-        "height": 296,
+        "width": 347,
+        "height": 185,
         "ar": 1.88,
         "tier": "stacked",
         "lightTone": false
@@ -1409,9 +1409,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1781178512452"
         ],
-        "width": 784,
-        "height": 200,
-        "ar": 3.92,
+        "width": 520,
+        "height": 133,
+        "ar": 3.91,
         "tier": "standard",
         "lightTone": false
     },
@@ -1423,9 +1423,9 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1780881459268"
         ],
-        "width": 783,
-        "height": 149,
-        "ar": 5.26,
+        "width": 560,
+        "height": 107,
+        "ar": 5.23,
         "tier": "wide",
         "lightTone": true
     },
@@ -1437,8 +1437,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1783476094847_tug8l8"
         ],
-        "width": 605,
-        "height": 299,
+        "width": 374,
+        "height": 185,
         "ar": 2.02,
         "tier": "stacked",
         "lightTone": false
@@ -1451,8 +1451,8 @@ const ANIME_LOGO_CATALOG = [
         "ids": [
             "a_1783477607362_c6fxbp"
         ],
-        "width": 781,
-        "height": 285,
+        "width": 460,
+        "height": 168,
         "ar": 2.74,
         "tier": "stacked",
         "lightTone": false
@@ -1550,8 +1550,58 @@ function resolveAnimeLogo(anime) {
     };
 }
 
+const preloadedLogoImages = new Map();
+const warmupQueue = [];
+let warmupTimer = null;
+
+function preloadAnimeLogo(anime, priority = 'high') {
+    const resolved = anime && anime.url && anime.width ? anime : resolveAnimeLogo(anime);
+    if (!resolved || !resolved.url) return null;
+    if (typeof Image === 'undefined') return resolved;
+    let entry = preloadedLogoImages.get(resolved.url);
+    if (!entry) {
+        const img = new Image();
+        img.decoding = 'sync';
+        if ('fetchPriority' in img) {
+            img.fetchPriority = priority;
+        }
+        img.src = resolved.url;
+        const decodePromise = typeof img.decode === 'function'
+            ? img.decode().catch(() => {})
+            : Promise.resolve();
+        entry = { img, decodePromise, spec: resolved };
+        preloadedLogoImages.set(resolved.url, entry);
+    } else if (priority === 'high' && 'fetchPriority' in entry.img) {
+        entry.img.fetchPriority = 'high';
+    }
+    return resolved;
+}
+
+function scheduleAnimeLogoWarmup(anime) {
+    const resolved = resolveAnimeLogo(anime);
+    if (!resolved || !resolved.url || typeof Image === 'undefined') return;
+    if (preloadedLogoImages.has(resolved.url)) return;
+    if (!warmupQueue.some((item) => item.url === resolved.url)) {
+        warmupQueue.push(resolved);
+    }
+    if (!warmupTimer && typeof setTimeout === 'function') {
+        warmupTimer = setTimeout(function flushWarmup() {
+            warmupTimer = null;
+            const batch = warmupQueue.splice(0, 8);
+            for (const spec of batch) {
+                preloadAnimeLogo(spec, 'low');
+            }
+            if (warmupQueue.length > 0) {
+                warmupTimer = setTimeout(flushWarmup, 70);
+            }
+        }, 40);
+    }
+}
+
 module.exports = {
     ANIME_LOGO_CATALOG,
     normalizeAnimeLogoKey,
-    resolveAnimeLogo
+    resolveAnimeLogo,
+    preloadAnimeLogo,
+    scheduleAnimeLogoWarmup
 };

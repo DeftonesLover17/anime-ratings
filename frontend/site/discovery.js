@@ -16,6 +16,23 @@ function resolveStatusKind(rawKey, rawLabel) {
     return 'plantowatch';
 }
 
+const {
+    preloadAnimeLogo,
+    scheduleAnimeLogoWarmup,
+} = require('./anime-logo-presentation');
+
+function bindLogoPreload(target, anime, eagerWarmup = false) {
+    if (!target || !anime) return;
+    if (eagerWarmup) {
+        scheduleAnimeLogoWarmup(anime);
+    }
+    const trigger = () => preloadAnimeLogo(anime, 'high');
+    target.addEventListener('pointerenter', trigger, { once: true, passive: true });
+    target.addEventListener('pointerdown', trigger, { once: true, passive: true });
+    target.addEventListener('touchstart', trigger, { once: true, passive: true });
+    target.addEventListener('focusin', trigger, { once: true, passive: true });
+}
+
 function statusFallbackLabel(kind) {
     switch (kind) {
         case 'completed': return 'Completo';
@@ -57,13 +74,16 @@ function renderFeatured(container, model, actions) {
         </div>
         <div class="av-hero-bottom"><span>Obras que ficam.<br>Notas que contam.</span><a href="#anime-grid-section" data-catalog><span>${String(collectionSize).padStart(2, '0')} obras no acervo</span><span aria-hidden="true">↓</span></a></div>
     </div>`);
-    root.querySelectorAll('[data-open]').forEach((link) =>
+    preloadAnimeLogo(anime, 'high');
+    if (nextAnime) scheduleAnimeLogoWarmup(nextAnime);
+    root.querySelectorAll('[data-open]').forEach((link) => {
+        bindLogoPreload(link, anime, false);
         link.addEventListener('click', (event) => {
             if (event.metaKey || event.ctrlKey || event.shiftKey) return;
             event.preventDefault();
             actions.open(anime.id, event.detail > 0);
-        }),
-    );
+        });
+    });
     root.querySelectorAll('[data-catalog]').forEach((link) =>
         link.addEventListener('click', (event) => {
             event.preventDefault();
@@ -99,6 +119,7 @@ function createCatalogCard(model, actions, index) {
             </div>
         </div>${model.ownRating ? `<div class="av-card-comparison"><span class="av-card-comparison-label">Sua nota</span><span class="av-card-score-value">${scoreMarkup(model.ownRating.overall)}</span></div>` : ''}
     </article>`);
+    bindLogoPreload(root, anime, typeof index === 'number' && index < 24);
     root.querySelectorAll('a').forEach((link) =>
         link.addEventListener('click', (event) => {
             if (event.metaKey || event.ctrlKey || event.shiftKey) return;
@@ -119,6 +140,7 @@ function renderRecommendations(container, recommendations, actions) {
         const card = element(
             `<a class="av-recommendation" href="#obra/${encodeURIComponent(item.anime.id)}"><span class="av-recommendation-index">0${index + 1}</span><img src="${e(imageUrl(item.anime.coverUrl))}" width="96" height="144" loading="lazy" alt=""><div><span class="av-eyebrow">${e(item.anime.studio || '')}</span><h4>${e(item.anime.title)}</h4><p>${e(item.reason)}</p></div>${arrow()}</a>`,
         );
+        bindLogoPreload(card, item.anime, true);
         card.addEventListener('click', (event) => {
             if (event.metaKey || event.ctrlKey || event.shiftKey) return;
             event.preventDefault();

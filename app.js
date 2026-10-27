@@ -4602,7 +4602,9 @@ function updateAnimeDetailView(animeId) {
 let detailReturnContext = null;
 
 function openAnimeDetail(animeId, animate = true) {
-    if (!state.animes.some(anime => anime.id === animeId)) return;
+    const targetAnime = state.animes.find(anime => anime.id === animeId);
+    if (!targetAnime) return;
+    window.AnivoidUI?.animeLogoPresentation?.preloadAnimeLogo?.(targetAnime, 'high');
     const returnHash = window.location.hash;
     const update = () => showAnimeDetail(animeId, returnHash);
     if (state.activeDetailAnimeId === animeId) update();
@@ -4686,11 +4688,12 @@ function renderAnimeDetailBody(anime) {
         const logoSpec = window.AnivoidUI?.animeLogoPresentation?.resolveAnimeLogo(anime);
         const safeLogoUrl = logoSpec ? window.AnivoidUI.imageUrl(logoSpec.url) : '';
         if (logoSpec && safeLogoUrl) {
+            window.AnivoidUI?.animeLogoPresentation?.preloadAnimeLogo?.(logoSpec, 'high');
             detailTitleEl.classList.add('av-detail-title-has-logo');
             detailTitleEl.dataset.logoTier = logoSpec.tier || 'standard';
             detailTitleEl.dataset.logoLight = logoSpec.lightTone ? 'true' : 'false';
             detailTitleEl.setAttribute('aria-label', String(anime.title || '').replace(/&#39;/g, "'"));
-            detailTitleEl.innerHTML = `<img class="av-detail-title-logo" src="${safeLogoUrl}" width="${logoSpec.width}" height="${logoSpec.height}" alt="${escapeHtml(anime.title)}" decoding="async"><span class="av-detail-logo-fallback" hidden>${escapeHtml(anime.title)}</span>`;
+            detailTitleEl.innerHTML = `<img class="av-detail-title-logo" src="${safeLogoUrl}" width="${logoSpec.width}" height="${logoSpec.height}" alt="${escapeHtml(anime.title)}" loading="eager" fetchpriority="high" decoding="sync"><span class="av-detail-logo-fallback" hidden>${escapeHtml(anime.title)}</span>`;
             const logoImg = detailTitleEl.querySelector('.av-detail-title-logo');
             if (logoImg) {
                 logoImg.addEventListener('error', () => {
@@ -4834,6 +4837,7 @@ function renderAnimeDetailBody(anime) {
             relatedList.innerHTML = '';
             
             related.forEach(rel => {
+                window.AnivoidUI?.animeLogoPresentation?.scheduleAnimeLogoWarmup?.(rel);
                 const relAvg = state.calculateAverageScore(rel.id);
                 const relAvgColor = getScoreColor(relAvg);
                 const relAvgStyle = relAvg > 0 ? `color: ${relAvgColor.text}; text-shadow: 0 0 5px ${relAvgColor.glow}` : 'color: #7f8c8d';
@@ -4847,6 +4851,8 @@ function renderAnimeDetailBody(anime) {
                     </div>
                     <span class="text-[10px] font-mono shrink-0" style="${relAvgStyle}">★ ${relAvg > 0 ? relAvg : '-'}</span>
                 `;
+                relRow.addEventListener('pointerenter', () => window.AnivoidUI?.animeLogoPresentation?.preloadAnimeLogo?.(rel, 'high'), { once: true, passive: true });
+                relRow.addEventListener('pointerdown', () => window.AnivoidUI?.animeLogoPresentation?.preloadAnimeLogo?.(rel, 'high'), { once: true, passive: true });
                 relRow.addEventListener('click', () => {
                     openAnimeDetail(rel.id);
                 });
