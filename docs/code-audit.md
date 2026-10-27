@@ -1,5 +1,22 @@
 # Revisão do código — 26/10/2026
 
+## Correção das logos — 27/10/2026
+
+O salvamento também invalida leituras de estado iniciadas antes ou durante a mutação, impedindo que uma resposta antiga reponha metadados anteriores na tela depois do sucesso.
+
+Continuação da revisão: o salvamento do catálogo foi extraído para um controlador que impede envios repetidos e troca de formulário durante a operação, descarta respostas de uma sessão anterior e informa quando o resultado de uma requisição que expirou precisa ser conferido. O rótulo com ícone e os estados desabilitados dos campos são restaurados após falhas. A busca da logo do estúdio também virou um módulo compartilhado: exige nome exato, cancela resultados antigos, limita o tempo de consulta e evita a dependência implícita de uma função global. URLs manuais inválidas bloqueiam o envio com validação nativa; escolher uma sugestão preserva a opção de título em texto e a URL manual. O pôster vindo da busca externa é validado e escapado antes de entrar no HTML. Esta continuação passou com 192 testes, build e verificação do diff.
+
+As seis falhas identificadas nos commits `787f900..4bb8144` foram corrigidas. O catálogo de 95 logos foi movido para um módulo de dados, a descoberta externa ganhou um controlador próprio e o título e o campo de formulário passaram a ter responsabilidades separadas. A rotina legada de adição de animes sem chamadas foi removida; a criação continua passando pela API administrativa.
+
+- A seleção externa exige correspondência exata e rejeita identidades ambíguas; removidos o primeiro resultado arbitrário, a correspondência por prefixo de franquia e o fallback de arquivos Logopedia sem prova de identidade.
+- O título verifica a versão da renderização e a imagem atual em callbacks. Navegar cancela a descoberta anterior; a busca não modifica o snapshot do catálogo.
+- O formulário compartilha um único controlador entre edição manual e autocomplete. Troca de título, edição da URL, reset, fechamento e envio invalidam pedidos pendentes.
+- O salvamento é imediato com os campos disponíveis. A descoberta possui prazo total de oito segundos, cancelamento por consumidor, deduplicação, limite de oito buscas simultâneas e cache de até 128 resultados, incluindo falhas/timeout.
+- Node e Cloudflare distinguem campo ausente de URL vazia. A opção acessível “Exibir apenas o título” persiste como um booleano validado e impede a redescoberta indesejada.
+- O bloco `/logos/*` voltou a ter cabeçalho válido, com cache diário revalidável. O teste de configuração rejeita linhas órfãs em todo o template.
+
+Validação: 185 testes aprovados; build e verificação de segredos do navegador concluídos; grafo sem ciclos; inspeção local do detalhe em 390, 820 e 1440 px e do novo controle por teclado. As APIs foram exercitadas em fixtures locais, sem alterar o catálogo de produção. Resultados externos sem confirmação ficam em texto e podem receber uma URL escolhida pelo administrador. O legado restante descrito abaixo continua exigindo migrações próprias.
+
 ## Cobertura
 
 A revisão percorreu os 132 arquivos de código, configuração, documentação e testes fora de mídia, dependências e saídas geradas. O inventário incluiu a interface, os dois adaptadores de API, os módulos compartilhados, o build, os e-mails e os testes. Os 106 arquivos JS/CSS existentes no início da revisão passaram por parsing; as fontes foram verificadas quanto a caracteres de controle, IDs HTML duplicados, handlers inline e referências de módulos não usadas pelo bundle. A inspeção manual se concentrou nos fluxos de autenticação, persistência, amizade, notificações e inicialização repetida da UI.

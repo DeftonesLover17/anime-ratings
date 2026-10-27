@@ -6,6 +6,10 @@ const { imageUrl } = require('../shared/dom');
 const studioMetadata = require('../../shared/studio-metadata');
 const studioPresentation = require('../site/studio-presentation');
 const animeLogoPresentation = require('../site/anime-logo-presentation');
+const { getCatalogLogoField } = require('../catalog/logo-field');
+const { getStudioLogoField } = require('../catalog/studio-logo-field');
+const { bindCatalogSaveForm, getCatalogSaveForm } = require('../catalog/save-form');
+const { createAnimeTitleRenderer } = require('../site/anime-title');
 const { initCatalogAutocomplete } = require('../catalog/autocomplete');
 const { DEFAULT_ANIMES } = require('../catalog/default-animes');
 const { createAccountDrawer } = require('../account/drawer');
@@ -47,6 +51,11 @@ window.AnivoidUI = {
     studioMetadata,
     studioPresentation,
     animeLogoPresentation,
+    animeTitles: createAnimeTitleRenderer(),
+    catalogLogoField: options => getCatalogLogoField(window.document, options),
+    studioLogoField: options => getStudioLogoField(window.document, options),
+    bindCatalogSaveForm: options => bindCatalogSaveForm(window, { session, ...options }),
+    catalogSaveForm: () => getCatalogSaveForm(window.document),
     initCatalogAutocomplete,
     defaultAnimes: DEFAULT_ANIMES,
     account,

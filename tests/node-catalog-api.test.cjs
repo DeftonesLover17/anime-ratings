@@ -1,6 +1,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { startNodeServer } = require('./helpers/node-server.cjs');
+const { verifyCatalogLogoPersistence } = require('./helpers/catalog-logo.cjs');
+
+test('Node persists explicit logo removal and text-only preference', async t => {
+    const { send } = await startNodeServer(t);
+    const login = await send('/api/login', { identifier: 'Felipe!', password: 'LocalFixtureOnly123' });
+    assert.equal(login.status, 200);
+    await verifyCatalogLogoPersistence(send, login.headers.get('Set-Cookie').split(';')[0]);
+});
 
 test('Node admin can add and edit an anime while duplicate titles are rejected', async t => {
     const { send } = await startNodeServer(t);

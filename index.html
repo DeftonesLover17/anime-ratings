@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-    <script src="assets/ui.4eaab8fb1390.js"></script>
+    <script src="assets/ui.809c315e7b54.js"></script>
     <title>ANIVØID | Season Ratings</title>
     <!-- Favicon / Logo -->
     <link rel="icon" type="image/png" href="favicon.png">
@@ -26,7 +26,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syncopate:wght@700&family=Syne:wght@800&family=Lexend+Tera:wght@900&display=swap" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="assets/styles.83e72d174510.css">
+    <link rel="stylesheet" href="assets/styles.57bae9a5880c.css">
     
     <meta name="theme-color" content="#050505">
     <script>
@@ -657,8 +657,12 @@
                                     <span class="av-label-hint">Automático &middot; URL ou logos/animes/...</span>
                                 </label>
                                 <div class="av-input-wrap">
-                                    <input type="text" id="form-anime-logo" inputmode="url" autocomplete="off" placeholder="Preenchimento automático da logo oficial..." class="av-input">
+                                    <input type="text" id="form-anime-logo" name="logoUrl" inputmode="url" autocomplete="off" spellcheck="false" placeholder="URL ou logos/animes/…" class="av-input">
                                 </div>
+                                <label class="av-logo-preference" for="form-anime-logo-disabled">
+                                    <input type="checkbox" id="form-anime-logo-disabled" name="logoDisabled">
+                                    <span>Exibir apenas o título, sem logo</span>
+                                </label>
                             </div>
 
                             <div class="av-field-group">
@@ -1550,6 +1554,6 @@
 
     <!-- Scripts Integration -->
     <script src="assets/sync-state.2742af33422d.js"></script>
-    <script src="assets/app.63644bba3e7f.js"></script>
+    <script src="assets/app.ed70d4d34a72.js"></script>
 </body>
 </html>

@@ -10,6 +10,12 @@ const {
 } = require('../backend/security/email-verification');
 const { createD1EmailStore } = require('../backend/cloudflare/email-store');
 const api = loadCloudflare();
+const { verifyCatalogLogoPersistence } = require('./helpers/catalog-logo.cjs');
+
+test('Cloudflare persists explicit logo removal and text-only preference', async t => {
+    const { send, login } = await fixture(t);
+    await verifyCatalogLogoPersistence(send, await login('Felipe!'));
+});
 const origin = 'https://anime-ratings.pages.dev';
 const copy = (value) => JSON.parse(JSON.stringify(value));
 test('user projections deny unknown secrets and expose private fields only to their owner', () => {

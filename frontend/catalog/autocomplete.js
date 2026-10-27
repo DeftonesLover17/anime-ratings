@@ -1,4 +1,7 @@
-const { discoverAnimeLogo: defaultDiscoverAnimeLogo } = require('../site/anime-logo-presentation');
+const { discoverAnimeLogo: defaultDiscoverAnimeLogo } = require('./logo-discovery');
+const { getCatalogLogoField } = require('./logo-field');
+const { getStudioLogoField } = require('./studio-logo-field');
+const { imageUrl } = require('../shared/dom');
 
 const normalizeAnimeSearchText = (value) => String(value || '')
     .normalize('NFD')
@@ -683,7 +686,7 @@ function initCatalogAutocomplete({ document, studioMetadata, standardStudioName,
 
                 item.innerHTML = `
                     <div class="av-sug-poster-wrap">
-                        <img src="${image || 'covers/cyberpunk-edgerunners-2.jpg'}" class="av-sug-poster-img" alt="" loading="lazy" data-fallback="covers/cyberpunk-edgerunners-2.jpg">
+                        <img src="${escapeHtml(imageUrl(image) || 'covers/cyberpunk-edgerunners-2.jpg')}" class="av-sug-poster-img" alt="" loading="lazy" data-fallback="covers/cyberpunk-edgerunners-2.jpg">
                     </div>
                     <div class="av-sug-info">
                         <div class="av-sug-title-row">
@@ -719,16 +722,8 @@ function initCatalogAutocomplete({ document, studioMetadata, standardStudioName,
 
                     const studioLogoInput = document.getElementById('form-studio-logo');
                     if (studioLogoInput) {
-                        studioLogoInput.value = getStudioLogo(studioName) || '';
-                        if (!studioLogoInput.value && !studioMissing) {
-                            const originalPlaceholder = studioLogoInput.placeholder;
-                            studioLogoInput.placeholder = 'Buscando logo no MyAnimeList...';
-                            fetchStudioLogoFromMal(studioName).then((logo) => {
-                                if (logo && !studioLogoInput.value.trim()) studioLogoInput.value = logo;
-                            }).finally(() => {
-                                studioLogoInput.placeholder = originalPlaceholder;
-                            });
-                        }
+                        studioLogoInput.value = '';
+                        getStudioLogoField(document, { request, getKnown: getStudioLogo, updatePreview: updateCatalogLivePreview }).fill();
                     }
 
                     const episodesInput = document.getElementById('form-anime-episodes');
@@ -749,33 +744,8 @@ function initCatalogAutocomplete({ document, studioMetadata, standardStudioName,
                         coverInput.value = image;
                     }
 
-                    const animeLogoInput = document.getElementById('form-anime-logo');
-                    if (animeLogoInput && typeof discoverAnimeLogo === 'function') {
-                        const seq = (document.__anivoidLogoDiscoverySeq = (document.__anivoidLogoDiscoverySeq || 0) + 1);
-                        animeLogoInput.value = '';
-                        animeLogoInput.dataset.autoFilled = 'true';
-                        animeLogoInput.dataset.autoForTitle = String(title || '').trim();
-                        const originalLogoPlaceholder = animeLogoInput.placeholder;
-                        animeLogoInput.placeholder = 'Buscando logo oficial em inglês...';
-                        Promise.resolve(discoverAnimeLogo({
-                            title,
-                            japaneseTitle: jpTitle,
-                            malId: anime.isKitsu ? '' : (anime.mal_id || ''),
-                            kitsuId: anime.kitsuId || ''
-                        })).then((logoUrl) => {
-                            if (seq !== document.__anivoidLogoDiscoverySeq) return;
-                            if (logoUrl && (!animeLogoInput.value.trim() || animeLogoInput.dataset.autoFilled === 'true')) {
-                                animeLogoInput.value = logoUrl;
-                                animeLogoInput.dataset.autoFilled = 'true';
-                                animeLogoInput.dataset.autoForTitle = String(title || '').trim();
-                                updateCatalogLivePreview();
-                            }
-                        }).catch(() => {}).finally(() => {
-                            if (seq === document.__anivoidLogoDiscoverySeq) {
-                                animeLogoInput.placeholder = originalLogoPlaceholder;
-                            }
-                        });
-                    }
+                    getCatalogLogoField(document, { discover: discoverAnimeLogo, updatePreview: updateCatalogLivePreview })
+                        .select({ title, japaneseTitle: jpTitle, malId: anime.isKitsu ? '' : anime.mal_id, kitsuId: anime.kitsuId });
 
                     const synopsisInput = document.getElementById('form-anime-synopsis');
                     if (synopsisInput) {

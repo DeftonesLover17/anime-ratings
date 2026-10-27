@@ -7,10 +7,10 @@ const { imageUrl } = require('../frontend/shared/dom');
 const {
     ANIME_LOGO_CATALOG,
     resolveAnimeLogo,
-    discoverAnimeLogo,
     computeLogoOpticalMetrics,
     toWeservClearlogoUrl
 } = require('../frontend/site/anime-logo-presentation');
+const { discoverAnimeLogo } = require('../frontend/catalog/logo-discovery');
 const policy = require('../shared/security/policy');
 const responses = require('../shared/security/responses');
 
@@ -181,9 +181,9 @@ test('discoverAnimeLogo and resolveAnimeLogo support newly added animes automati
     });
 
     assert.equal(discoveredOshi, expectedMetahubWeserv);
-    assert.equal(oshiNoKoTarget.logoUrl, expectedMetahubWeserv);
+    assert.equal(oshiNoKoTarget.logoUrl, undefined);
 
-    const resolvedOshi = resolveAnimeLogo(oshiNoKoTarget);
+    const resolvedOshi = resolveAnimeLogo({ ...oshiNoKoTarget, logoUrl: discoveredOshi });
     assert.ok(resolvedOshi);
     assert.equal(resolvedOshi.url, expectedMetahubWeserv);
     assert.equal(resolvedOshi.width, 520);
@@ -220,7 +220,7 @@ test('discoverAnimeLogo and resolveAnimeLogo support newly added animes automati
     });
 
     assert.equal(discoveredBlueLock, expectedBlueLockWeserv);
-    const resolvedBlueLock = resolveAnimeLogo(blueLockTarget);
+    const resolvedBlueLock = resolveAnimeLogo({ ...blueLockTarget, logoUrl: discoveredBlueLock });
     assert.ok(resolvedBlueLock);
     assert.equal(resolvedBlueLock.url, expectedBlueLockWeserv);
     assert.equal(resolvedBlueLock.tier, 'stacked');

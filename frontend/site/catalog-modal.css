@@ -362,6 +362,20 @@
     letter-spacing: 0;
 }
 
+.av-label[for="form-anime-logo"] { flex-wrap: wrap; gap: 6px 12px; }
+.av-logo-preference {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    color: var(--av-ink);
+    font: 12px/1.5 var(--av-body);
+    cursor: pointer;
+}
+.av-logo-preference input { width: 18px; height: 18px; accent-color: var(--av-accent); flex-shrink: 0; }
+.av-logo-preference input:focus-visible { outline: 2px solid var(--av-accent); outline-offset: 4px; }
+#form-anime-logo:disabled { opacity: .55; cursor: not-allowed; }
+
 .av-input-wrap {
     position: relative;
     display: flex;

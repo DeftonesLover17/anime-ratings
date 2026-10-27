@@ -27,6 +27,13 @@ npm start
 | `frontend/site/studio-presentation.js` | Logos, cores, descrições e validação de URLs usados na apresentação dos estúdios. |
 | `frontend/catalog/autocomplete.js` | Busca e preenchimento assistido de obras no formulário do catálogo; inicializada pela ponte da UI. |
 | `frontend/catalog/default-animes.js` | Catálogo inicial estático, separado da lógica de estado e de sincronização. |
+| `frontend/catalog/anime-logos.js` | Dados estáticos das logos por obra e temporada; sem rede nem DOM. |
+| `frontend/catalog/logo-discovery.js` | Descoberta com identidade exata, prazo total, cancelamento por consumidor e cache limitado de sucessos/falhas. |
+| `frontend/catalog/logo-field.js` | Controle único da logo no formulário; invalidação de respostas antigas, edição manual e preferência por título em texto. |
+| `frontend/catalog/studio-logo-field.js` | Busca exata da logo de estúdio, compartilhada pelo formulário e autocomplete; cancela respostas antigas sem alterar o estado global. |
+| `frontend/catalog/save-form.js` | Salvamento administrativo com bloqueio de duplicatas, preservação do formulário, timeout e descarte de respostas de outra sessão. |
+| `frontend/site/anime-logo-presentation.js` | Resolução local, validação de URLs, dimensões e aquecimento limitado de imagens de logo. |
+| `frontend/site/anime-title.js` | Renderização do título/logo por versão, com fallback e cancelamento ao navegar. |
 | `frontend/ratings/model.js` | Parsing decimal, seleção e paginação de episódios; funções puras. |
 | `frontend/ratings/workbench.js` | Editor real de notas, progresso, rascunhos, salvamento, desfazer e repetição de sincronização. |
 | `frontend/community/` | Composição e leitura de reviews/comentários, contexto de episódio, spoilers, respostas, edição e curtidas. |
@@ -101,6 +108,8 @@ Tema não muda a cor pessoal da conta. Sinopses e preload permanecem preservados
 Para novos recursos, criar um módulo no domínio correspondente em `frontend/`. Passar dependências explicitamente e manter cálculos independentes do DOM quando viável. Testar contratos relevantes; não criar testes que apenas repetem detalhes da implementação. Fazer build e inspeção visual quando houver UI.
 
 ## Interface e compatibilidade
+
+As logos de anime usam o catálogo local por identidade exata ou uma URL salva pelo administrador. A descoberta externa compartilha pedidos idênticos, limita oito buscas simultâneas, mantém até 128 resultados e tem prazo total de oito segundos. Respostas vazias e timeouts recebem uma pausa antes de nova tentativa. O salvamento do formulário usa o campo atual e não espera a descoberta. Cada edição, reset ou navegação cancela o consumidor anterior; callbacks de imagem não podem alterar outra obra. “Exibir apenas o título” persiste como `logoDisabled`, e `logoUrl: ''` remove uma URL armazenada. O detalhe não altera o snapshot ao descobrir uma imagem. Resultados sem correspondência exata mantêm o título em texto.
 
 As telas usam toda a largura disponível com o shell compartilhado `.av-wrap` e o token `--av-page-gutter`. Cabeçalho, descoberta, acervo, detalhe, estúdios e rodapé compartilham as mesmas margens laterais. Não reintroduzir um limite fixo de largura nos shells. Limites de leitura de textos e larguras de modais continuam próprios de cada componente.
 
