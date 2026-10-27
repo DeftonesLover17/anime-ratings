@@ -373,11 +373,11 @@ body.av-app { background: var(--av-bg) !important; }
 .av-detail-title-block > .av-eyebrow { display: flex; gap: 17px; flex-wrap: wrap; }
 .av-app #detail-title { font: 600 clamp(44px,6.3vw,96px)/1.15 var(--av-display); letter-spacing: -.045em; text-wrap: balance; margin: 22px 0 18px; padding-bottom: 0.16em; overflow-wrap: anywhere; overflow: visible; color: var(--av-ink) !important; font-feature-settings: "ss04" 1; }
 .av-app #detail-title.av-detail-title-has-logo { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; margin: 16px 0 14px; padding: 0; line-height: 1; min-height: 0; }
-.av-app #detail-title.av-detail-title-has-logo .av-detail-title-logo { display: block; width: auto; height: auto; max-width: min(100%, 430px); max-height: clamp(60px, 5.8vw, 86px); object-fit: contain; object-position: left center; user-select: none; -webkit-user-drag: none; filter: drop-shadow(0 6px 22px rgba(0, 0, 0, 0.38)); }
-.av-app #detail-title.av-detail-title-has-logo[data-logo-tier="emblem"] .av-detail-title-logo { max-height: clamp(92px, 8.8vw, 124px); max-width: min(100%, 240px); }
-.av-app #detail-title.av-detail-title-has-logo[data-logo-tier="stacked"] .av-detail-title-logo { max-height: clamp(78px, 7.5vw, 108px); max-width: min(100%, 360px); }
-.av-app #detail-title.av-detail-title-has-logo[data-logo-tier="standard"] .av-detail-title-logo { max-height: clamp(60px, 5.8vw, 86px); max-width: min(100%, 430px); }
-.av-app #detail-title.av-detail-title-has-logo[data-logo-tier="wide"] .av-detail-title-logo { max-height: clamp(46px, 4.6vw, 68px); max-width: min(100%, 490px); }
+.av-app #detail-title.av-detail-title-has-logo .av-detail-title-logo { display: block; width: auto; height: auto; max-width: min(100%, 465px); max-height: clamp(68px, 6.4vw, 94px); object-fit: contain; object-position: left center; user-select: none; -webkit-user-drag: none; filter: drop-shadow(0 6px 22px rgba(0, 0, 0, 0.38)); }
+.av-app #detail-title.av-detail-title-has-logo[data-logo-tier="emblem"] .av-detail-title-logo { max-height: clamp(100px, 9.4vw, 132px); max-width: min(100%, 256px); }
+.av-app #detail-title.av-detail-title-has-logo[data-logo-tier="stacked"] .av-detail-title-logo { max-height: clamp(86px, 8.2vw, 116px); max-width: min(100%, 385px); }
+.av-app #detail-title.av-detail-title-has-logo[data-logo-tier="standard"] .av-detail-title-logo { max-height: clamp(68px, 6.4vw, 94px); max-width: min(100%, 465px); }
+.av-app #detail-title.av-detail-title-has-logo[data-logo-tier="wide"] .av-detail-title-logo { max-height: clamp(54px, 5.2vw, 76px); max-width: min(100%, 535px); }
 html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[data-logo-light="true"] .av-detail-title-logo { filter: brightness(0.14) contrast(1.15); }
 html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[data-logo-light="false"] .av-detail-title-logo { filter: drop-shadow(0 2px 10px rgba(17, 19, 15, 0.16)); }
 .av-app #detail-japanese-title { color: var(--av-muted); font: 12px/1.6 var(--av-body); }
@@ -1034,23 +1034,23 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
     }
 
     .av-app #detail-title.av-detail-title-has-logo[data-logo-tier="emblem"] .av-detail-title-logo {
-        max-height: clamp(80px, 7.6vw, 104px);
-        max-width: min(100%, 205px);
+        max-height: clamp(88px, 8.2vw, 112px);
+        max-width: min(100%, 222px);
     }
 
     .av-app #detail-title.av-detail-title-has-logo[data-logo-tier="stacked"] .av-detail-title-logo {
-        max-height: clamp(68px, 6.4vw, 92px);
-        max-width: min(100%, 310px);
+        max-height: clamp(76px, 7vw, 100px);
+        max-width: min(100%, 335px);
     }
 
     .av-app #detail-title.av-detail-title-has-logo[data-logo-tier="standard"] .av-detail-title-logo {
-        max-height: clamp(52px, 5vw, 74px);
-        max-width: min(100%, 370px);
+        max-height: clamp(60px, 5.6vw, 82px);
+        max-width: min(100%, 405px);
     }
 
     .av-app #detail-title.av-detail-title-has-logo[data-logo-tier="wide"] .av-detail-title-logo {
-        max-height: clamp(40px, 4vw, 58px);
-        max-width: min(100%, 420px);
+        max-height: clamp(48px, 4.6vw, 66px);
+        max-width: min(100%, 465px);
     
     }
 
@@ -1203,10 +1203,10 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
     .av-detail-header { grid-template-columns: 105px minmax(0,1fr); gap: 20px; align-items: start; }
     .av-app #detail-title { font-size: clamp(31px,7.5vw,51px); line-height: 1.15; padding-bottom: 0.16em; letter-spacing: -.06em; margin: 14px 0; font-feature-settings: "ss04" 1; }
     .av-app #detail-title.av-detail-title-has-logo { margin: 11px 0 9px; padding: 0; }
-    .av-app #detail-title.av-detail-title-has-logo[data-logo-tier="emblem"] .av-detail-title-logo { max-height: clamp(66px, 18vw, 86px); max-width: min(100%, 175px); }
-    .av-app #detail-title.av-detail-title-has-logo[data-logo-tier="stacked"] .av-detail-title-logo { max-height: clamp(56px, 15vw, 74px); max-width: min(100%, 235px); }
-    .av-app #detail-title.av-detail-title-has-logo[data-logo-tier="standard"] .av-detail-title-logo { max-height: clamp(44px, 12.2vw, 60px); max-width: min(100%, 265px); }
-    .av-app #detail-title.av-detail-title-has-logo[data-logo-tier="wide"] .av-detail-title-logo { max-height: clamp(34px, 9.6vw, 48px); max-width: min(100%, 285px); }
+    .av-app #detail-title.av-detail-title-has-logo[data-logo-tier="emblem"] .av-detail-title-logo { max-height: clamp(74px, 19.5vw, 94px); max-width: min(100%, 190px); }
+    .av-app #detail-title.av-detail-title-has-logo[data-logo-tier="stacked"] .av-detail-title-logo { max-height: clamp(64px, 16.5vw, 82px); max-width: min(100%, 255px); }
+    .av-app #detail-title.av-detail-title-has-logo[data-logo-tier="standard"] .av-detail-title-logo { max-height: clamp(52px, 13.5vw, 68px); max-width: min(100%, 290px); }
+    .av-app #detail-title.av-detail-title-has-logo[data-logo-tier="wide"] .av-detail-title-logo { max-height: clamp(42px, 10.8vw, 56px); max-width: min(100%, 315px); }
     .av-detail-title-block > .av-eyebrow { gap: 8px; font-size: 9px; }
     .av-app #detail-japanese-title { font-size: 10px; }
     .av-detail-totals { gap: 24px; margin-top: 23px; }
