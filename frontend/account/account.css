@@ -44,7 +44,7 @@
     color: var(--av-ink);
     box-shadow: none;
 }
-.av-account-panel.hidden,.av-account-action.hidden,.av-account-count.hidden { display: none !important; }
+.av-account-panel.hidden,.av-account-action.hidden,.av-account-count.hidden,.av-account-group[hidden],.av-account-action[hidden] { display: none !important; }
 .av-account-topline { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 20px; padding: 22px 32px 8px; }
 .av-account-topline > span { color: var(--av-muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
 .av-account-close { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; padding: 0; border: 1px solid var(--av-line); border-radius: 50%; background: transparent; color: var(--av-ink); transition: color .18s ease,border-color .18s ease; }

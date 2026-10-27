@@ -88,3 +88,11 @@ test('the real friends renderer keeps untrusted names as text and visiting does 
     assert.equal(visited, name); assert.equal(closed.immediate, true);
     assert.equal(state.loggedInUser, 'Owner'); assert.equal(state.currentFriendId, 'owner');
 });
+
+test('profile achievements are rendered only for the signed-in member', () => {
+    const fs = require('node:fs'), path = require('node:path');
+    const source = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8');
+    const profileBody = source.slice(source.indexOf('function renderPlayerProfileModal('), source.indexOf('function closePlayerProfileModal', source.indexOf('function renderPlayerProfileModal(')));
+    assert.match(profileBody, /const isOwnProfile = normalizeProfileId\(user\.username\) === getLoggedInProfileId\(\);/);
+    assert.match(profileBody, /isOwnProfile \? `[^`]*av-player-trophies-grid/s);
+});

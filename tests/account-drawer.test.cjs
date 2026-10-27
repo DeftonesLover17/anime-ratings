@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { createAccountDrawer } = require('../frontend/account/drawer');
 
 // A minimal DOM boundary keeps these tests about lifecycle and event ordering.
-function fixture({ reduced = false } = {}) {
+function fixture({ reduced = false, canManageSystem = () => false } = {}) {
     const nodes = new Map();
     const active = new Map();
     const animations = [];
@@ -72,7 +72,7 @@ function fixture({ reduced = false } = {}) {
         dialog.emit('click', event);
         if (!event.stopped) node.emit('click', event);
     }
-    const drawer = createAccountDrawer(browser, motion);
+    const drawer = createAccountDrawer(browser, motion, { canManageSystem });
     drawer.mount();
     const finish = async () => {
         for (const entry of active.values()) entry.resolve();
@@ -171,4 +171,32 @@ test('reviewer names remain text and the selected identity reaches the existing 
     assert.doesNotMatch(button.innerHTML, /src="javascript:/);
     button.click();
     assert.equal(selection, friend);
+});
+
+test('privileged account tools start hidden and cannot be invoked by a member', () => {
+    const f = fixture();
+    assert.match(f.panel.innerHTML, /id="av-account-tools" hidden/);
+    for (const id of ['open-backup-center', 'open-admin-center']) {
+        assert.match(f.panel.innerHTML, new RegExp(`id="${id}"[^>]*hidden disabled data-account-owner-only`));
+    }
+    let calls = 0;
+    const action = f.action(() => calls++);
+    action.dataset.accountOwnerOnly = '';
+    f.drawer.open({ animate: false });
+    f.click(action);
+    assert.equal(calls, 0);
+    assert.equal(f.drawer.phase, 'open');
+});
+
+test('revoking owner access during the drawer exit cancels the privileged handoff', async () => {
+    let allowed = true, calls = 0;
+    const f = fixture({ canManageSystem: () => allowed });
+    const action = f.action(() => calls++);
+    action.dataset.accountOwnerOnly = '';
+    f.drawer.open({ animate: false });
+    f.click(action);
+    allowed = false;
+    await f.finish();
+    assert.equal(calls, 0);
+    assert.equal(f.drawer.phase, 'closed');
 });

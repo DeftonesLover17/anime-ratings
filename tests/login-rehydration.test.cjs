@@ -88,7 +88,8 @@ test('adopting a different confirmed identity drops the previous sync baseline b
     f.session.acceptUsername('Ana');
     f.state.syncBase = { owner: 'Ana' };
     f.state.friends = [{ id: 'ana', isMe: true }];
-    const window = { AnivoidUI: { session: f.session }, __anivoidState: f.state };
+    let refreshes = 0;
+    const window = { AnivoidUI: { session: f.session, access: { refresh() { refreshes++; } } }, __anivoidState: f.state };
     const start = source.indexOf('function setAuthSession('), end = source.indexOf('function clearAuthSession(', start);
     const set = new Function('window', 'localStorage', source.slice(start, end) + '\nreturn setAuthSession;')(window, {
         setItem: (key, value) => f.stored.set(key, value)
@@ -98,6 +99,7 @@ test('adopting a different confirmed identity drops the previous sync baseline b
     assert.equal(f.state.syncBase, null);
     assert.equal(f.state.friends.length, 0);
     assert.equal(f.stored.get('anivoid_logged_in_username'), 'Bruno');
+    assert.equal(refreshes, 1);
 });
 
 test('startup with a known account or pending sync keeps registration gate hidden until confirmed', () => {

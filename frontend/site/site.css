@@ -322,24 +322,61 @@ html[data-color-scheme="light"] .av-app .av-hero-title.av-detail-title-has-logo[
     overflow: visible;
 }
 
-/* Comparison Sub-bar */
+/* Paired ratings share a stable grid, including missing scores and long names. */
 .av-card-comparison {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 20px minmax(0, 1fr);
     align-items: center;
-    justify-content: flex-end;
-    gap: 6px;
-    font-size: 9.5px;
-    padding: 6px 10px 0 10px;
+    gap: 8px 10px;
+    margin-top: 14px;
+    padding: 14px 0 0;
+    border-top: 1px solid var(--av-line);
     color: var(--av-muted);
 }
-.av-card-comparison-label {
+.av-compare-person {
+    min-width: 0;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.av-compare-person:first-child {
+    border-left: 2px solid var(--av-accent);
+    padding-left: 10px;
+}
+.av-compare-name {
+    font: 500 10.5px/1.4 var(--av-mono);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-size: 8.5px;
+    letter-spacing: 0.06em;
+    color: var(--av-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.av-compare-person:first-child .av-compare-name {
+    color: var(--av-ink);
+    font-weight: 600;
+}
+.av-compare-score {
+    margin-top: auto;
+    min-height: 28px;
+    display: flex;
+    align-items: center;
 }
 .av-card-comparison .av-score {
-    font-size: 12px;
-    font-weight: 700;
+    font: 600 24px/1.1 var(--av-display);
+    letter-spacing: -0.03em;
+}
+.av-compare-versus {
+    font: 300 16px/1 var(--av-body);
+    text-align: center;
+    opacity: 0.45;
+}
+.av-compare-empty {
+    font: 500 11px/1.4 var(--av-mono);
+    color: var(--av-muted);
+    opacity: 0.6;
+    letter-spacing: 0.02em;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1229,6 +1266,26 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
     }
     .av-card-score-value .av-score {
         font-size: 12px;
+    }
+    .av-card-comparison {
+        gap: 6px 8px;
+        margin-top: 10px;
+        padding-top: 10px;
+    }
+    .av-compare-person:first-child {
+        padding-left: 8px;
+    }
+    .av-compare-name {
+        font-size: 9px;
+    }
+    .av-card-comparison .av-score {
+        font-size: 18px;
+    }
+    .av-compare-versus {
+        font-size: 13px;
+    }
+    .av-compare-empty {
+        font-size: 10px;
     }
     .av-card-invitation { transform: none; padding: 9px 11px; background: rgb(18 21 16/.86); color: #f1f0e8; font-size: 9px; }
     .av-card-invitation svg { width: 15px; height: 15px; }

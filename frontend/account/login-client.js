@@ -12,7 +12,8 @@ function createLoginClient(browser, options = {}) {
     async function login(identifier, password) {
         const data = await request('/api/login', { identifier: identifier.trim(), password });
         if (typeof data.user?.username !== 'string' || !data.user.username) throw new LoginError('O servidor enviou uma resposta inválida. Tente novamente.', 'INVALID_RESPONSE');
-        await confirmSession(data.user.username);
+        const confirmed = await confirmSession(data.user.username);
+        data.viewerPermissions = confirmed.viewerPermissions;
         return data;
     }
     async function resetAndLogin(identifier, oldPassword, newPassword) {

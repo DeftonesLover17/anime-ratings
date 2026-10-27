@@ -22,6 +22,7 @@ npm start
 | `index.html` | Estrutura das telas e referências aos assets compilados. |
 | `app.js` | Integração legada: estado, sessão, catálogo, perfis e ligação com APIs e módulos novos. |
 | `frontend/site/` | Descoberta editorial, cards, detalhe, estúdios, navegação e transições entre telas. |
+| `frontend/site/rating-comparison.js` | Notas do usuário autenticado e do amigo lado a lado nos cards, incluindo estados sem nota. |
 | `frontend/site/site.css` e CSS por tela | Shell e estilos editoriais; estatísticas, perfis, catálogo, amigos e notificações têm arquivos separados, concatenados na ordem original pelo build. |
 | `frontend/site/project-adapter.js` | Ponte explícita entre os módulos visuais e o estado legado; permissões e comandos da aplicação. |
 | `frontend/site/studio-presentation.js` | Logos, cores, descrições e validação de URLs usados na apresentação dos estúdios. |
@@ -39,6 +40,7 @@ npm start
 | `frontend/community/` | Composição e leitura de reviews/comentários, contexto de episódio, spoilers, respostas, edição e curtidas. |
 | `frontend/account/` | Gaveta da conta, seleção de avaliador e transições interrompíveis de abertura, fechamento e passagem às ações existentes. |
 | `frontend/account/session.js` | Logout confirmado pela API, limpeza de cache privado e confirmação de e-mail por prova do servidor. |
+| `frontend/account/access.js` | Visibilidade e bloqueio das ferramentas do proprietário, com permissão da sessão confirmada no servidor e limpeza dos painéis ao trocar de conta. |
 | `frontend/account/login-client.js` | Login com timeout, confirmação do cookie, erros de conexão e troca obrigatória de senha. |
 | `frontend/account/request.js` | Transporte de conta com timeout, erros e Retry-After; sem repetir mutações. |
 | `frontend/account/profile-client.js` | Salvamento atômico do perfil/senha e confirmação do cookie renovado. |
@@ -47,6 +49,7 @@ npm start
 | `frontend/account/login-form.js` | Campos de login/redefinição, confirmação de senha, feedback acessível e bloqueio de envios duplicados. |
 | `frontend/account/storage.js` | Cache opcional com fallback em memória quando o navegador bloqueia ou esgota o armazenamento. |
 | `frontend/account/welcome-email.js` | Envio pelo EmailJS existente, confirmação de aceite, repetição e prévia fiel da mensagem de boas-vindas. |
+| `frontend/account/design-update.js` e `.css` | Aviso editorial de novidades após sessão confirmada, aguardando splash e outros diálogos; dispensa por conta e edição neste navegador. |
 | `frontend/account/email-config.js` | Identificadores públicos do serviço/template EmailJS; não contém senha Gmail ou chave privada. |
 | `emails/password-recovery.html` | Template da recuperação de senha com domínio fixo, logo oficial e link de uso único. |
 | `emails/welcome.html` | Fonte única do e-mail responsivo, instalada no EmailJS e usada na prévia local. |

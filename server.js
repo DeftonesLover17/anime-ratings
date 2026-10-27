@@ -813,11 +813,13 @@ const server = http.createServer(async (req, res) => {
             if (req.url === '/api/users') {
                 sendJson(res, 200, {
                     viewerUsername: authUser ? authUser.username : '',
+                    viewerPermissions: { canManageSystem: identity.canManageSystem(authUser, process.env, state) },
                     registeredUsers: (state.registeredUsers || []).map(user => sanitizeUser(user, authUser ? authUser.username : ''))
                 });
                 return;
             }
-            sendJson(res, 200, sanitizeState(state, authUser ? authUser.username : ''));
+            sendJson(res, 200, { ...sanitizeState(state, authUser ? authUser.username : ''),
+                viewerPermissions: { canManageSystem: identity.canManageSystem(authUser, process.env, state) } });
         });
         return;
     }

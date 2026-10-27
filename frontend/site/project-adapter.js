@@ -47,9 +47,10 @@ function createProjectAdapter(project, site) {
                 ? 'Sua nota'
                 : 'Nota de ' + userName(state.currentFriendId),
             ownRating:
-                !isMe && state.sortBy === 'my-score'
+                !isMe && viewer() && state.currentFriendId
                     ? ratingFor(anime, viewer())
                     : null,
+            friendName: userName(state.currentFriendId),
         };
     }
 

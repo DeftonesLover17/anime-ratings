@@ -1457,7 +1457,7 @@ async function handleAdminOverview(request, env) {
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
-    if (!isAdminUser(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
+    if (!identity.canManageSystem(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
     const users = Array.isArray(state.registeredUsers) ? state.registeredUsers : [];
     const animes = Array.isArray(state.animes) ? state.animes : [];
     let ratings = 0;
@@ -1489,7 +1489,7 @@ async function handleAdminDeleteUser(request, env) {
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
-    if (!isAdminUser(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
+    if (!identity.canManageSystem(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
     if (sameUsername(auth.user.username, body.username)) return json({ error: 'Nao remova sua propria conta por aqui.' }, 400);
     await maybeCreateAutomaticBackup(env, 'auto');
     await createStateBackup(env, JSON.stringify(sanitizeStateForStorage(state)), `before-delete-user:${normalizeUsername(body.username)}`);
@@ -1504,7 +1504,7 @@ async function handleAdminBackups(request, env) {
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
-    if (!isAdminUser(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
+    if (!identity.canManageSystem(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
 
     if (request.method === 'POST') {
         await createStateBackup(env, JSON.stringify(sanitizeStateForStorage(state)), 'manual');
@@ -1528,7 +1528,7 @@ async function handleAdminBackupDownload(request, env, backupId) {
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
-    if (!isAdminUser(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
+    if (!identity.canManageSystem(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
     const row = await getDb(env).prepare('SELECT id, created_at, reason, state FROM state_backups WHERE id = ?1').bind(Number(backupId)).first();
     if (!row) return json({ error: 'Backup not found' }, 404);
     return json({
@@ -1546,7 +1546,7 @@ async function handleAdminExportState(request, env) {
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
-    if (!isAdminUser(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
+    if (!identity.canManageSystem(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
     return json({
         app: 'anivoid',
         type: 'server-state-export',
@@ -1560,7 +1560,7 @@ async function handleAdminCleanSessions(request, env) {
     const state = await readState(env);
     const auth = await requireAuthenticatedUser(request, env, state);
     if (auth.response) return auth.response;
-    if (!isAdminUser(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
+    if (!identity.canManageSystem(auth.user, env, state)) return json({ error: 'Admin only' }, 403);
     await getDb(env).prepare('DELETE FROM sessions').run();
     await getDb(env).prepare('DELETE FROM auth_sessions').run();
     return json({ success: true, message: 'Todas as sessões antigas foram invalidadas com sucesso no banco de dados D1.' });
@@ -1741,7 +1741,8 @@ async function route(request, env) {
     if (path === '/api/get-state' && request.method === 'GET') {
         const state = await readState(env);
         const authUser = await getAuthenticatedUser(request, env, state);
-        return json(sanitizeState(state, authUser ? authUser.username : ''));
+        return json({ ...sanitizeState(state, authUser ? authUser.username : ''),
+            viewerPermissions: { canManageSystem: identity.canManageSystem(authUser, env, state) } });
     }
     if (path === '/api/users' && request.method === 'GET') {
         const state = await readState(env);
@@ -1749,6 +1750,7 @@ async function route(request, env) {
         const authUser = await getAuthenticatedUser(request, env, state);
         return json({
             viewerUsername: authUser ? authUser.username : '',
+            viewerPermissions: { canManageSystem: identity.canManageSystem(authUser, env, state) },
             registeredUsers: sanitizeRegisteredUsersOnly(state, authUser ? authUser.username : '')
         });
     }

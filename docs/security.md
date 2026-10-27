@@ -12,6 +12,8 @@ As regras de sincronização verificam a autoria atual de cada ID de publicaçã
 
 ## Sessões e credenciais
 
+“Backup dos dados” e “Painel admin” são exclusivos da conta proprietária única Felipe, que também precisa estar autorizada pela configuração administrativa do servidor. A política compartilhada `identity.canManageSystem` recusa outros administradores, nomes ambíguos e visitantes. `/api/users` e `/api/get-state` calculam `viewerPermissions.canManageSystem` a partir da sessão; o navegador mantém essa confirmação somente em memória e a revoga ao trocar de conta ou sair. Cache de nome, avaliador selecionado e campos enviados no cadastro não concedem acesso. A seção Ferramentas e seus dois botões começam ocultos/desativados, e as APIs de painel, exportação e backups verificam a política novamente. O servidor Node alternativo não oferece todas essas ferramentas; as rotas implementadas continuam verificando a sessão e o privilégio no servidor.
+
 - Cookies `anivoid_auth_token` são `HttpOnly`, `Secure`, `SameSite=Lax`, com Path `/`.
 - O D1 guarda SHA-256 de tokens aleatórios de 256 bits, nunca o token ativo em texto aberto.
 - A tabela nova `auth_sessions` tem prazo de inatividade de 24 horas, prazo absoluto de sete dias e vínculo com `accountId` e a versão da credencial.

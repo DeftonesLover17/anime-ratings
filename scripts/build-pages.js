@@ -48,6 +48,7 @@ async function build() {
         'frontend/account/recovery.css',
         'frontend/profiles/profiles.css',
         'frontend/account/welcome-email.css',
+        'frontend/account/design-update.css',
         'frontend/ratings/ratings.css',
         'frontend/community/community.css',
         'frontend/site/motion.css'

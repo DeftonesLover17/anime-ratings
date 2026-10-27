@@ -64,7 +64,7 @@ function hasAuthSession() {
     return Boolean(window.AnivoidUI.session.username());
 }
 
-function setAuthSession(username, token) {
+function setAuthSession(username, token, viewerPermissions) {
     const previousUsername = window.AnivoidUI.session.username();
     if (previousUsername && previousUsername !== username) {
         window.AnivoidUI.session.clearCache();
@@ -76,6 +76,9 @@ function setAuthSession(username, token) {
         }
     }
     window.AnivoidUI.session.acceptUsername(username);
+    window.AnivoidUI.designUpdate?.sync();
+    if (viewerPermissions !== undefined) window.AnivoidUI.session.acceptViewerPermissions(username, viewerPermissions);
+    window.AnivoidUI.access.refresh();
     if (username) localStorage.setItem('anivoid_logged_in_username', username);
     const activeState = window.__anivoidState;
     if (activeState) {
@@ -86,6 +89,8 @@ function setAuthSession(username, token) {
 
 function clearAuthSession() {
     window.AnivoidUI.session.acceptUsername('');
+    window.AnivoidUI.designUpdate?.sync();
+    window.AnivoidUI.access.refresh();
     window.AnivoidUI.session.clearCache();
     localStorage.removeItem('anivoid_logged_in_username');
     localStorage.removeItem(AUTH_TOKEN_KEY);
@@ -186,7 +191,7 @@ async function refreshRegisteredUsersFromServer({ force = false } = {}) {
             const serverState = await response.json();
             if (!window.AnivoidUI.session.isCurrent(authVersion)) return false;
             if (serverState.viewerUsername) {
-                setAuthSession(serverState.viewerUsername);
+                setAuthSession(serverState.viewerUsername, null, serverState.viewerPermissions);
             } else {
                 clearAuthSession();
                 showRegistrationGate();
@@ -256,7 +261,7 @@ function normalizeRatingMapKeys(ratings) {
 function applyServerStateSnapshot(serverState) {
     if (!serverState || typeof serverState !== 'object') return;
     if (serverState.viewerUsername) {
-        setAuthSession(serverState.viewerUsername);
+        setAuthSession(serverState.viewerUsername, null, serverState.viewerPermissions);
     }
     rememberSyncBase(serverState);
     let previousAnimes = [];
@@ -602,7 +607,7 @@ class AppState {
             const sameViewer = serverState.viewerUsername === this.loggedInUser;
             if (serverState.viewerUsername) {
                 if (this.loggedInUser && !sameViewer) clearAuthSession();
-                setAuthSession(serverState.viewerUsername);
+                setAuthSession(serverState.viewerUsername, null, serverState.viewerPermissions);
             } else {
                 clearAuthSession();
                 if (hasLoginSession) showRegistrationGate();
@@ -1891,8 +1896,7 @@ function mergeServerNotifications(notifications = []) {
 }
 
 function isCurrentUserAdmin() {
-    const id = normalizeProfileId(state.loggedInUser || localStorage.getItem('anivoid_logged_in_username') || '');
-    return id === 'felipe';
+    return window.AnivoidUI.access.canManageSystem();
 }
 
 function decodeCatalogText(value) {
@@ -2460,6 +2464,8 @@ function toggleCommentLike(animeId, commentId) {
 }
 
 async function exportBackupData() {
+    if (!isCurrentUserAdmin()) return;
+    const accessVersion = window.AnivoidUI.session.version();
     let payload = null;
     if (isCurrentUserAdmin() && hasAuthSession()) {
         try {
@@ -2485,6 +2491,7 @@ async function exportBackupData() {
         animes: state.animes || [],
         notifications: getStoredNotifications()
     };
+    if (!window.AnivoidUI.session.isCurrent(accessVersion) || !isCurrentUserAdmin()) return;
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2499,9 +2506,11 @@ async function exportBackupData() {
 }
 
 function importBackupData(file) {
-    if (!file) return;
+    if (!file || !isCurrentUserAdmin()) return;
+    const accessVersion = window.AnivoidUI.session.version();
     const reader = new FileReader();
     reader.onload = () => {
+        if (!window.AnivoidUI.session.isCurrent(accessVersion) || !isCurrentUserAdmin()) return;
         try {
             const payload = JSON.parse(String(reader.result || '{}'));
             if (!payload || payload.app !== 'anivoid' || !Array.isArray(payload.animes)) {
@@ -2552,6 +2561,7 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
     }
     const stats = getProfileStats(user.id);
     const badges = getUserBadgesHtml({ ...user, username: user.username, name: user.username });
+    const isOwnProfile = normalizeProfileId(user.username) === getLoggedInProfileId();
     const scoreColor = getScoreColor(stats.avgScore);
     const completed = stats.statusCounts.Completed || 0;
     const watching = stats.statusCounts.Watching || 0;
@@ -2773,10 +2783,12 @@ function renderPlayerProfileModal(profileId = state.currentFriendId) {
                 </div>
             </div>
 
-            <!-- SECTION 2: CONQUISTAS & DISTINÇÕES -->
+            ${isOwnProfile ? `
+            <!-- SECTION 2: CONQUISTAS & DISTINÇÕES (perfil do proprietário) -->
             <div class="av-player-trophies-grid av-player-stagger-3">
                 ${achievementCards}
             </div>
+            ` : ''}
 
             <!-- SECTION 3: TOP OBRAS + DNA + HISTÓRICO -->
             <div class="av-player-content-grid av-player-stagger-4">
@@ -3031,6 +3043,7 @@ function setupUtilityModals() {
     });
     bindOnce('open-backup-center', 'click', (event) => {
         event.stopPropagation();
+        if (!isCurrentUserAdmin()) return;
         closeDropdown();
         const modal = document.getElementById('backup-modal');
         if (modal) {
@@ -3046,7 +3059,7 @@ function setupUtilityModals() {
         }
     });
     bindOnce('export-backup-btn', 'click', exportBackupData);
-    bindOnce('import-backup-btn', 'click', () => document.getElementById('import-backup-file')?.click());
+    bindOnce('import-backup-btn', 'click', () => { if (isCurrentUserAdmin()) document.getElementById('import-backup-file')?.click(); });
     bindOnce('import-backup-file', 'change', (event) => importBackupData(event.target.files?.[0]));
 }
 
@@ -3757,16 +3770,7 @@ function updateProfileIndicator() {
         profileIndicator.style.borderColor = friend.color;
         profileIndicator.style.boxShadow = `0 0 15px ${friend.color}40`;
     }
-    const adminBtn = document.getElementById('open-admin-center');
-    if (adminBtn) {
-        if (isCurrentUserAdmin()) {
-            adminBtn.classList.remove('hidden');
-            adminBtn.classList.add('flex');
-        } else {
-            adminBtn.classList.add('hidden');
-            adminBtn.classList.remove('flex');
-        }
-    }
+    window.AnivoidUI.access.refresh();
     setAdminCatalogControlsVisibility();
 
     // Update friend requests badge
@@ -5542,7 +5546,7 @@ function initRegistrationOptions() {
 
     const completeAuthenticatedLogin = (loginData) => {
         // Set the confirmed owner before projecting private fields from the DTO.
-        setAuthSession(loginData.user.username);
+        setAuthSession(loginData.user.username, null, loginData.viewerPermissions);
         const matchedUser = stripSensitiveUserFields(loginData.user);
         const userId = normalizeProfileId(matchedUser.username);
 
@@ -7228,9 +7232,12 @@ async function loadAdminOverview() {
 }
 
 async function fetchAdminEndpointWithRetry(path, options, attempts = 2) {
+    const accessVersion = window.AnivoidUI.session.version();
     let response = null;
     for (let attempt = 0; attempt < attempts; attempt++) {
+        if (!isCurrentUserAdmin() || !window.AnivoidUI.session.isCurrent(accessVersion)) throw new Error('Acesso restrito ao proprietário.');
         response = await fetch(API_BASE_URL + path, options);
+        if (!isCurrentUserAdmin() || !window.AnivoidUI.session.isCurrent(accessVersion)) throw new Error('A sessão mudou.');
         if (response.status !== 503 || attempt === attempts - 1) return response;
         await new Promise(resolve => setTimeout(resolve, 350 * (attempt + 1)));
     }
@@ -7260,6 +7267,8 @@ function renderAdminMetric(label, value, icon) {
 }
 
 async function renderAdminCenter() {
+    if (!isCurrentUserAdmin()) return;
+    const accessVersion = window.AnivoidUI.session.version();
     const overviewEl = document.getElementById('admin-overview');
     const usersEl = document.getElementById('admin-users-list');
     const backupsEl = document.getElementById('admin-backups-list');
@@ -7269,6 +7278,7 @@ async function renderAdminCenter() {
     backupsEl.innerHTML = '';
     try {
         const data = await loadAdminOverview();
+        if (!isCurrentUserAdmin() || !window.AnivoidUI.session.isCurrent(accessVersion)) return;
         if (!data) {
             overviewEl.innerHTML = `<div class="col-span-full rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-[11px] text-red-300 font-mono">Erro: Você não é administrador.</div>`;
             return;
@@ -7320,14 +7330,17 @@ async function renderAdminCenter() {
         });
 
         const backupData = await loadAdminBackups(false);
+        if (!isCurrentUserAdmin() || !window.AnivoidUI.session.isCurrent(accessVersion)) return;
         renderAdminBackups(backupData.backups || []);
     } catch (err) {
+        if (!isCurrentUserAdmin() || !window.AnivoidUI.session.isCurrent(accessVersion)) return;
         console.error("Failed to render admin center:", err);
         overviewEl.innerHTML = `<div class="col-span-full rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-[11px] text-red-300 font-mono">Não foi possível carregar o painel admin: ${escapeHtml(err.message)}</div>`;
     }
 }
 
 function renderAdminBackups(backups) {
+    if (!isCurrentUserAdmin()) return;
     const backupsEl = document.getElementById('admin-backups-list');
     if (!backupsEl) return;
     if (!Array.isArray(backups) || backups.length === 0) {

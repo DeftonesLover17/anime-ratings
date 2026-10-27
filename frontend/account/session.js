@@ -1,11 +1,13 @@
 function createAccountSession(browser, storage = browser.localStorage) {
     let leaving = null;
     let username = '', generation = 0;
+    let systemAccess = false;
     let knownAccount = false;
     try { knownAccount = Boolean(storage.getItem?.('anivoid_logged_in_username')); } catch {}
     function acceptUsername(value) {
         value = typeof value === 'string' ? value : '';
-        if (username !== value) generation++;
+        if (username !== value) { generation++; systemAccess = false; }
+        if (!value) systemAccess = false;
         username = value;
         if (value) knownAccount = true;
     }
@@ -42,6 +44,7 @@ function createAccountSession(browser, storage = browser.localStorage) {
     function logout(clearLocal) {
         if (leaving) return leaving;
         generation++;
+        systemAccess = false;
         leaving = post('/api/logout')
             .then(() => {
                 acceptUsername('');
@@ -93,6 +96,10 @@ function createAccountSession(browser, storage = browser.localStorage) {
     return {
         logout, consumeVerification, bindVerification, clearCache,
         acceptUsername,
+        acceptViewerPermissions: (viewer, permissions) => {
+            systemAccess = Boolean(username && viewer === username && permissions?.canManageSystem === true);
+        },
+        canManageSystem: () => Boolean(username && systemAccess),
         username: () => username,
         version: () => generation,
         isCurrent: (version) => version === generation,

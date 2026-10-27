@@ -6,6 +6,7 @@ const {
     arrow,
     attachImageFallbacks,
 } = require('../shared/dom');
+const { ratingComparisonMarkup } = require('./rating-comparison');
 
 function resolveStatusKind(rawKey, rawLabel) {
     const text = String(rawKey || rawLabel || '').toLowerCase().trim();
@@ -127,11 +128,11 @@ function createCatalogCard(model, actions, index) {
                 <span class="av-status-dot${statusKey === 'watching' ? ' av-status-dot-pulse' : ''}" aria-hidden="true"></span>
                 <span class="av-status-text">${e(displayStatus)}</span>
             </div>
-            <div class="av-card-score-chip" title="${e(model.ratingLabel || 'Sua nota')}">
+            ${model.ownRating ? '' : `<div class="av-card-score-chip" title="${e(model.ratingLabel || 'Sua nota')}">
                 <span class="av-card-score-label">${e(model.ratingLabel || 'Sua nota')}</span>
                 <span class="av-card-score-value">${scoreMarkup(rating?.overall)}</span>
-            </div>
-        </div>${model.ownRating ? `<div class="av-card-comparison"><span class="av-card-comparison-label">Sua nota</span><span class="av-card-score-value">${scoreMarkup(model.ownRating.overall)}</span></div>` : ''}
+            </div>`}
+        </div>${model.ownRating ? ratingComparisonMarkup(model.ownRating, rating, model.friendName) : ''}
     </article>`);
     bindLogoPreload(root, anime, typeof index === 'number' && index < 24);
     root.querySelectorAll('a').forEach((link) =>

@@ -10,6 +10,30 @@ const {
 } = require('../backend/security/email-verification');
 const { createD1EmailStore } = require('../backend/cloudflare/email-store');
 const api = loadCloudflare();
+const { verifyAccountPermissions } = require('./helpers/account-permissions.cjs');
+
+test('Cloudflare exposes system permissions only for the authenticated owner, including new registrations', async t => {
+    const { send } = await fixture(t);
+    await verifyAccountPermissions(send);
+});
+
+test('Cloudflare blocks private system tools for members and for an additional configured administrator', async t => {
+    const { env, send, login } = await fixture(t);
+    env.ADMIN_USERS = 'felipe,ana';
+    const anotherAdmin = await login('Ana'), member = await login('Bruno');
+    const before = JSON.stringify(await api.readState(env));
+    const routes = [
+        ['/api/admin/overview'], ['/api/admin/export-state'], ['/api/admin/backups'],
+        ['/api/admin/backups', {}], ['/api/admin/backups/1'],
+        ['/api/admin/delete-user', { username: 'Felipe!' }], ['/api/admin/clean-sessions', {}]
+    ];
+    for (const [cookie, status] of [['', 401], [anotherAdmin, 403], [member, 403]]) {
+        for (const [path, body] of routes) {
+            assert.equal((await send(path, body, cookie)).status, status, `${path} must deny this viewer`);
+        }
+    }
+    assert.equal(JSON.stringify(await api.readState(env)), before);
+});
 const { verifyCatalogLogoPersistence } = require('./helpers/catalog-logo.cjs');
 
 test('Cloudflare persists explicit logo removal and text-only preference', async t => {

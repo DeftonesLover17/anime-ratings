@@ -28,6 +28,13 @@ test('blocked cookies or a different account never produce a successful login', 
     }
 });
 
+test('login uses permissions from cookie confirmation and ignores an earlier privilege claim', async () => {
+    const client = createLoginClient(browserFor(async path => path === '/api/login'
+        ? reply({ user: { username: 'Ana' }, viewerPermissions: { canManageSystem: true } })
+        : reply({ viewerUsername: 'Ana', viewerPermissions: { canManageSystem: false } })));
+    assert.deepEqual((await client.login('Ana', 'Password123')).viewerPermissions, { canManageSystem: false });
+});
+
 test('timeouts bound a stalled fetch or stalled response body and abort the request', async () => {
     for (const stalledBody of [false, true]) {
         let signal;

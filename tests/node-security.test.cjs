@@ -2,6 +2,12 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const { startNodeServer } = require('./helpers/node-server.cjs');
+const { verifyAccountPermissions } = require('./helpers/account-permissions.cjs');
+
+test('Node exposes system permissions only for the authenticated owner, never from registration fields', async t => {
+    const { send } = await startNodeServer(t);
+    await verifyAccountPermissions(send);
+});
 test('Node HTTP adapter enforces identity, session, password and profile policies', async (t) => {
     const { send, stateFile } = await startNodeServer(t);
     const login = await send('/api/login', {

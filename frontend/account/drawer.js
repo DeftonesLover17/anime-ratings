@@ -22,7 +22,7 @@ const groups = [
         ['open-notifications', 'Notificações', 'bell', 'notifications-modal'],
         ['open-group-stats', 'Estatísticas do grupo', 'stats', 'group-stats-modal'],
     ] },
-    { label: 'Ferramentas', actions: [
+    { label: 'Ferramentas', ownerOnly: true, actions: [
         ['open-backup-center', 'Backup dos dados', 'backup', 'backup-modal'],
         ['open-admin-center', 'Painel admin', 'admin', 'admin-modal'],
     ] },
@@ -30,10 +30,11 @@ const groups = [
 
 function actionMarkup([id, label, icon, destination]) {
     const badge = id === 'open-notifications' ? '<span id="notifications-dropdown-badge" class="av-account-count hidden">0</span>' : '';
-    return `<button type="button" id="${id}" class="av-account-action${id === 'open-admin-center' ? ' hidden' : ''}" data-account-action data-account-destination="${destination}">${svg(icons[icon])}<span class="av-account-action-label"><span>${label}</span>${badge}</span><span class="av-account-arrow">${arrow}</span></button>`;
+    const ownerOnly = ['open-backup-center', 'open-admin-center'].includes(id);
+    return `<button type="button" id="${id}" class="av-account-action${ownerOnly ? ' hidden' : ''}" ${ownerOnly ? 'hidden disabled data-account-owner-only' : ''} data-account-action data-account-destination="${destination}">${svg(icons[icon])}<span class="av-account-action-label"><span>${label}</span>${badge}</span><span class="av-account-arrow">${arrow}</span></button>`;
 }
 
-function createAccountDrawer(browser, motion) {
+function createAccountDrawer(browser, motion, { canManageSystem = () => false, refreshAccess = () => {} } = {}) {
     const document = browser.document;
     const reduced = browser.matchMedia('(prefers-reduced-motion: reduce)');
     const animatedNodes = new Set();
@@ -74,6 +75,7 @@ function createAccountDrawer(browser, motion) {
 
     function open({ animate = true } = {}) {
         if (!installed || phase === 'open' || phase === 'opening') return;
+        refreshAccess();
         const wasClosed = phase === 'closed';
         const from = wasClosed ? 'translateX(104%)' : browser.getComputedStyle(panel).transform;
         const opacity = wasClosed ? '0' : browser.getComputedStyle(scrim).opacity;
@@ -154,7 +156,7 @@ function createAccountDrawer(browser, motion) {
         if (!panel || !trigger) return;
         installed = true;
         panel.className = 'av-account-panel hidden';
-        panel.innerHTML = `<div class="av-account-topline" data-account-reveal><span>ANIVØID / Sua conta</span><button type="button" id="av-account-close" class="av-account-close" aria-label="Fechar menu da conta">${svg('M6 6l12 12M18 6 6 18')}</button></div><header class="av-account-heading" data-account-reveal><h2 id="av-account-title">Seu espaço<span>.</span></h2><p>Seu acervo. A sua perspectiva.</p></header><div class="av-account-scroll"><section class="av-account-reviewers" data-account-reveal aria-labelledby="av-account-reviewers-title"><h3 id="av-account-reviewers-title">Trocar avaliador</h3><div id="friends-dropdown-list"></div></section>${groups.map((group) => `<section class="av-account-group" data-account-reveal aria-label="${group.label}"><h3>${group.label}</h3>${group.actions.map(actionMarkup).join('')}</section>`).join('')}</div><footer class="av-account-footer" data-account-reveal><button type="button" id="logout-btn" class="av-account-logout"><span>Desconectar conta</span>${svg(icons.logout)}</button><span>Anime. Visto de outro jeito.</span></footer>`;
+        panel.innerHTML = `<div class="av-account-topline" data-account-reveal><span>ANIVØID / Sua conta</span><button type="button" id="av-account-close" class="av-account-close" aria-label="Fechar menu da conta">${svg('M6 6l12 12M18 6 6 18')}</button></div><header class="av-account-heading" data-account-reveal><h2 id="av-account-title">Seu espaço<span>.</span></h2><p>Seu acervo. A sua perspectiva.</p></header><div class="av-account-scroll"><section class="av-account-reviewers" data-account-reveal aria-labelledby="av-account-reviewers-title"><h3 id="av-account-reviewers-title">Trocar avaliador</h3><div id="friends-dropdown-list"></div></section>${groups.map((group) => `<section ${group.ownerOnly ? 'id="av-account-tools" hidden' : ''} class="av-account-group" data-account-reveal aria-label="${group.label}"><h3>${group.label}</h3>${group.actions.map(actionMarkup).join('')}</section>`).join('')}</div><footer class="av-account-footer" data-account-reveal><button type="button" id="logout-btn" class="av-account-logout"><span>Desconectar conta</span>${svg(icons.logout)}</button><span>Anime. Visto de outro jeito.</span></footer>`;
         dialog = document.createElement('dialog');
         dialog.id = 'av-account-drawer';
         dialog.className = 'av-account-dialog';
@@ -168,6 +170,7 @@ function createAccountDrawer(browser, motion) {
         trigger.setAttribute('aria-controls', dialog.id);
         trigger.setAttribute('aria-label', 'Abrir menu da conta');
         setPhase('closed');
+        refreshAccess();
 
         trigger.addEventListener('click', (event) => {
             event.stopPropagation();
@@ -204,6 +207,9 @@ function createAccountDrawer(browser, motion) {
         dialog.addEventListener('click', (event) => {
             const action = event.target.closest('[data-account-action]');
             if (!action) return;
+            if (action.dataset.accountOwnerOnly !== undefined && !canManageSystem()) {
+                event.preventDefault(); event.stopImmediatePropagation(); return;
+            }
             if (handoff === action) { handoff = null; return; }
             event.preventDefault();
             event.stopImmediatePropagation();
@@ -212,6 +218,7 @@ function createAccountDrawer(browser, motion) {
             const actionSequence = sequence;
             transition.then(() => {
                 if (sequence !== actionSequence || phase !== 'closed') return;
+                if (action.dataset.accountOwnerOnly !== undefined && !canManageSystem()) return;
                 handoff = action;
                 action.click();
                 browser.requestAnimationFrame(() => {

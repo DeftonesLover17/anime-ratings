@@ -62,6 +62,12 @@ function isAdmin(user, env, state) {
     });
 }
 
+function canManageSystem(user, env, state) {
+    if (!isAdmin(user, env, state)) return false;
+    const owner = findLoginUser(state, 'felipe');
+    return Boolean(owner && usernameKey(owner.username) === usernameKey(user.username));
+}
+
 function registrationError(state, input, env = {}) {
     if (
         typeof input?.username !== 'string' ||
@@ -118,6 +124,7 @@ module.exports = {
     uniqueUser,
     findLoginUser,
     isAdmin,
+    canManageSystem,
     registrationError,
     validEmail,
     assignAccountIds

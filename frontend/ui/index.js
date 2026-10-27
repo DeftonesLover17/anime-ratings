@@ -14,11 +14,13 @@ const { initCatalogAutocomplete } = require('../catalog/autocomplete');
 const { DEFAULT_ANIMES } = require('../catalog/default-animes');
 const { createAccountDrawer } = require('../account/drawer');
 const { createAccountSession } = require('../account/session');
+const { createAccountAccess } = require('../account/access');
 const { createAccountStorage } = require('../account/storage');
 const { createLoginClient } = require('../account/login-client');
 const { bindLoginForm } = require('../account/login-form');
 const { createRecoveryController } = require('../account/recovery');
 const { createWelcomeEmail } = require('../account/welcome-email');
+const { createDesignUpdate } = require('../account/design-update');
 const { createEditorialNotices } = require('./notifications');
 const { installDomActions } = require('../security/dom-actions');
 
@@ -33,10 +35,13 @@ const { cachedUserResponse } = require('../../shared/security/responses');
 const recovery = createRecoveryController(window, { baseUrl: window.ANIVOID_API_BASE_URL || '' });
 const theme = createThemeController(window);
 const motion = createMotionController(window);
-const account = createAccountDrawer(window, motion);
+const account = createAccountDrawer(window, motion, {
+    canManageSystem: () => access.canManageSystem(), refreshAccess: () => access.refresh()
+});
 const storage = createAccountStorage(window);
 cleanBrowserCache(storage);
 const session = createAccountSession(window, storage);
+const access = createAccountAccess(window.document, session);
 const login = createLoginClient(window, { baseUrl: window.ANIVOID_API_BASE_URL || '' });
 
 // The legacy screen renderer has one explicit bridge; new modules stay independent of it.
@@ -59,10 +64,12 @@ window.AnivoidUI = {
     initCatalogAutocomplete,
     defaultAnimes: DEFAULT_ANIMES,
     account,
+    access,
     storage,
     session,
     login,
     welcome: createWelcomeEmail(window),
+    designUpdate: createDesignUpdate(window, session, storage),
     notices: createEditorialNotices(window),
     bindLoginForm: (options) => bindLoginForm(window, { client: login, session, ...options }),
     site: createSite(window, motion.animate),

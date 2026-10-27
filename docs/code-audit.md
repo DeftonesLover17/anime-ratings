@@ -1,5 +1,11 @@
 # Revisão do código — 26/10/2026
 
+## Ferramentas exclusivas do proprietário — 27/10/2026
+
+“Backup dos dados”, “Painel admin” e a seção Ferramentas começam ocultos e desativados. O acesso depende de `viewerPermissions.canManageSystem`, calculado pelas APIs a partir da sessão autenticada e da política compartilhada de proprietário único. O nome em cache e o avaliador selecionado não concedem privilégios. Trocar de conta limpa os painéis privados; uma transição pendente da gaveta não executa a ação se a permissão tiver sido revogada. Exportação e importação também conferem o acesso antes e depois das etapas assíncronas.
+
+As APIs de painel, backups, downloads, exportação, remoção de usuário e limpeza de sessões recusam visitantes, membros e outros administradores configurados. Testes de Node e Cloudflare incluem cadastro tentando forjar privilégios, identidade ambígua e resposta de login anterior à confirmação do cookie. Validação: 203 testes aprovados, build concluído e diff sem erros. Em cópias locais com contas sintéticas, a conta comum não mostrou as ferramentas mesmo selecionando Felipe como avaliador; a conta proprietária mostrou as duas ações e permitiu foco por teclado. Esta alteração ainda precisa ser publicada para valer na produção.
+
 ## Correção das logos — 27/10/2026
 
 O salvamento também invalida leituras de estado iniciadas antes ou durante a mutação, impedindo que uma resposta antiga reponha metadados anteriores na tela depois do sucesso.
