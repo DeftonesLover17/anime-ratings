@@ -3709,7 +3709,6 @@ function initUI() {
 
     // Setup Profile Editor Modal
     setupEditProfileModal();
-    setupUtilityModals();
 }
 
 function updateProfileIndicator() {
@@ -4983,8 +4982,8 @@ function setupFormSubmissions() {
             studioInput.addEventListener('blur', fillKnownLogo);
         }
 
-        addAnimeForm.addEventListener('input', () => updateCatalogLivePreview());
-        addAnimeForm.addEventListener('change', () => updateCatalogLivePreview());
+        bindElementOnce(addAnimeForm, 'catalogPreviewInput', 'input', updateCatalogLivePreview);
+        bindElementOnce(addAnimeForm, 'catalogPreviewChange', 'change', updateCatalogLivePreview);
 
         const cancelBtn = document.getElementById('cancel-add-anime');
         if (cancelBtn) {
@@ -5124,6 +5123,10 @@ function initRegistrationOptions() {
     const regForm = document.getElementById('registration-form');
 
     if (!regForm) return;
+    if (regForm.refreshRegistrationOptions) {
+        regForm.refreshRegistrationOptions();
+        return;
+    }
 
     // Hook custom photo upload
     if (avatarUploadBtn && avatarFileInput) {
@@ -5249,9 +5252,6 @@ function initRegistrationOptions() {
             }
         });
     }
-
-    // Force step 1 visibility initially
-    showRegStep(1);
 
     // --- HOVER PREVIEW TOOLTIP LOGIC ---
     const tooltip = document.getElementById('reg-hover-tooltip');
@@ -5838,9 +5838,12 @@ function initRegistrationOptions() {
         });
     }
 
-    // Initial render call inside modal options
-    updateSelectedAnimesUI();
-    renderAnimeListUI();
+    regForm.refreshRegistrationOptions = () => {
+        showRegStep(1);
+        updateSelectedAnimesUI();
+        renderAnimeListUI();
+    };
+    regForm.refreshRegistrationOptions();
 }
 
 // --- EMAIL AND TOAST NOTIFICATION HELPERS ---

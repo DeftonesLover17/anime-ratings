@@ -22,6 +22,7 @@ npm start
 | `index.html` | Estrutura das telas e referências aos assets compilados. |
 | `app.js` | Integração legada: estado, sessão, catálogo, perfis e ligação com APIs e módulos novos. |
 | `frontend/site/` | Descoberta editorial, cards, detalhe, estúdios, navegação e transições entre telas. |
+| `frontend/site/site.css` e CSS por tela | Shell e estilos editoriais; estatísticas, perfis, catálogo, amigos e notificações têm arquivos separados, concatenados na ordem original pelo build. |
 | `frontend/site/project-adapter.js` | Ponte explícita entre os módulos visuais e o estado legado; permissões e comandos da aplicação. |
 | `frontend/site/studio-presentation.js` | Logos, cores, descrições e validação de URLs usados na apresentação dos estúdios. |
 | `frontend/catalog/autocomplete.js` | Busca e preenchimento assistido de obras no formulário do catálogo; inicializada pela ponte da UI. |
@@ -73,6 +74,7 @@ npm start
 | `functions/_middleware.js` | Allowlist dos arquivos públicos e cabeçalhos também nas respostas da API. |
 | `config/security-headers.template` | Fonte dos cabeçalhos; o build calcula os hashes CSP sem alterar o preload. |
 | `docs/security.md` | Operação, migração de sessões, configuração de administradores e envio de e-mail. |
+| `docs/code-audit.md` | Cobertura, evidências e limites da revisão de código. |
 | `shared/sync-state.js` | Merge de alterações e proteção de dados usados nos dois servidores. |
 | `shared/studio-metadata.js` | Estúdios confirmados por título exato, leitura de créditos e nomes canônicos compartilhados entre UI e APIs. |
 | `shared/security/text-sanitizers.js` | Escape de texto, limites de listas e cores usados pelos dois servidores. |
@@ -136,8 +138,8 @@ As fontes Syne e DM Sans vieram de Google Fonts e dos repositórios oficiais `go
 
 ## Dívidas conhecidas
 
-`app.js` ainda concentra catálogo inicial, integrações de autenticação, perfis, administração e estado. Descoberta, cards, estúdios, editor de notas, comunidade e controles de sessão têm módulos próprios. A normalização dos nomes de estúdios e as regras idênticas de texto/cor dos servidores foram unificadas; a validação de imagens e a sanitização de ratings continuam diferentes entre os adaptadores Node e Cloudflare e precisam de migração própria com testes de dados reais antes de serem unificadas. O servidor Node ainda tem rotas legadas de catálogo e social; as operações de conta foram extraídas e as antigas implementações paralelas de merge foram removidas. A verificação de propriedade compartilhada é a mesma nos dois servidores. `styles.css` contém regras antigas com especificidade alta. A atualização não elimina toda a dívida do legado.
+`app.js` ainda concentra catálogo inicial, integrações de autenticação, perfis, administração e estado. Descoberta, cards, estúdios, editor de notas, comunidade e controles de sessão têm módulos próprios. A normalização dos nomes de estúdios e as regras idênticas de texto/cor dos servidores foram unificadas; a validação de imagens e a sanitização de ratings continuam diferentes entre os adaptadores Node e Cloudflare e precisam de migração própria com testes de dados reais antes de serem unificadas. O servidor Node ainda tem rotas legadas de catálogo e social; as operações de conta foram extraídas e as antigas implementações paralelas de merge foram removidas. A verificação de propriedade compartilhada é a mesma nos dois servidores. As telas administrativas de visão geral, backup, exportação e redefinição dependem da API Cloudflare de produção; o Node alternativo não oferece paridade completa nessas operações. `styles.css` contém regras antigas com especificidade alta. A atualização não elimina toda a dívida do legado.
 
-Os maiores blocos restantes em `app.js` são `AppState`, o cadastro e a central de amigos. A próxima extração deve separar estado, DOM e chamadas de rede por fluxo, com testes de comportamento antes de mover esses blocos. `frontend/site/site.css` também é extenso; suas regras devem sair por tela quando essa tela for alterada, preservando a ordem da cascata. O teste de arquitetura impede novas dependências invertidas e ciclos nos módulos já separados.
+Os maiores blocos restantes em `app.js` são `AppState`, o cadastro e a central de amigos. A próxima extração deve separar estado, DOM e chamadas de rede por fluxo, com testes de comportamento antes de mover esses blocos. O CSS editorial foi separado por tela sem mudar a ordem da cascata; o núcleo em `frontend/site/site.css` ainda deve ser simplificado quando os componentes correspondentes forem alterados. O teste de arquitetura impede novas dependências invertidas e ciclos nos módulos já separados.
 
 A migração deve ser incremental, por funcionalidade: extrair estado/API, depois renderizadores e controladores de cada tela conforme forem alterados. Evitar reescrita geral durante uma correção pontual. Atualizar este mapa e manter os testes de preservação de dados em cada etapa.

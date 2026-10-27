@@ -587,8 +587,11 @@ async function ensurePostgresState() {
         if (fs.existsSync(STATE_FILE)) {
             try {
                 initialState = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+                if (!initialState || typeof initialState !== 'object' || Array.isArray(initialState)) {
+                    throw new Error('Invalid state');
+                }
             } catch (err) {
-                initialState = DEFAULT_STATE;
+                throw new Error('Cannot initialize Postgres from an invalid state file', { cause: err });
             }
         }
 
@@ -615,13 +618,28 @@ function readState(callback) {
     ensurePostgresState()
         .then(() => queryPostgres('SELECT state FROM app_state WHERE id = $1', ['main']))
         .then(result => {
-            const state = result.rows[0] ? result.rows[0].state : DEFAULT_STATE;
-            callback(null, JSON.stringify(state));
+            if (!result.rows[0]) throw new Error('Main state row is missing');
+            callback(null, JSON.stringify(result.rows[0].state));
         })
         .catch(err => {
             console.error(`Failed to read state from Postgres. ${formatPostgresError(err)}`);
             callback(err);
         });
+}
+
+function readParsedState(res, callback) {
+    readState((error, data) => {
+        if (error || !data) { sendJson(res, 500, { error: 'Failed to read state' }); return; }
+        let state;
+        try {
+            state = JSON.parse(data);
+            if (!state || typeof state !== 'object' || Array.isArray(state)) throw new Error('Invalid state');
+        } catch {
+            sendJson(res, 500, { error: 'Invalid stored state' });
+            return;
+        }
+        callback(state);
+    });
 }
 
 function writeState(state, callback) {
@@ -765,15 +783,30 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    if (['/api/notifications/read', '/api/notifications/clear'].includes(req.url) && req.method === 'POST') {
+        readParsedState(res, state => {
+            const authUser = requireAuthenticatedUser(req, res, state);
+            if (!authUser) return;
+            const user = findRegisteredUser(state, authUser.username);
+            if (!user) { sendJson(res, 404, { error: 'User not found' }); return; }
+            const notifications = Array.isArray(user.notifications) ? user.notifications : [];
+            user.notifications = req.url.endsWith('/read')
+                ? notifications.map(item => ({ ...item, read: true }))
+                : [];
+            writeState(state, writeErr => {
+                if (writeErr) { sendJson(res, 500, { error: 'Failed to save notifications' }); return; }
+                sendJson(res, 200, {
+                    success: true,
+                    notifications: sanitizeUser(user, authUser.username).notifications || []
+                });
+            });
+        });
+        return;
+    }
+
     // API Route: Get state
     if (['/api/get-state', '/api/users'].includes(req.url) && req.method === 'GET') {
-        readState((err, data) => {
-            if (err) {
-                sendJson(res, 500, { error: 'Failed to read state' });
-                return;
-            }
-            let state = { friends: [], animes: [], registeredUsers: [], activities: [] };
-            try { state = JSON.parse(data); } catch(e) {}
+        readParsedState(res, state => {
             const authUser = getAuthenticatedUser(req, state);
             if (req.url === '/api/users') {
                 sendJson(res, 200, {
@@ -800,9 +833,7 @@ const server = http.createServer(async (req, res) => {
                     return;
                 }
                 if (enforceRateLimit(req, res, 'login-ip', 24, 1000 * 60 * 10) || enforceRateLimit(req, res, 'login', 8, 1000 * 60 * 10, loginIdentifier)) return;
-                readState((err, data) => {
-                    let state = { friends: [], animes: [], registeredUsers: [], activities: [] };
-                    if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
+                readParsedState(res, state => {
                     if (!state.registeredUsers) state.registeredUsers = [];
 
                     const user = findRegisteredUserByIdentifier(state, loginIdentifier);
@@ -868,9 +899,7 @@ const server = http.createServer(async (req, res) => {
                     return;
                 }
                 if (enforceRateLimit(req, res, 'register', 5, 1000 * 60 * 30)) return;
-                readState((err, data) => {
-                    let state = { friends: [], animes: [], registeredUsers: [], activities: [] };
-                    if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
+                readParsedState(res, state => {
                     if (!state.registeredUsers) state.registeredUsers = [];
 
 
@@ -975,9 +1004,7 @@ const server = http.createServer(async (req, res) => {
                     sendJson(res, 400, { error: 'Dados do anime sao obrigatorios.' });
                     return;
                 }
-                readState((err, data) => {
-                    let state = { friends: [], animes: [], registeredUsers: [], activities: [], studioLogos: {} };
-                    if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
+                readParsedState(res, state => {
                     const authUser = requireAuthenticatedUser(req, res, state);
                     if (!authUser) return;
                     if (!isAdminUser(authUser, state)) {
@@ -1048,9 +1075,7 @@ const server = http.createServer(async (req, res) => {
                     sendJson(res, 400, { error: 'Anime obrigatorio.' });
                     return;
                 }
-                readState((err, data) => {
-                    let state = { friends: [], animes: [], registeredUsers: [], activities: [] };
-                    if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
+                readParsedState(res, state => {
                     const authUser = requireAuthenticatedUser(req, res, state);
                     if (!authUser) return;
                     if (!isAdminUser(authUser, state)) {
@@ -1099,9 +1124,7 @@ const server = http.createServer(async (req, res) => {
                     sendJson(res, 400, { error: 'Missing username or animeIds' });
                     return;
                 }
-                readState((err, data) => {
-                    let state = { friends: [], animes: [], registeredUsers: [] };
-                    if (!err && data) { try { state = JSON.parse(data); } catch(e) {} }
+                readParsedState(res, state => {
                     const authUser = requireAuthenticatedUser(req, res, state);
                     if (!authUser) return;
                     if (authUser.username.toLowerCase() !== username.toLowerCase() && !isAdminUser(authUser, state)) {
@@ -1143,12 +1166,7 @@ const server = http.createServer(async (req, res) => {
                     return;
                 }
                 
-                readState((err, data) => {
-                    let state = { friends: [], animes: [], registeredUsers: [] };
-                    if (!err && data) {
-                        try { state = JSON.parse(data); } catch(e) {}
-                    }
-                    
+                readParsedState(res, state => {
                     const authUser = requireAuthenticatedUser(req, res, state);
                     if (!authUser) return;
                     const from = authUser.username;
@@ -1242,12 +1260,7 @@ const server = http.createServer(async (req, res) => {
                     return;
                 }
                 
-                readState((err, data) => {
-                    let state = { friends: [], animes: [], registeredUsers: [] };
-                    if (!err && data) {
-                        try { state = JSON.parse(data); } catch(e) {}
-                    }
-                    
+                readParsedState(res, state => {
                     const authUser = requireAuthenticatedUser(req, res, state);
                     if (!authUser) return;
                     const username = authUser.username;
@@ -1283,6 +1296,38 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    // API Route: Cancel an outgoing friend request
+    if (req.url === '/api/cancel-friend-request' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+            let target;
+            try { target = JSON.parse(body)?.target; }
+            catch { sendJson(res, 400, { error: 'Invalid JSON' }); return; }
+            if (!target) { sendJson(res, 400, { error: 'Missing target username' }); return; }
+
+            readParsedState(res, state => {
+                const authUser = requireAuthenticatedUser(req, res, state);
+                if (!authUser) return;
+                const targetUser = findRegisteredUser(state, target);
+                if (!targetUser) { sendJson(res, 404, { error: 'User not found' }); return; }
+                if (Array.isArray(targetUser.friendRequests)) {
+                    targetUser.friendRequests = targetUser.friendRequests.filter(request =>
+                        request && !sameUsername(request.from, authUser.username)
+                    );
+                }
+                writeState(state, (writeErr) => {
+                    if (writeErr) { sendJson(res, 500, { error: 'Failed to cancel request' }); return; }
+                    sendJson(res, 200, {
+                        success: true,
+                        registeredUsers: sanitizeState(state, authUser.username).registeredUsers
+                    });
+                });
+            });
+        });
+        return;
+    }
+
     // API Route: Admin repair/confirm friendship
     if (req.url === '/api/admin/set-friendship' && req.method === 'POST') {
         let body = '';
@@ -1295,12 +1340,7 @@ const server = http.createServer(async (req, res) => {
                     return;
                 }
 
-                readState((err, data) => {
-                    let state = { friends: [], animes: [], registeredUsers: [] };
-                    if (!err && data) {
-                        try { state = JSON.parse(data); } catch(e) {}
-                    }
-
+                readParsedState(res, state => {
                     const authUser = requireAuthenticatedUser(req, res, state);
                     if (!authUser) return;
                     if (!isAdminUser(authUser, state)) {
@@ -1350,12 +1390,7 @@ const server = http.createServer(async (req, res) => {
                     return;
                 }
                 
-                readState((err, data) => {
-                    let state = { friends: [], animes: [], registeredUsers: [] };
-                    if (!err && data) {
-                        try { state = JSON.parse(data); } catch(e) {}
-                    }
-                    
+                readParsedState(res, state => {
                     const authUser = requireAuthenticatedUser(req, res, state);
                     if (!authUser) return;
                     const username = authUser.username;

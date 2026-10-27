@@ -53,11 +53,13 @@ function scoreAnimeRelevance(anime, rawQuery) {
     return pts;
 }
 
-function initCatalogAutocomplete({ document, studioMetadata, standardStudioName, escapeHtml, getStudioLogo, updateCatalogLivePreview }) {
+function initCatalogAutocomplete({ document, studioMetadata, standardStudioName, escapeHtml, getStudioLogo, updateCatalogLivePreview,
+    request = fetch, setTimer = setTimeout, clearTimer = clearTimeout }) {
     // --- MYANIMELIST AUTOCOMPLETE SEARCH (JIKAN API) ---
     const animeTitleInput = document.getElementById('form-anime-title');
     const suggestionsBox = document.getElementById('form-anime-suggestions');
     let searchDebounceTimeout = null;
+    let searchGeneration = 0;
 
     if (animeTitleInput && suggestionsBox) {
         // Translation helper for seasons
@@ -197,13 +199,13 @@ function initCatalogAutocomplete({ document, studioMetadata, standardStudioName,
 
         const fetchWithTimeout = async (url, timeoutMs = 3200) => {
             const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-            const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+            const timer = controller ? setTimer(() => controller.abort(), timeoutMs) : null;
             try {
-                const response = await fetch(url, controller ? { signal: controller.signal } : {});
-                if (timer) clearTimeout(timer);
+                const response = await request(url, controller ? { signal: controller.signal } : {});
+                if (timer) clearTimer(timer);
                 return response;
             } catch (err) {
-                if (timer) clearTimeout(timer);
+                if (timer) clearTimer(timer);
                 throw err;
             }
         };
@@ -769,7 +771,7 @@ function initCatalogAutocomplete({ document, studioMetadata, standardStudioName,
                         input.style.transition = 'border-color 0.2s ease, box-shadow 0.2s ease';
                         input.style.borderColor = 'rgba(255, 85, 0, 0.6)';
                         input.style.boxShadow = '0 0 12px rgba(255, 85, 0, 0.25)';
-                        setTimeout(() => {
+                        setTimer(() => {
                             input.style.borderColor = '';
                             input.style.boxShadow = '';
                         }, 800);
@@ -810,7 +812,8 @@ function initCatalogAutocomplete({ document, studioMetadata, standardStudioName,
         // Listen for input changes
         animeTitleInput.addEventListener('input', () => {
             const query = animeTitleInput.value.trim();
-            clearTimeout(searchDebounceTimeout);
+            const generation = ++searchGeneration;
+            clearTimer(searchDebounceTimeout);
 
             if (query.length < 3) {
                 suggestionsBox.classList.add('hidden');
@@ -872,8 +875,9 @@ function initCatalogAutocomplete({ document, studioMetadata, standardStudioName,
                 </div>
             `;
 
-            searchDebounceTimeout = setTimeout(async () => {
+            searchDebounceTimeout = setTimer(async () => {
                 const results = await searchAnimeMAL(query);
+                if (generation !== searchGeneration || animeTitleInput.value.trim() !== query || suggestionsBox.classList.contains('hidden')) return;
                 renderSuggestions(results, query);
             }, 450);
         });
