@@ -11,3 +11,13 @@ test('Node rejects an unreadable state instead of treating it as an empty catalo
     assert.equal((await send('/api/register', { username: 'NewMember', email: 'new@example.invalid', password: 'NewMember123' })).status, 500);
     assert.equal(await fs.readFile(stateFile, 'utf8'), '{invalid stored state');
 });
+
+test('Node rejects a structurally incomplete state without replacing it during a mutation', async t => {
+    const { send, stateFile } = await startNodeServer(t);
+    const incomplete = JSON.stringify({ revision: 0, registeredUsers: [] });
+    await fs.writeFile(stateFile, incomplete);
+    assert.equal((await send('/api/get-state')).status, 500);
+    assert.equal((await send('/api/register', { username: 'NewMember', email: 'new@example.invalid', password: 'NewMember123' })).status, 500);
+    assert.equal((await send('/api/sync-state', { baseState: { animes: [] }, localState: { animes: [] } })).status, 500);
+    assert.equal(await fs.readFile(stateFile, 'utf8'), incomplete);
+});

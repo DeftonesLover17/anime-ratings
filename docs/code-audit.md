@@ -14,7 +14,7 @@ A revisão percorreu os 132 arquivos de código, configuração, documentação 
 
 ## Verificações
 
-- `npm test`: 154 testes aprovados.
+- `npm test`: 159 testes aprovados após a revisão adicional.
 - `npm run build:pages`: concluído; o build verifica a entrada do navegador contra dependências privadas e valores secretos.
 - `npm audit` e `npm audit --omit=dev`: nenhuma vulnerabilidade reportada no momento da revisão.
 - Grafo dos módulos de produção: sem ciclos ou dependências na direção proibida pelo teste de arquitetura.
@@ -23,3 +23,9 @@ A revisão percorreu os 132 arquivos de código, configuração, documentação 
 ## Estrutura que ainda precisa de migração própria
 
 `app.js` continua sendo um integrador legado extenso. As áreas novas têm módulos próprios, mas mover todos os fluxos restantes em uma só alteração acrescentaria risco às sessões, avaliações e sincronização. `styles.css` ainda contém regras legadas com alta especificidade. A sanitização de imagens e de avaliações difere entre os adaptadores Node e Cloudflare; uma unificação exige testes com dados históricos reais. As ferramentas administrativas de visão geral, backup, exportação e redefinição administrativa existem na API Cloudflare de produção, mas o Node alternativo não oferece paridade completa para essas telas. Nenhum desses pontos foi considerado resolvido por esta revisão.
+
+## Revisão adicional
+
+- A aceitação ou rejeição de amizade exige agora um convite recebido pelo membro autenticado nas duas APIs. Antes, um membro podia chamar a rota de aceitação sem convite e criar uma amizade unilateralmente autorizada pelo servidor.
+- O servidor Node rejeita corpos JSON `null` ou arrays na sincronização e nomes de tipos inesperados nas operações sociais, sem encerrar o processo.
+- Node e Cloudflare usam a mesma validação das coleções essenciais do estado persistido. Um JSON válido mas incompleto falha antes de uma gravação que poderia substituir dados por listas vazias.

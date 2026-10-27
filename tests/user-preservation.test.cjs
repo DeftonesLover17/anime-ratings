@@ -232,6 +232,14 @@ test('invalid stored JSON fails instead of replacing the catalog with defaults',
     assert.equal(db.state, '{invalid');
 });
 
+test('Cloudflare rejects a stored state without the essential collections', async () => {
+    const db = new MemoryD1(fixture());
+    const incomplete = JSON.stringify({ revision: 0, registeredUsers: [] });
+    db.state = incomplete;
+    await assert.rejects(api.readState({ ANIVOID_DB: db }), { message: 'invalid_stored_state' });
+    assert.equal(db.state, incomplete);
+});
+
 test('API repairs a confirmed legacy studio on read without rewriting ratings, comments or storage', async () => {
     const original = fixture();
     original.animes[0].title = 'CYBERPUNK: EDGERUNNERS II';

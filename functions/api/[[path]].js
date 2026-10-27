@@ -1,4 +1,5 @@
 import syncTools from '../../shared/sync-state.js';
+import stateIntegrity from '../../shared/state-integrity.js';
 import studioMetadata from '../../shared/studio-metadata.js';
 import identity from '../../shared/security/identity.js';
 import textSanitizers from '../../shared/security/text-sanitizers.js';
@@ -17,6 +18,7 @@ const normalizeUsername = identity.legacyId;
 const consumeRateLimit = d1RateTools.createD1RateLimiter();
 const { API_LIMITS } = rateTools;
 const { mergeClientState } = syncTools;
+const { parseStoredState } = stateIntegrity;
 const storageReady = new WeakMap();
 const REQUEST_LIMITS = Symbol('requestRateLimits');
 const RECOVERY_DEFER = Symbol('recoveryDelivery');
@@ -720,7 +722,7 @@ async function readState(env) {
     await ensureStorage(env);
     const row = await getDb(env).prepare('SELECT state FROM app_state WHERE id = ?1').bind('main').first();
     if (!row || !row.state) throw new Error('missing_state');
-    const state = JSON.parse(row.state);
+    const state = parseStoredState(row.state);
     state.revision = Number(state.revision) || 0;
     return state;
 }
@@ -1194,6 +1196,9 @@ async function handleRespondFriendRequest(request, env) {
     const user = findRegisteredUser(state, auth.user.username);
     const targetUser = findRegisteredUser(state, body.target);
     if (!user || !targetUser) return json({ error: 'User not found' }, 404);
+    const hasIncomingRequest = Array.isArray(user.friendRequests) &&
+        user.friendRequests.some(pending => pending && sameUsername(pending.from, targetUser.username));
+    if (!hasIncomingRequest) return json({ error: 'Convite de amizade não encontrado.', code: 'FRIEND_REQUEST_NOT_FOUND' }, 409);
     removeFriendRequestsBetween(user, targetUser);
     if (body.action === 'accept') {
         ensureMutualFriendship(user, targetUser);
@@ -1557,7 +1562,7 @@ async function handleAdminBackupDownload(request, env, backupId) {
         createdAt: row.created_at,
         reason: row.reason,
         credentialsIncluded: false,
-        state: sanitizeState(JSON.parse(row.state), auth.user.username)
+        state: sanitizeState(parseStoredState(row.state), auth.user.username)
     });
 }
 

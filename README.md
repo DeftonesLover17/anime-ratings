@@ -76,6 +76,7 @@ npm start
 | `docs/security.md` | Operação, migração de sessões, configuração de administradores e envio de e-mail. |
 | `docs/code-audit.md` | Cobertura, evidências e limites da revisão de código. |
 | `shared/sync-state.js` | Merge de alterações e proteção de dados usados nos dois servidores. |
+| `shared/state-integrity.js` | Validação comum das coleções essenciais antes de ler ou migrar o estado persistido. |
 | `shared/studio-metadata.js` | Estúdios confirmados por título exato, leitura de créditos e nomes canônicos compartilhados entre UI e APIs. |
 | `shared/security/text-sanitizers.js` | Escape de texto, limites de listas e cores usados pelos dois servidores. |
 | `scripts/browser-security.js` | Impede dependências privadas e valores secretos nos arquivos compilados do navegador. |

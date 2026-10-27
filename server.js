@@ -1,6 +1,7 @@
 require('dotenv').config();
 const http = require('http');
 const { mergeClientState } = require('./shared/sync-state');
+const { parseStoredState } = require('./shared/state-integrity');
 const studioMetadata = require('./shared/studio-metadata');
 const { standardStudioName } = studioMetadata;
 const identity = require('./shared/security/identity');
@@ -586,10 +587,7 @@ async function ensurePostgresState() {
         let initialState = DEFAULT_STATE;
         if (fs.existsSync(STATE_FILE)) {
             try {
-                initialState = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
-                if (!initialState || typeof initialState !== 'object' || Array.isArray(initialState)) {
-                    throw new Error('Invalid state');
-                }
+                initialState = parseStoredState(fs.readFileSync(STATE_FILE, 'utf8'));
             } catch (err) {
                 throw new Error('Cannot initialize Postgres from an invalid state file', { cause: err });
             }
@@ -632,8 +630,7 @@ function readParsedState(res, callback) {
         if (error || !data) { sendJson(res, 500, { error: 'Failed to read state' }); return; }
         let state;
         try {
-            state = JSON.parse(data);
-            if (!state || typeof state !== 'object' || Array.isArray(state)) throw new Error('Invalid state');
+            state = parseStoredState(data);
         } catch {
             sendJson(res, 500, { error: 'Invalid stored state' });
             return;
@@ -660,7 +657,7 @@ function writeState(state, callback) {
         } else {
             const current = await new Promise((resolve, reject) => fs.readFile(STATE_FILE, 'utf8', (error, text) => {
                 if (error) { reject(error); return; }
-                try { resolve(JSON.parse(text)); } catch (parseError) { reject(parseError); }
+                try { resolve(parseStoredState(text)); } catch (parseError) { reject(parseError); }
             }));
             if ((Number(current.revision) || 0) !== revision) throw conflict();
             const tempFile = STATE_FILE + '.' + crypto.randomUUID() + '.tmp';
@@ -967,12 +964,16 @@ const server = http.createServer(async (req, res) => {
             let payload;
             try { payload = JSON.parse(body); }
             catch { sendJson(res, 400, { error: 'Invalid JSON body' }); return; }
+            if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+                sendJson(res, 400, { error: 'Invalid JSON body' });
+                return;
+            }
             if (!payload.baseState || !Array.isArray(payload.baseState.animes)) { sendJson(res, 409, { error: 'Atualize a pagina antes de sincronizar.', code: 'CLIENT_UPDATE_REQUIRED' }); return; }
             for (let attempt = 0; attempt < 3; attempt++) {
                 try {
                     const serverState = await new Promise((resolve, reject) => readState((error, text) => {
                         if (error) { reject(error); return; }
-                        try { resolve(JSON.parse(text)); } catch (parseError) { reject(parseError); }
+                        try { resolve(parseStoredState(text)); } catch (parseError) { reject(parseError); }
                     }));
                     const authUser = requireAuthenticatedUser(req, res, serverState);
                     if (!authUser) return;
@@ -1120,7 +1121,7 @@ const server = http.createServer(async (req, res) => {
         req.on('end', () => {
             try {
                 const { username, animeIds } = JSON.parse(body);
-                if (!username || !Array.isArray(animeIds)) {
+                if (typeof username !== 'string' || !username.trim() || !Array.isArray(animeIds)) {
                     sendJson(res, 400, { error: 'Missing username or animeIds' });
                     return;
                 }
@@ -1271,6 +1272,13 @@ const server = http.createServer(async (req, res) => {
                         sendJson(res, 404, { error: 'User not found' });
                         return;
                     }
+
+                    const hasIncomingRequest = Array.isArray(user.friendRequests) &&
+                        user.friendRequests.some(request => request && sameUsername(request.from, targetUser.username));
+                    if (!hasIncomingRequest) {
+                        sendJson(res, 409, { error: 'Convite de amizade não encontrado.', code: 'FRIEND_REQUEST_NOT_FOUND' });
+                        return;
+                    }
                     
                     removeFriendRequestsBetween(user, targetUser);
                     
@@ -1385,7 +1393,7 @@ const server = http.createServer(async (req, res) => {
         req.on('end', () => {
             try {
                 const { target } = JSON.parse(body);
-                if (!target) {
+                if (typeof target !== 'string' || !target.trim()) {
                     sendJson(res, 400, { error: 'Missing parameters' });
                     return;
                 }
@@ -1394,17 +1402,17 @@ const server = http.createServer(async (req, res) => {
                     const authUser = requireAuthenticatedUser(req, res, state);
                     if (!authUser) return;
                     const username = authUser.username;
-                    const user = state.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === username.toLowerCase());
-                    const targetUser = state.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === target.toLowerCase());
+                    const user = findRegisteredUser(state, username);
+                    const targetUser = findRegisteredUser(state, target);
                     
                     if (user) {
                         if (user.friends) {
-                            user.friends = user.friends.filter(f => f.toLowerCase() !== target.toLowerCase());
+                            user.friends = user.friends.filter(friend => !sameUsername(friend, target));
                         }
                     }
                     if (targetUser) {
                         if (targetUser.friends) {
-                            targetUser.friends = targetUser.friends.filter(f => f.toLowerCase() !== username.toLowerCase());
+                            targetUser.friends = targetUser.friends.filter(friend => !sameUsername(friend, username));
                         }
                     }
                     

@@ -108,6 +108,27 @@ async function fixture(t) {
     return { db, env, state, send, login };
 }
 
+test('Cloudflare only accepts a friend request received by the signed-in member', async t => {
+    const { env, send, login } = await fixture(t);
+    const ana = await login('Ana');
+    const felipe = await login('Felipe!');
+    const respond = (action, cookie) => send('/api/respond-friend-request', { target: 'Felipe!', action }, cookie);
+
+    assert.equal((await respond('accept', ana)).status, 409);
+    assert.equal((await respond('reject', ana)).status, 409);
+    assert.equal((await send('/api/send-friend-request', { to: 'Felipe!' }, ana)).status, 200);
+    assert.equal((await respond('accept', ana)).status, 409);
+    let state = await api.readState(env);
+    assert.deepEqual(state.registeredUsers.map(user => user.friends), [[], [], []]);
+    assert.deepEqual(state.registeredUsers[0].friendRequests.map(request => request.from), ['Ana']);
+
+    const accepted = await send('/api/respond-friend-request', { target: 'Ana', action: 'accept' }, felipe);
+    assert.equal(accepted.status, 200);
+    state = await api.readState(env);
+    assert.deepEqual(state.registeredUsers.slice(0, 2).map(user => user.friends), [['Ana'], ['Felipe!']]);
+    assert.deepEqual(state.registeredUsers[0].friendRequests, []);
+});
+
 test('registration rejects administrator aliases and colliding legacy identities without changing data', async (t) => {
     const { env, state, send } = await fixture(t);
     for (const username of ['Feli.pe', 'A.na', 'ana', 'Ana ']) {
