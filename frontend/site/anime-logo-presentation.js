@@ -23,14 +23,62 @@ const ANIME_LOGO_CATALOG = [
             "Kimetsu no Yaiba"
         ],
         "ids": [
-            "a_1792961834825_bw318g",
-            "a_1792962014649_q27neh",
-            "a_1792963328611_emx3o5",
-            "a_1792963451393_r7ztva"
+            "a_1792961834825_bw318g"
         ],
         "width": 309,
         "height": 293,
         "ar": 1.05,
+        "tier": "emblem",
+        "lightTone": false
+    },
+    {
+        "slug": "demon-slayer-entertainment-district-arc",
+        "url": "logos/animes/demon-slayer-entertainment-district-arc.png",
+        "title": "Demon Slayer: Kimetsu no Yaiba Entertainment District Arc",
+        "aliases": [
+            "Demon Slayer: Kimetsu no Yaiba - Entertainment District Arc",
+            "Kimetsu no Yaiba: Yuukaku-hen"
+        ],
+        "ids": [
+            "a_1792962014649_q27neh"
+        ],
+        "width": 393,
+        "height": 371,
+        "ar": 1.06,
+        "tier": "emblem",
+        "lightTone": false
+    },
+    {
+        "slug": "demon-slayer-swordsmith-village-arc",
+        "url": "logos/animes/demon-slayer-swordsmith-village-arc.png",
+        "title": "Demon Slayer: Kimetsu no Yaiba - Swordsmith Village Arc",
+        "aliases": [
+            "Demon Slayer: Kimetsu no Yaiba Swordsmith Village Arc",
+            "Kimetsu no Yaiba: Katanakaji no Sato-hen"
+        ],
+        "ids": [
+            "a_1792963328611_emx3o5"
+        ],
+        "width": 515,
+        "height": 487,
+        "ar": 1.06,
+        "tier": "emblem",
+        "lightTone": false
+    },
+    {
+        "slug": "demon-slayer-hashira-training-arc",
+        "url": "logos/animes/demon-slayer-hashira-training-arc.png",
+        "title": "Demon Slayer: Kimetsu no Yaiba - Hashira Training Arc",
+        "aliases": [
+            "Demon Slayer: Kimetsu no Yaiba Hashira Training Arc",
+            "Kimetsu no Yaiba: Hashira Geiko-hen"
+        ],
+        "ids": [
+            "a_1792963451393_r7ztva"
+        ],
+        "width": 522,
+        "height": 494,
+        "ar": 1.06,
         "tier": "emblem",
         "lightTone": false
     },
@@ -55,11 +103,9 @@ const ANIME_LOGO_CATALOG = [
         "url": "logos/animes/solo-leveling.png",
         "title": "Solo Leveling",
         "aliases": [
-            "Solo Leveling: Season 2",
             "Ore dake Level Up na Ken"
         ],
         "ids": [
-            "a2",
             "a_1779842442445"
         ],
         "width": 780,
@@ -69,16 +115,48 @@ const ANIME_LOGO_CATALOG = [
         "lightTone": false
     },
     {
+        "slug": "solo-leveling-season-2",
+        "url": "logos/animes/solo-leveling-season-2.png",
+        "title": "Solo Leveling: Season 2 -Arise from the Shadow-",
+        "aliases": [
+            "Solo Leveling: Season 2",
+            "Solo Leveling Season 2",
+            "Ore dake Level Up na Ken Season 2: Arise from the Shadow"
+        ],
+        "ids": [
+            "a2"
+        ],
+        "width": 780,
+        "height": 266,
+        "ar": 2.93,
+        "tier": "stacked",
+        "lightTone": false
+    },
+    {
         "slug": "kaiju-no-8",
         "url": "logos/animes/kaiju-no-8.png",
         "title": "Kaiju No. 8",
         "aliases": [
-            "Kaiju No. 8 Season 2",
             "Kaijuu 8-gou"
         ],
         "ids": [
-            "a3",
             "a_1779842335659"
+        ],
+        "width": 784,
+        "height": 240,
+        "ar": 3.27,
+        "tier": "standard",
+        "lightTone": false
+    },
+    {
+        "slug": "kaiju-no-8-season-2",
+        "url": "logos/animes/kaiju-no-8-season-2.png",
+        "title": "Kaiju No. 8 Season 2",
+        "aliases": [
+            "Kaijuu 8-gou 2nd Season"
+        ],
+        "ids": [
+            "a3"
         ],
         "width": 784,
         "height": 240,
@@ -91,17 +169,31 @@ const ANIME_LOGO_CATALOG = [
         "url": "logos/animes/wind-breaker.png",
         "title": "Wind Breaker",
         "aliases": [
-            "Wind Breaker Season 2",
             "Uindo Burieikaa"
         ],
         "ids": [
-            "a4",
             "a_1779823414867"
         ],
         "width": 782,
         "height": 139,
         "ar": 5.63,
         "tier": "wide",
+        "lightTone": false
+    },
+    {
+        "slug": "wind-breaker-season-2",
+        "url": "logos/animes/wind-breaker-season-2.png",
+        "title": "Wind Breaker Season 2",
+        "aliases": [
+            "Wind Breaker 2nd Season"
+        ],
+        "ids": [
+            "a4"
+        ],
+        "width": 1397,
+        "height": 284,
+        "ar": 4.92,
+        "tier": "standard",
         "lightTone": false
     },
     {
@@ -169,25 +261,95 @@ const ANIME_LOGO_CATALOG = [
         "url": "logos/animes/attack-on-titan.png",
         "title": "Attack on Titan",
         "aliases": [
-            "Shingeki no Kyojin",
-            "Attack on Titan Season 2",
-            "Attack on Titan Season 3",
-            "Attack on Titan Season 3 Part 2",
-            "Attack on Titan: The Final Season",
-            "Attack on Titan: The Final Season Part 2"
+            "Shingeki no Kyojin"
         ],
         "ids": [
-            "a8",
-            "a_1780115319837",
-            "a_1780116042599",
-            "a_1792900689720_38yeo2",
-            "a_1792902122468_mhz2fj",
-            "a_1792902450694_03j4go"
+            "a8"
         ],
         "width": 780,
         "height": 187,
         "ar": 4.17,
         "tier": "standard",
+        "lightTone": false
+    },
+    {
+        "slug": "attack-on-titan-season-2",
+        "url": "logos/animes/attack-on-titan-season-2.png",
+        "title": "Attack on Titan Season 2",
+        "aliases": [
+            "Shingeki no Kyojin Season 2"
+        ],
+        "ids": [
+            "a_1780115319837"
+        ],
+        "width": 1084,
+        "height": 296,
+        "ar": 3.66,
+        "tier": "standard",
+        "lightTone": false
+    },
+    {
+        "slug": "attack-on-titan-season-3",
+        "url": "logos/animes/attack-on-titan-season-3.png",
+        "title": "Attack on Titan Season 3",
+        "aliases": [
+            "Shingeki no Kyojin Season 3"
+        ],
+        "ids": [
+            "a_1780116042599"
+        ],
+        "width": 1124,
+        "height": 316,
+        "ar": 3.56,
+        "tier": "standard",
+        "lightTone": false
+    },
+    {
+        "slug": "attack-on-titan-season-3-part-2",
+        "url": "logos/animes/attack-on-titan-season-3-part-2.png",
+        "title": "Attack on Titan Season 3 Part 2",
+        "aliases": [
+            "Shingeki no Kyojin Season 3 Part 2"
+        ],
+        "ids": [
+            "a_1792900689720_38yeo2"
+        ],
+        "width": 1124,
+        "height": 354,
+        "ar": 3.18,
+        "tier": "standard",
+        "lightTone": false
+    },
+    {
+        "slug": "attack-on-titan-the-final-season",
+        "url": "logos/animes/attack-on-titan-the-final-season.png",
+        "title": "Attack on Titan: The Final Season",
+        "aliases": [
+            "Shingeki no Kyojin: The Final Season"
+        ],
+        "ids": [
+            "a_1792902450694_03j4go"
+        ],
+        "width": 1000,
+        "height": 334,
+        "ar": 2.99,
+        "tier": "stacked",
+        "lightTone": false
+    },
+    {
+        "slug": "attack-on-titan-the-final-season-part-2",
+        "url": "logos/animes/attack-on-titan-the-final-season-part-2.png",
+        "title": "Attack on Titan: The Final Season Part 2",
+        "aliases": [
+            "Shingeki no Kyojin: The Final Season Part 2"
+        ],
+        "ids": [
+            "a_1792902122468_mhz2fj"
+        ],
+        "width": 1000,
+        "height": 377,
+        "ar": 2.65,
+        "tier": "stacked",
         "lightTone": false
     },
     {
@@ -373,20 +535,50 @@ const ANIME_LOGO_CATALOG = [
         "url": "logos/animes/jujutsu-kaisen.png",
         "title": "Jujutsu Kaisen",
         "aliases": [
-            "Jujutsu Kaisen (Temporada 1)",
-            "Jujutsu Kaisen (Temporada 2)",
-            "Jujutsu Kaisen (Temporada 3)",
-            "Jujutsu Kaisen 2nd Season",
-            "Jujutsu Kaisen: Shimetsu Kaiyuu-hen"
+            "Jujutsu Kaisen (Temporada 1)"
         ],
         "ids": [
-            "a20",
-            "a20_s2",
-            "a20_s3"
+            "a20"
         ],
         "width": 784,
         "height": 178,
         "ar": 4.4,
+        "tier": "standard",
+        "lightTone": false
+    },
+    {
+        "slug": "jujutsu-kaisen-season-2",
+        "url": "logos/animes/jujutsu-kaisen-season-2.png",
+        "title": "Jujutsu Kaisen Temporada 2: Hidden Inventory / Premature Death • Shibuya Incident",
+        "aliases": [
+            "Jujutsu Kaisen (Temporada 2)",
+            "Jujutsu Kaisen 2nd Season",
+            "Jujutsu Kaisen Season 2"
+        ],
+        "ids": [
+            "a20_s2"
+        ],
+        "width": 784,
+        "height": 211,
+        "ar": 3.72,
+        "tier": "standard",
+        "lightTone": false
+    },
+    {
+        "slug": "jujutsu-kaisen-season-3",
+        "url": "logos/animes/jujutsu-kaisen-season-3.png",
+        "title": "Jujutsu Kaisen Temporada 3: The Culling Game",
+        "aliases": [
+            "Jujutsu Kaisen (Temporada 3)",
+            "Jujutsu Kaisen: Shimetsu Kaiyuu-hen",
+            "Jujutsu Kaisen Season 3"
+        ],
+        "ids": [
+            "a20_s3"
+        ],
+        "width": 784,
+        "height": 215,
+        "ar": 3.65,
         "tier": "standard",
         "lightTone": false
     },
@@ -883,18 +1075,33 @@ const ANIME_LOGO_CATALOG = [
     {
         "slug": "jojos-bizarre-adventure",
         "url": "logos/animes/jojos-bizarre-adventure.png",
-        "title": "JoJo's Bizarre Adventure",
+        "title": "JoJo's Bizarre Adventure (2012)",
         "aliases": [
-            "JoJo's Bizarre Adventure (2012)",
-            "JoJo's Bizarre Adventure: Stardust Crusaders"
+            "JoJo's Bizarre Adventure",
+            "JoJo no Kimyou na Bouken (TV)"
         ],
         "ids": [
-            "a51",
             "a_1791779409281_59tyje"
         ],
         "width": 480,
         "height": 295,
         "ar": 1.63,
+        "tier": "stacked",
+        "lightTone": false
+    },
+    {
+        "slug": "jojos-bizarre-adventure-stardust-crusaders",
+        "url": "logos/animes/jojos-bizarre-adventure-stardust-crusaders.png",
+        "title": "JoJo's Bizarre Adventure: Stardust Crusaders",
+        "aliases": [
+            "JoJo no Kimyou na Bouken: Stardust Crusaders"
+        ],
+        "ids": [
+            "a51"
+        ],
+        "width": 347,
+        "height": 161,
+        "ar": 2.16,
         "tier": "stacked",
         "lightTone": false
     },
@@ -1064,16 +1271,31 @@ const ANIME_LOGO_CATALOG = [
         "url": "logos/animes/the-case-study-of-vanitas.png",
         "title": "The Case Study of Vanitas",
         "aliases": [
-            "The Case Study of Vanitas Part 2"
+            "Vanitas no Carte"
         ],
         "ids": [
-            "a_1779890211077",
-            "a_1779980415391"
+            "a_1779890211077"
         ],
         "width": 790,
         "height": 262,
         "ar": 3.02,
         "tier": "standard",
+        "lightTone": false
+    },
+    {
+        "slug": "the-case-study-of-vanitas-part-2",
+        "url": "logos/animes/the-case-study-of-vanitas-part-2.png",
+        "title": "The Case Study of Vanitas Part 2",
+        "aliases": [
+            "Vanitas no Carte Part 2"
+        ],
+        "ids": [
+            "a_1779980415391"
+        ],
+        "width": 790,
+        "height": 298,
+        "ar": 2.65,
+        "tier": "stacked",
         "lightTone": false
     },
     {
@@ -1300,9 +1522,12 @@ function resolveAnimeLogo(anime) {
     if (!anime || typeof anime !== 'object') return null;
     const titleKey = anime.title ? normalizeAnimeLogoKey(anime.title) : '';
     const jpKey = anime.japaneseTitle ? normalizeAnimeLogoKey(anime.japaneseTitle) : '';
-    let matched = (titleKey && byKey.get(titleKey)) || (jpKey && byKey.get(jpKey)) || null;
+    let matched = (titleKey && byKey.get(titleKey)) || null;
     if (!matched && anime.id) {
         matched = byId.get(String(anime.id)) || null;
+    }
+    if (!matched && jpKey) {
+        matched = byKey.get(jpKey) || null;
     }
     if (!matched && titleKey) {
         for (const item of ANIME_LOGO_CATALOG) {

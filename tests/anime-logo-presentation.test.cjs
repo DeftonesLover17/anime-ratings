@@ -35,8 +35,85 @@ test('all default catalog animes and multi-season titles resolve to an English c
         title: 'Demon Slayer: Kimetsu no Yaiba - Swordsmith Village Arc'
     });
     assert.ok(swordsmith);
-    assert.equal(swordsmith.url, 'logos/animes/demon-slayer-kimetsu-no-yaiba.png');
+    assert.equal(swordsmith.url, 'logos/animes/demon-slayer-swordsmith-village-arc.png');
     assert.equal(swordsmith.tier, 'emblem');
+
+    const entertainmentDistrict = resolveAnimeLogo({
+        id: 'a_1792962014649_q27neh',
+        title: 'Demon Slayer: Kimetsu no Yaiba Entertainment District Arc'
+    });
+    assert.ok(entertainmentDistrict);
+    assert.equal(entertainmentDistrict.url, 'logos/animes/demon-slayer-entertainment-district-arc.png');
+
+    const hashiraTraining = resolveAnimeLogo({
+        id: 'a_1792963451393_r7ztva',
+        title: 'Demon Slayer: Kimetsu no Yaiba - Hashira Training Arc'
+    });
+    assert.ok(hashiraTraining);
+    assert.equal(hashiraTraining.url, 'logos/animes/demon-slayer-hashira-training-arc.png');
+
+    const aotS2 = resolveAnimeLogo({
+        id: 'a_1780115319837',
+        title: 'Attack on Titan Season 2'
+    });
+    assert.ok(aotS2);
+    assert.equal(aotS2.url, 'logos/animes/attack-on-titan-season-2.png');
+
+    const aotS3 = resolveAnimeLogo({
+        id: 'a_1780116042599',
+        title: 'Attack on Titan Season 3'
+    });
+    assert.ok(aotS3);
+    assert.equal(aotS3.url, 'logos/animes/attack-on-titan-season-3.png');
+
+    const aotFinal = resolveAnimeLogo({
+        id: 'a_1792902450694_03j4go',
+        title: 'Attack on Titan: The Final Season'
+    });
+    assert.ok(aotFinal);
+    assert.equal(aotFinal.url, 'logos/animes/attack-on-titan-the-final-season.png');
+
+    const soloLevelingS2 = resolveAnimeLogo({
+        id: 'a2',
+        title: 'Solo Leveling: Season 2 -Arise from the Shadow-'
+    });
+    assert.ok(soloLevelingS2);
+    assert.equal(soloLevelingS2.url, 'logos/animes/solo-leveling-season-2.png');
+
+    const windBreakerS2 = resolveAnimeLogo({
+        id: 'a4',
+        title: 'Wind Breaker Season 2'
+    });
+    assert.ok(windBreakerS2);
+    assert.equal(windBreakerS2.url, 'logos/animes/wind-breaker-season-2.png');
+
+    const jjkS2 = resolveAnimeLogo({
+        id: 'a20_s2',
+        title: 'Jujutsu Kaisen Temporada 2: Hidden Inventory / Premature Death • Shibuya Incident'
+    });
+    assert.ok(jjkS2);
+    assert.equal(jjkS2.url, 'logos/animes/jujutsu-kaisen-season-2.png');
+
+    const jjkS3 = resolveAnimeLogo({
+        id: 'a20_s3',
+        title: 'Jujutsu Kaisen Temporada 3: The Culling Game'
+    });
+    assert.ok(jjkS3);
+    assert.equal(jjkS3.url, 'logos/animes/jujutsu-kaisen-season-3.png');
+
+    const jojoPart3 = resolveAnimeLogo({
+        id: 'a51',
+        title: "JoJo's Bizarre Adventure: Stardust Crusaders"
+    });
+    assert.ok(jojoPart3);
+    assert.equal(jojoPart3.url, 'logos/animes/jojos-bizarre-adventure-stardust-crusaders.png');
+
+    const vanitasPart2 = resolveAnimeLogo({
+        id: 'a_1779980415391',
+        title: 'The Case Study of Vanitas Part 2'
+    });
+    assert.ok(vanitasPart2);
+    assert.equal(vanitasPart2.url, 'logos/animes/the-case-study-of-vanitas-part-2.png');
 
     const monster = resolveAnimeLogo({
         id: 'a29',
