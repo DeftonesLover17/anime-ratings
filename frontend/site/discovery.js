@@ -20,6 +20,10 @@ const {
     preloadAnimeLogo,
     scheduleAnimeLogoWarmup,
 } = require('./anime-logo-presentation');
+const { createAnimeTitleRenderer } = require('./anime-title');
+
+const featuredTitleRenderer = createAnimeTitleRenderer();
+let activeFeaturedTitleEl = null;
 
 function bindLogoPreload(target, anime, eagerWarmup = false) {
     if (!target || !anime) return;
@@ -76,6 +80,16 @@ function renderFeatured(container, model, actions) {
     </div>`);
     preloadAnimeLogo(anime, 'high');
     if (nextAnime) scheduleAnimeLogoWarmup(nextAnime);
+    const heroTitleEl = root.querySelector('.av-hero-title');
+    if (activeFeaturedTitleEl && activeFeaturedTitleEl !== heroTitleEl) {
+        featuredTitleRenderer.cancel(activeFeaturedTitleEl);
+    }
+    activeFeaturedTitleEl = heroTitleEl;
+    if (heroTitleEl) {
+        featuredTitleRenderer.render(heroTitleEl, anime, {
+            isCurrent: () => !root.parentElement || root.parentElement === container,
+        });
+    }
     root.querySelectorAll('[data-open]').forEach((link) => {
         bindLogoPreload(link, anime, false);
         link.addEventListener('click', (event) => {

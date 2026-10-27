@@ -88,6 +88,14 @@ body.av-app { background: var(--av-bg) !important; }
 .av-mini-rule { width: 25px; height: 1px; background: var(--av-line); }
 .av-hero-title { font-family: var(--av-display); font-size: clamp(58px,7vw,112px); font-weight: 600; line-height: 1.15; letter-spacing: -.045em; max-width: 18ch; text-wrap: balance; margin: 24px 0 20px !important; padding-bottom: 0.16em; overflow-wrap: anywhere; overflow: visible; font-feature-settings: "ss04" 1; }
 .av-hero-title-long { font-size: clamp(28px,3.15vw,58px); line-height: 1.2; padding-bottom: 0.16em; max-width: none; font-feature-settings: "ss04" 1; }
+.av-app .av-hero-title.av-detail-title-has-logo { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; margin: 22px 0 20px !important; padding: 0 !important; line-height: 1; min-height: 0; max-width: 100%; }
+.av-app .av-hero-title.av-detail-title-has-logo .av-detail-title-logo { display: block; width: auto; height: auto; max-width: min(100%, 540px); max-height: clamp(82px, 8vw, 118px); object-fit: contain; object-position: left center; user-select: none; -webkit-user-drag: none; filter: drop-shadow(0 8px 26px rgba(0, 0, 0, 0.42)); }
+.av-app .av-hero-title.av-detail-title-has-logo[data-logo-tier="emblem"] .av-detail-title-logo { max-height: clamp(114px, 10.8vw, 152px); max-width: min(100%, 300px); }
+.av-app .av-hero-title.av-detail-title-has-logo[data-logo-tier="stacked"] .av-detail-title-logo { max-height: clamp(98px, 9.5vw, 136px); max-width: min(100%, 450px); }
+.av-app .av-hero-title.av-detail-title-has-logo[data-logo-tier="standard"] .av-detail-title-logo { max-height: clamp(82px, 8vw, 118px); max-width: min(100%, 540px); }
+.av-app .av-hero-title.av-detail-title-has-logo[data-logo-tier="wide"] .av-detail-title-logo { max-height: clamp(64px, 6.4vw, 92px); max-width: min(100%, 600px); }
+html[data-color-scheme="light"] .av-app .av-hero-title.av-detail-title-has-logo[data-logo-light="true"] .av-detail-title-logo { filter: brightness(0.14) contrast(1.15); }
+html[data-color-scheme="light"] .av-app .av-hero-title.av-detail-title-has-logo[data-logo-light="false"] .av-detail-title-logo { filter: drop-shadow(0 2px 10px rgba(17, 19, 15, 0.16)); }
 .av-hero-subline { display: flex; flex-wrap: wrap; gap: 12px 25px; font-size: 12px; color: var(--av-muted); }
 .av-hero-synopsis { color: var(--av-muted); font-size: 14px; line-height: 1.75; max-width: 54ch; margin-top: 25px !important; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .av-hero-actions { display: flex; flex-wrap: wrap; gap: 22px; align-items: center; margin-top: 28px; }
@@ -951,6 +959,31 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
         font-size: clamp(24px, 2.8vw, 42px);
     }
 
+    .av-app .av-hero-title.av-detail-title-has-logo {
+        margin: 16px 0 14px !important;
+        padding: 0 !important;
+    }
+
+    .av-app .av-hero-title.av-detail-title-has-logo[data-logo-tier="emblem"] .av-detail-title-logo {
+        max-height: clamp(96px, 9.2vw, 126px);
+        max-width: min(100%, 250px);
+    }
+
+    .av-app .av-hero-title.av-detail-title-has-logo[data-logo-tier="stacked"] .av-detail-title-logo {
+        max-height: clamp(84px, 8vw, 112px);
+        max-width: min(100%, 380px);
+    }
+
+    .av-app .av-hero-title.av-detail-title-has-logo[data-logo-tier="standard"] .av-detail-title-logo {
+        max-height: clamp(68px, 6.5vw, 94px);
+        max-width: min(100%, 460px);
+    }
+
+    .av-app .av-hero-title.av-detail-title-has-logo[data-logo-tier="wide"] .av-detail-title-logo {
+        max-height: clamp(54px, 5.2vw, 76px);
+        max-width: min(100%, 520px);
+    }
+
     .av-hero-synopsis {
         margin-top: 16px !important;
         font-size: 13.5px;
@@ -1144,6 +1177,11 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
     .av-hero-copy > .av-eyebrow { grid-row: 2; font-size: 9px; }
     .av-hero-title { grid-row: 3; font-size: clamp(52px,13.8vw,91px); line-height: 1.15; padding-bottom: 0.16em; max-width: 100%; margin: 20px 0 18px !important; font-feature-settings: "ss04" 1; }
     .av-hero-title-long { font-size: clamp(20px,6vw,39px); line-height: 1.2; padding-bottom: 0.16em; font-feature-settings: "ss04" 1; }
+    .av-app .av-hero-title.av-detail-title-has-logo { margin: 16px 0 14px !important; padding: 0 !important; }
+    .av-app .av-hero-title.av-detail-title-has-logo[data-logo-tier="emblem"] .av-detail-title-logo { max-height: clamp(82px, 21vw, 106px); max-width: min(100%, 215px); }
+    .av-app .av-hero-title.av-detail-title-has-logo[data-logo-tier="stacked"] .av-detail-title-logo { max-height: clamp(72px, 18vw, 94px); max-width: min(100%, 285px); }
+    .av-app .av-hero-title.av-detail-title-has-logo[data-logo-tier="standard"] .av-detail-title-logo { max-height: clamp(58px, 15vw, 78px); max-width: min(100%, 320px); }
+    .av-app .av-hero-title.av-detail-title-has-logo[data-logo-tier="wide"] .av-detail-title-logo { max-height: clamp(46px, 12vw, 64px); max-width: min(100%, 340px); }
     .av-hero-subline { grid-row: 4; font-size: 11px; }
     .av-hero-actions { grid-row: 5; margin-top: 25px; gap: 18px; }
     .av-hero-actions .av-button { padding: 13px 16px; gap: 20px; }

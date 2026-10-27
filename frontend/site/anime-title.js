@@ -1,5 +1,5 @@
 const { escapeHtml } = require('../shared/dom');
-const { resolveAnimeLogo, sanitizeAnimeLogoUrl, computeLogoOpticalMetrics } = require('./anime-logo-presentation');
+const { resolveAnimeLogo, sanitizeAnimeLogoUrl, computeLogoOpticalMetrics, preloadAnimeLogo } = require('./anime-logo-presentation');
 const { discoverAnimeLogo } = require('../catalog/logo-discovery');
 
 function createAnimeTitleRenderer({ discover = discoverAnimeLogo, resolve = resolveAnimeLogo } = {}) {
@@ -35,7 +35,9 @@ function createAnimeTitleRenderer({ discover = discoverAnimeLogo, resolve = reso
             image.alt = label;
             image.width = spec.width;
             image.height = spec.height;
-            image.decoding = 'async';
+            image.decoding = 'sync';
+            image.loading = 'eager';
+            preloadAnimeLogo(spec, 'high');
             image.fetchPriority = 'high';
             image.addEventListener('load', () => {
                 if (!current() || image.parentElement !== element) return;
