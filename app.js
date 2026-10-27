@@ -297,6 +297,7 @@ function rememberSyncBase(serverState) {
 
 class AppState {
     constructor() {
+        this.initialSyncDone = false;
         // A cached name is a hint for the form, never proof of authentication.
         this.loggedInUser = window.AnivoidUI.session.username() || null;
         this.authToken = getAuthToken();
@@ -528,6 +529,7 @@ class AppState {
             return await this.syncInFlight;
         } finally {
             this.syncInFlight = null;
+            this.initialSyncDone = true;
         }
     }
 
@@ -3497,8 +3499,15 @@ function setupSplashScreen() {
         if (!window.location.hash || window.location.hash === '#featured-banner-wrapper' || window.location.hash === '#anime-grid-section') {
             window.scrollTo({ top: 0, behavior: 'instant' });
         }
-        if (state.friends.length === 0 && !state.loggedInUser) showRegistrationGate();
-        else { hideRegistrationGate(); checkAndShowSecurityModal(); }
+        const hasKnownAccount = Boolean(localStorage.getItem('anivoid_logged_in_username'));
+        const isSyncing = Boolean(state.syncInFlight || !state.initialSyncDone);
+        if (state.friends.length === 0 && !state.loggedInUser) {
+            if (!hasKnownAccount && !isSyncing) {
+                showRegistrationGate();
+            } else {
+                hideRegistrationGate();
+            }
+        } else { hideRegistrationGate(); checkAndShowSecurityModal(); }
         if (window.initObserver) window.initObserver();
         if (window.initMotionSuite) window.initMotionSuite();
     };
@@ -3524,7 +3533,13 @@ function initUI() {
         if (state.loggedInUser) {
             hideRegistrationGate();
         } else {
-            showRegistrationGate();
+            const hasKnownAccount = Boolean(localStorage.getItem('anivoid_logged_in_username'));
+            const isSyncing = Boolean(state.syncInFlight || !state.initialSyncDone);
+            if (hasKnownAccount || isSyncing) {
+                hideRegistrationGate();
+            } else {
+                showRegistrationGate();
+            }
         }
         return;
     }

@@ -2,7 +2,7 @@ class AccountError extends Error {
     constructor(message, code = '') { super(message); this.code = code; }
 }
 
-function createAccountRequest(browser, { baseUrl = '', timeoutMs = 20000 } = {}) {
+function createAccountRequest(browser, { baseUrl = '', timeoutMs = 35000 } = {}) {
     return async function request(path, body) {
         const controller = new AbortController();
         let timer;

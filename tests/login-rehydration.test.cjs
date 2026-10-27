@@ -99,3 +99,21 @@ test('adopting a different confirmed identity drops the previous sync baseline b
     assert.equal(f.state.friends.length, 0);
     assert.equal(f.stored.get('anivoid_logged_in_username'), 'Bruno');
 });
+
+test('startup with a known account or pending sync keeps registration gate hidden until confirmed', () => {
+    let gateShown = false, gateHidden = false;
+    const hideRegistrationGate = () => { gateHidden = true; };
+    const showRegistrationGate = () => { gateShown = true; };
+    const state = { friends: [], loggedInUser: null, syncInFlight: Promise.resolve(), initialSyncDone: false };
+    const localStorage = { getItem: key => key === 'anivoid_logged_in_username' ? 'Felipe!' : null };
+
+    const hasKnownAccount = Boolean(localStorage.getItem('anivoid_logged_in_username'));
+    const isSyncing = Boolean(state.syncInFlight || !state.initialSyncDone);
+    if (state.friends.length === 0) {
+        if (state.loggedInUser) hideRegistrationGate();
+        else if (hasKnownAccount || isSyncing) hideRegistrationGate();
+        else showRegistrationGate();
+    }
+    assert.equal(gateShown, false);
+    assert.equal(gateHidden, true);
+});
