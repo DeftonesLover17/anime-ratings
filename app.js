@@ -4681,7 +4681,34 @@ function renderAnimeDetailBody(anime) {
         detailPoster.dataset.avCover = anime.id;
         detailPoster.alt = 'Capa de ' + anime.title;
     }
-    document.getElementById('detail-title').innerHTML = escapeHtml(anime.title);
+    const detailTitleEl = document.getElementById('detail-title');
+    if (detailTitleEl) {
+        const logoSpec = window.AnivoidUI?.animeLogoPresentation?.resolveAnimeLogo(anime);
+        const safeLogoUrl = logoSpec ? window.AnivoidUI.imageUrl(logoSpec.url) : '';
+        if (logoSpec && safeLogoUrl) {
+            detailTitleEl.classList.add('av-detail-title-has-logo');
+            detailTitleEl.dataset.logoTier = logoSpec.tier || 'standard';
+            detailTitleEl.dataset.logoLight = logoSpec.lightTone ? 'true' : 'false';
+            detailTitleEl.setAttribute('aria-label', String(anime.title || '').replace(/&#39;/g, "'"));
+            detailTitleEl.innerHTML = `<img class="av-detail-title-logo" src="${safeLogoUrl}" width="${logoSpec.width}" height="${logoSpec.height}" alt="${escapeHtml(anime.title)}" decoding="async"><span class="av-detail-logo-fallback" hidden>${escapeHtml(anime.title)}</span>`;
+            const logoImg = detailTitleEl.querySelector('.av-detail-title-logo');
+            if (logoImg) {
+                logoImg.addEventListener('error', () => {
+                    detailTitleEl.classList.remove('av-detail-title-has-logo');
+                    delete detailTitleEl.dataset.logoTier;
+                    delete detailTitleEl.dataset.logoLight;
+                    detailTitleEl.removeAttribute('aria-label');
+                    detailTitleEl.innerHTML = escapeHtml(anime.title);
+                }, { once: true });
+            }
+        } else {
+            detailTitleEl.classList.remove('av-detail-title-has-logo');
+            delete detailTitleEl.dataset.logoTier;
+            delete detailTitleEl.dataset.logoLight;
+            detailTitleEl.removeAttribute('aria-label');
+            detailTitleEl.innerHTML = escapeHtml(anime.title);
+        }
+    }
     document.getElementById('detail-japanese-title').innerHTML = escapeHtml(anime.japaneseTitle);
     document.getElementById('detail-synopsis').innerHTML = escapeHtml(anime.synopsis);
 

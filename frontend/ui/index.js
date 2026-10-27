@@ -5,6 +5,7 @@ const { createSite } = require('../site');
 const { imageUrl } = require('../shared/dom');
 const studioMetadata = require('../../shared/studio-metadata');
 const studioPresentation = require('../site/studio-presentation');
+const animeLogoPresentation = require('../site/anime-logo-presentation');
 const { initCatalogAutocomplete } = require('../catalog/autocomplete');
 const { DEFAULT_ANIMES } = require('../catalog/default-animes');
 const { createAccountDrawer } = require('../account/drawer');
@@ -45,6 +46,7 @@ window.AnivoidUI = {
     imageUrl,
     studioMetadata,
     studioPresentation,
+    animeLogoPresentation,
     initCatalogAutocomplete,
     defaultAnimes: DEFAULT_ANIMES,
     account,
