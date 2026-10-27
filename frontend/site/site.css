@@ -430,10 +430,12 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
 .av-detail-totals > div { display: flex; flex-direction: column; gap: 8px; }
 .av-detail-totals small { font-size: 10px; color: var(--av-muted); text-transform: uppercase; letter-spacing: .08em; }
 .av-total-score { font: 600 42px/1 var(--av-display); letter-spacing: -.05em; padding-right: 3px; overflow: visible; display: inline-block; }
-.av-detail-utilities { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 25px; }
-.av-app .av-detail-utilities :is(#detail-set-featured-btn,#detail-edit-anime-btn,#detail-delete-anime-btn) { margin: 0; border: 0; padding: 8px 0; min-height: 44px; border-radius: 0; background: transparent !important; box-shadow: none !important; text-shadow: none; font: 11px/1.5 var(--av-body); text-transform: none; letter-spacing: 0; color: var(--av-muted) !important; }
+.av-detail-utilities { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-top: 25px; }
+.av-app .av-detail-utilities :is(#detail-set-featured-btn,#detail-edit-anime-btn,#detail-delete-anime-btn) { margin: 0; border: 0; padding: 6px 0; min-height: 36px; border-radius: 0; background: transparent !important; box-shadow: none !important; text-shadow: none; font: 11px/1.5 var(--av-body); text-transform: none; letter-spacing: 0; color: var(--av-muted) !important; transition: color .18s ease; }
+.av-app .av-detail-utilities :is(#detail-set-featured-btn,#detail-edit-anime-btn):hover { color: var(--av-ink) !important; }
 .av-app .av-detail-utilities #detail-delete-anime-btn { color: var(--score-low) !important; }
-.av-detail-utilities #detail-admin-actions { gap: 14px; margin: 0; border-left: 1px solid var(--av-line); padding-left: 14px; }
+.av-app .av-detail-utilities #detail-delete-anime-btn:hover { filter: brightness(1.2); }
+.av-detail-utilities #detail-admin-actions { display: inline-flex; align-items: center; gap: 16px; margin: 0; border-left: none; padding-left: 0; }
 .av-detail-synopsis { display: grid; grid-template-columns: 1fr 3fr; gap: 40px; margin: 60px 0 45px; padding-top: 30px; border-top: 1px solid var(--av-line); }
 .av-detail-synopsis #detail-synopsis { font-size: 17px; line-height: 1.8; color: var(--av-ink); max-width: 72ch; }
 .av-app #detail-genres { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 23px; }
@@ -1308,7 +1310,7 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
     .av-total-score { font-size: 30px; padding-right: 2px; }
     .av-detail-totals small { font-size: 8px; letter-spacing: 0; }
     .av-detail-utilities { grid-column: 1/-1; margin-top: 20px; gap: 8px; }
-    .av-detail-utilities #detail-admin-actions { padding-left: 8px; gap: 8px; }
+    .av-detail-utilities #detail-admin-actions { padding-left: 0; border-left: none; gap: 12px; }
     .av-detail-synopsis { grid-template-columns: 1fr; gap: 15px; margin: 35px 0 30px; padding-top: 24px; }
     .av-detail-synopsis #detail-synopsis { font-size: 14px; line-height: 1.8; }
     .av-app #detail-studio.av-studio-credit { grid-column: 1 / -1; flex-direction: row; gap: 20px; padding: 12px 0; text-align: left; }
