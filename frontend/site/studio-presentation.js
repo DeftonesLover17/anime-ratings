@@ -29,6 +29,7 @@ const STUDIO_LOGOS = {
     'Studio Ghibli': 'logos/studio_ghibli.png',
     'Shaft': 'logos/shaft.png',
     'Tokyo Movie Shinsha': 'logos/tokyo_movie_shinsha.png',
+    'TMS Entertainment': 'logos/tokyo_movie_shinsha.png',
     'Tatsunoko Production': 'logos/tatsunoko_production.png',
     'Bug Film': 'logos/bug_film.png',
     'BUG FILMS': 'logos/bug_film.png',

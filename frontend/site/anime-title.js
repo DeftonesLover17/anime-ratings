@@ -32,6 +32,7 @@ function createAnimeTitleRenderer({ discover = discoverAnimeLogo, resolve = reso
             const label = element.textContent;
             const image = element.ownerDocument.createElement('img');
             image.className = 'av-detail-title-logo';
+            image.referrerPolicy = 'no-referrer';
             image.alt = label;
             image.width = spec.width;
             image.height = spec.height;

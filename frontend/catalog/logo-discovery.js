@@ -76,6 +76,7 @@ function createAnimeLogoDiscovery({ request = (...args) => fetch(...args), probe
         } else if (ImageClass) {
             dimensions = await new Promise(resolve => {
                 const image = new ImageClass();
+                image.referrerPolicy = 'no-referrer';
                 const finish = value => {
                     clearTimer(timer);
                     signal.removeEventListener('abort', cancel);
@@ -163,7 +164,7 @@ function createAnimeLogoDiscovery({ request = (...args) => fetch(...args), probe
             }
         }
         // No prefix/franchise fallback: a different season must retain its own identity.
-        for (const name of [...new Set(names)].slice(0, 2)) {
+        for (const name of [...new Set(names)].slice(0, 4)) {
             for (const type of ['series', 'movie']) {
                 if (signal.aborted) return '';
                 const data = await json(`https://v3-cinemeta.strem.io/catalog/${type}/top/search=${encodeURIComponent(name)}.json`, signal);
