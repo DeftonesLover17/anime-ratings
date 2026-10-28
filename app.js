@@ -5089,10 +5089,10 @@ function initRegistrationOptions() {
         document.querySelectorAll('.reg-step').forEach(stepEl => {
             if (parseInt(stepEl.getAttribute('data-step')) === stepNum) {
                 stepEl.classList.remove('hidden');
-                stepEl.classList.add('space-y-6'); // Maintain spacing
+                stepEl.classList.add('space-y-3.5', 'sm:space-y-4');
             } else {
                 stepEl.classList.add('hidden');
-                stepEl.classList.remove('space-y-6');
+                stepEl.classList.remove('space-y-3.5', 'sm:space-y-4', 'space-y-6');
             }
         });
         
@@ -5181,127 +5181,8 @@ function initRegistrationOptions() {
     let tooltipTransitionToken = 0;
     
     function setupTooltipHover(element, title, filterFn) {
-        let tooltipFrameId = null;
-        let latestPointer = null;
-
-        const positionTooltip = () => {
-            tooltipFrameId = null;
-            if (!tooltip || !latestPointer) return;
-            const x = latestPointer.clientX + 15;
-            const y = latestPointer.clientY + 15;
-
-            const tooltipWidth = tooltip.offsetWidth || 350;
-            const tooltipHeight = tooltip.offsetHeight || 220;
-            const windowWidth = window.innerWidth;
-            const windowHeight = window.innerHeight;
-
-            let posX = x;
-            let posY = y;
-
-            if (x + tooltipWidth > windowWidth) {
-                posX = latestPointer.clientX - tooltipWidth - 15;
-            }
-            if (y + tooltipHeight > windowHeight) {
-                posY = latestPointer.clientY - tooltipHeight - 15;
-            }
-
-            tooltip.style.left = `${posX}px`;
-            tooltip.style.top = `${posY}px`;
-        };
-
-        element.addEventListener('mouseenter', () => {
-            if (!tooltip) return;
-            const matchingAnimes = state.animes.filter(a => filterFn(a) && a.id !== 'a20' && a.id !== 'a20_s2').slice(0, 4);
-            
-            const upperTitle = title.toUpperCase();
-            const isStudio = title.toLowerCase().includes('estúdio');
-            const iconHtml = isStudio 
-                ? '<iconify-icon icon="lucide:clapperboard" class="text-[11px] text-brand"></iconify-icon>' 
-                : '<iconify-icon icon="lucide:hash" class="text-[11px] text-brand"></iconify-icon>';
-            
-            document.getElementById('tooltip-title').innerHTML = `${iconHtml} <span>${upperTitle}</span>`;
-            const listContainer = document.getElementById('tooltip-animes-list');
-            listContainer.innerHTML = '';
-            
-            if (matchingAnimes.length === 0) {
-                listContainer.innerHTML = '<p class="text-gray-500 italic text-[10px] py-2 text-center w-full">Nenhum anime encontrado.</p>';
-            } else {
-                matchingAnimes.forEach((anime, idx) => {
-                    const avgScore = state.calculateAverageScore(anime.id);
-                    const studioInfo = STUDIO_BRAND_COLORS[anime.studio] || { border: 'rgba(255, 69, 0, 0.4)', glow: 'rgba(255, 69, 0, 0.15)', text: '#FF4500' };
-                    const glowColor = studioInfo.text;
-                    const animationDelay = idx * 60; // 60ms stagger delay
-                    const seasonYear = anime.season ? anime.season.split(' ').pop() : '';
-                    
-                    const item = document.createElement('div');
-                    item.className = 'relative flex items-center gap-3.5 bg-white/[0.02] border border-white/[0.06] rounded-2xl p-3 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),0_8px_20px_rgba(0,0,0,0.4)] overflow-hidden tooltip-item-animate';
-                    item.style.animationDelay = `${animationDelay}ms`;
-                    
-                    item.innerHTML = `
-                        <!-- Ambient Studio Brand Glow -->
-                        <div class="absolute -right-10 -bottom-10 w-24 h-24 rounded-full filter blur-[20px] opacity-[0.25] pointer-events-none glow-pulse-bg" style="background: radial-gradient(circle, ${glowColor} 0%, transparent 70%);"></div>
-                        
-                        <img src="${escapeHtml(window.AnivoidUI.imageUrl(anime.coverUrl))}" class="w-[48px] h-[68px] object-cover rounded-xl border border-white/10 shrink-0 shadow-[0_4px_10px_rgba(0,0,0,0.6)] z-10" alt="">
-                        
-                        <div class="min-w-0 flex-grow z-10 flex flex-col justify-between h-full py-0.5">
-                            <div>
-                                <p class="font-serif font-bold text-white/95 truncate max-w-[200px] leading-tight text-[12.5px]">${anime.title}</p>
-                                <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                                    <span class="text-[8.5px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/5 text-white/60 border border-white/5">${anime.studio}</span>
-                                    ${seasonYear ? `<span class="text-[8.5px] font-mono text-white/40">${seasonYear}</span>` : ''}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Rating Badge -->
-                        <div class="shrink-0 z-10 flex flex-col items-end">
-                            ${avgScore > 0 
-                                ? `
-                                <div class="flex items-center gap-0.5 bg-brand/10 border border-brand/25 px-2 py-0.5 rounded-lg text-[10px] font-bold text-brand shadow-[0_2px_8px_rgba(255,69,0,0.15)]">
-                                    <iconify-icon icon="lucide:star" class="text-[10px]"></iconify-icon>
-                                    <span>${avgScore.toFixed(1)}</span>
-                                </div>
-                                `
-                                : `
-                                <div class="flex items-center gap-0.5 bg-white/5 border border-white/10 px-2 py-0.5 rounded-lg text-[9px] font-bold text-white/30">
-                                    <span>S/N</span>
-                                </div>
-                                `
-                            }
-                        </div>
-                    `;
-                    listContainer.appendChild(item);
-                });
-            }
-            tooltip.classList.remove('hidden');
-            void tooltip.offsetWidth; // Reflow
-            tooltip.style.opacity = '1';
-            tooltip.style.transform = 'scale(1) translateY(0)';
-        });
-        
-        element.addEventListener('mousemove', (e) => {
-            if (!tooltip) return;
-            latestPointer = e;
-            if (tooltipFrameId === null) {
-                tooltipFrameId = requestAnimationFrame(positionTooltip);
-            }
-        });
-        
-        element.addEventListener('mouseleave', () => {
-            if (!tooltip) return;
-            if (tooltipFrameId !== null) cancelAnimationFrame(tooltipFrameId);
-            tooltipFrameId = null;
-            latestPointer = null;
-            tooltip.style.opacity = '0';
-            tooltip.style.transform = 'scale(0.95) translateY(12px)';
-            
-            const currentToken = ++tooltipTransitionToken;
-            setTimeout(() => {
-                if (currentToken === tooltipTransitionToken && tooltip.style.opacity === '0') {
-                    tooltip.classList.add('hidden');
-                }
-            }, 220);
-        });
+        // Tooltip hover preview on genres and studios removed for clean and non-intrusive mobile UX
+        return;
     }
 
     if (avatarTrigger && avatarFileInput) {
@@ -5318,21 +5199,17 @@ function initRegistrationOptions() {
         genres.forEach(genre => {
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'px-4 py-2 border border-white/10 rounded-full text-[11px] font-mono text-white/60 hover:text-white hover:border-white/30 transition-all cursor-pointer';
+            btn.className = 'reg-chip px-3.5 py-1.5 sm:px-4 sm:py-2 border border-white/10 rounded-full text-[11px] sm:text-xs font-mono text-white/70 bg-white/[0.03] hover:text-white hover:border-white/30 hover:bg-white/[0.08] transition-all cursor-pointer flex items-center justify-center select-none active:scale-95';
             btn.textContent = genre;
             btn.addEventListener('click', () => {
                 if (selectedGenres.includes(genre)) {
                     selectedGenres = selectedGenres.filter(g => g !== genre);
-                    btn.className = 'px-4 py-2 border border-white/10 rounded-full text-[11px] font-mono text-white/60 hover:text-white hover:border-white/30 transition-all cursor-pointer';
+                    btn.className = 'reg-chip px-3.5 py-1.5 sm:px-4 sm:py-2 border border-white/10 rounded-full text-[11px] sm:text-xs font-mono text-white/70 bg-white/[0.03] hover:text-white hover:border-white/30 hover:bg-white/[0.08] transition-all cursor-pointer flex items-center justify-center select-none active:scale-95';
                 } else {
                     selectedGenres.push(genre);
-                    btn.className = 'px-4 py-2 bg-brand border border-brand rounded-full text-[11px] font-mono text-white scale-105 shadow-md shadow-brand/20 transition-all cursor-pointer';
+                    btn.className = 'reg-chip px-3.5 py-1.5 sm:px-4 sm:py-2 bg-brand border border-brand rounded-full text-[11px] sm:text-xs font-mono font-bold text-white scale-[1.02] shadow-[0_2px_12px_rgba(255,69,0,0.35)] transition-all cursor-pointer flex items-center justify-center select-none active:scale-95';
                 }
             });
-            
-            // Set up hover preview tooltips for genres
-            setupTooltipHover(btn, `Gênero: ${genre}`, (anime) => anime.genres && Array.isArray(anime.genres) && anime.genres.includes(genre));
-            
             genresList.appendChild(btn);
         });
     }
@@ -5344,21 +5221,17 @@ function initRegistrationOptions() {
         studios.forEach(studio => {
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'px-4 py-2 border border-white/10 rounded-full text-[11px] font-mono text-white/60 hover:text-white hover:border-white/30 transition-all cursor-pointer';
+            btn.className = 'reg-chip px-3.5 py-1.5 sm:px-4 sm:py-2 border border-white/10 rounded-full text-[11px] sm:text-xs font-mono text-white/70 bg-white/[0.03] hover:text-white hover:border-white/30 hover:bg-white/[0.08] transition-all cursor-pointer flex items-center justify-center select-none active:scale-95';
             btn.textContent = studio;
             btn.addEventListener('click', () => {
                 if (selectedStudios.includes(studio)) {
                     selectedStudios = selectedStudios.filter(s => s !== studio);
-                    btn.className = 'px-4 py-2 border border-white/10 rounded-full text-[11px] font-mono text-white/60 hover:text-white hover:border-white/30 transition-all cursor-pointer';
+                    btn.className = 'reg-chip px-3.5 py-1.5 sm:px-4 sm:py-2 border border-white/10 rounded-full text-[11px] sm:text-xs font-mono text-white/70 bg-white/[0.03] hover:text-white hover:border-white/30 hover:bg-white/[0.08] transition-all cursor-pointer flex items-center justify-center select-none active:scale-95';
                 } else {
                     selectedStudios.push(studio);
-                    btn.className = 'px-4 py-2 bg-brand border border-brand rounded-full text-[11px] font-mono text-white scale-105 shadow-md shadow-brand/20 transition-all cursor-pointer';
+                    btn.className = 'reg-chip px-3.5 py-1.5 sm:px-4 sm:py-2 bg-brand border border-brand rounded-full text-[11px] sm:text-xs font-mono font-bold text-white scale-[1.02] shadow-[0_2px_12px_rgba(255,69,0,0.35)] transition-all cursor-pointer flex items-center justify-center select-none active:scale-95';
                 }
             });
-            
-            // Set up hover preview tooltips for studios
-            setupTooltipHover(btn, `Estúdio: ${studio}`, (anime) => anime.studio === studio);
-            
             studiosList.appendChild(btn);
         });
     }

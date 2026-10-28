@@ -1682,7 +1682,10 @@ button:not(:disabled),
 :root { color-scheme: dark; }
 #registration-gate { background: rgba(5, 5, 5, 0.98); overscroll-behavior: contain; padding-block: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-bottom)); }
 #registration-gate > .glass-panel { overflow: clip; }
-#registration-gate button { min-height: 44px; touch-action: manipulation; }
+#registration-gate button:not(.reg-chip):not(.theme-toggle):not([data-theme-toggle]) { min-height: 44px; touch-action: manipulation; }
+#registration-gate .reg-chip { min-height: 36px !important; touch-action: manipulation; }
+#registration-gate .theme-toggle { min-height: 36px !important; }
+#reg-hover-tooltip { display: none !important; opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }
 #registration-gate input:not([type="color"]), #registration-gate textarea, #registration-gate select { min-height: 48px; font-size: 16px; }
 #registration-gate label { font-size: 12px; line-height: 1.5; }
 #registration-gate p { font-size: 13px; line-height: 1.65; }
@@ -1693,3 +1696,24 @@ button:not(:disabled),
 #registration-gate :is(button, input, textarea, select) { transition-property: background-color, border-color, color, opacity, transform; }
 #registration-gate button:active { transform: scale(0.98); }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } #registration-gate *, #splash-screen * { animation: none !important; transition: none !important; } }
+
+/* Sleek scrollbar for registration modal lists */
+#reg-genres-list::-webkit-scrollbar,
+#reg-studios-list::-webkit-scrollbar,
+#reg-selected-animes::-webkit-scrollbar,
+#reg-anime-results::-webkit-scrollbar {
+    width: 4px;
+}
+#reg-genres-list::-webkit-scrollbar-track,
+#reg-studios-list::-webkit-scrollbar-track,
+#reg-selected-animes::-webkit-scrollbar-track,
+#reg-anime-results::-webkit-scrollbar-track {
+    background: transparent;
+}
+#reg-genres-list::-webkit-scrollbar-thumb,
+#reg-studios-list::-webkit-scrollbar-thumb,
+#reg-selected-animes::-webkit-scrollbar-thumb,
+#reg-anime-results::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+}
