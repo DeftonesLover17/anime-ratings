@@ -54,7 +54,7 @@ function isAdmin(user, env, state) {
         return Boolean(user.accountId && ids.includes(user.accountId));
     // Legacy configuration resolves once against an unambiguous stored account.
     // New registrations cannot claim any configured administrator's legacy key.
-    return list(env.ADMIN_USERS || 'felipe').some((name) => {
+    return list(env.ADMIN_USERS || 'felipe,lipeinpbe,lipe').some((name) => {
         const owner = findLoginUser(state, name);
         return (
             owner && usernameKey(owner.username) === usernameKey(user.username)
@@ -83,7 +83,7 @@ function registrationError(state, input, env = {}) {
     if (['constructor', 'prototype', 'proto'].includes(id))
         return 'Nome de usuário indisponível.';
     if (
-        list(env.ADMIN_USERS || 'felipe').some(
+        list(env.ADMIN_USERS || 'felipe,lipeinpbe,lipe').some(
             (name) => legacyId(name) === id
         ) ||
         (state.registeredUsers || []).some(
