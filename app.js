@@ -1193,6 +1193,13 @@ class AppState {
         if (!anime) return;
         this.initFriendRatingIfMissing(anime, friendId);
         const r = anime.ratings[friendId];
+        if (generalScore === null || generalScore === '' || generalScore === 0) {
+            r.overall = 0;
+            r.episodeRatings = {};
+            r.updatedAt = new Date().toISOString();
+            this.save();
+            return;
+        }
         const score = parseFloat(generalScore);
         if (isNaN(score) || score < 0.1 || score > 10) return;
         const maxEps = parseInt(anime.episodes) || 0;
