@@ -132,6 +132,9 @@ function createWorkbench(host, initialModel, shared) {
                             <span>Salvar Nota Geral</span>
                             ${arrow()}
                         </button>
+                        <button type="button" class="av-button av-button-outline av-button-remove-global" id="av-global-remove-btn">
+                            <span>Retirar Nota</span>
+                        </button>
                         <button type="button" class="av-button av-button-outline" id="av-global-to-episodes-btn">
                             <span>Voltar aos Episódios</span>
                         </button>
@@ -170,6 +173,7 @@ function createWorkbench(host, initialModel, shared) {
     const globalInput = $('#av-global-score-input');
     const globalRange = $('.av-global-range');
     const globalSubmit = $('#av-global-submit-btn');
+    const globalRemoveBtn = $('#av-global-remove-btn');
     const globalFeedback = $('.av-global-feedback');
     const globalError = $('#av-global-score-error');
     const globalRailBtn = $('.av-rail-global-btn');
@@ -179,6 +183,11 @@ function createWorkbench(host, initialModel, shared) {
         root.style.setProperty('--av-rating-color', scoreColor(val).text);
         const valid = val !== undefined;
         globalSubmit.disabled = busy || model.readOnly || !valid || val === null;
+        const currentOverall = Number(rating().overall) > 0 ? Number(rating().overall) : null;
+        const hasAnyRatings = currentOverall !== null || Object.values(rating().episodeRatings || {}).some(s => Number(s) > 0);
+        if (globalRemoveBtn) {
+            globalRemoveBtn.disabled = busy || model.readOnly || !hasAnyRatings;
+        }
         globalInput.readOnly = model.readOnly;
         globalRange.disabled = model.readOnly;
         root.querySelectorAll('[data-global-step]').forEach((button) => {
@@ -463,6 +472,34 @@ function createWorkbench(host, initialModel, shared) {
 
     $('#av-global-to-episodes-btn')?.addEventListener('click', () => {
         switchMode('episode');
+    });
+
+    globalRemoveBtn?.addEventListener('click', async () => {
+        if (busy || model.readOnly) return;
+        const currentOverall = Number(rating().overall) > 0 ? Number(rating().overall) : null;
+        const hasAnyRatings = currentOverall !== null || Object.values(rating().episodeRatings || {}).some(s => Number(s) > 0);
+        if (!hasAnyRatings) return;
+
+        busy = true;
+        paintGlobal();
+        globalFeedback.textContent = 'Retirando nota da obra…';
+        try {
+            await model.general(null);
+            if (!disposed) {
+                globalInput.value = '';
+                globalRange.value = 5;
+                refreshRail();
+                refreshEditor();
+                globalFeedback.textContent = 'Nota da obra retirada com sucesso.';
+            }
+        } catch (err) {
+            if (!disposed) {
+                globalFeedback.textContent = 'Não foi possível retirar a nota. Tente novamente.';
+            }
+        } finally {
+            busy = false;
+            if (!disposed) paintGlobal();
+        }
     });
 
     globalInput?.addEventListener('input', () => paintGlobal());
