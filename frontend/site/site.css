@@ -2038,7 +2038,7 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
 
 
 /* ==========================================================================
-   AWWWARDS INTERACTION ARCHITECTURE: BUTTON HOVERS & MICRO-CHOREOGRAPHY
+   AWWWARDS INTERACTION ARCHITECTURE: BUTTON HOVERS & MICRO-CHOREOGRAPHY (v3.0)
    ========================================================================== */
 
 /* 1. PRIMARY EXECUTIVE ACTION BUTTON (+ Adicionar Anime) */
@@ -2046,35 +2046,24 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
     position: relative;
     overflow: hidden;
     isolation: isolate;
-    border-radius: 6px;
+    border-radius: 9999px;
     background: var(--av-ink);
-    color: var(--av-bg);
+    color: var(--av-bg) !important;
     font-family: var(--av-body);
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 600;
     text-transform: none;
-    letter-spacing: 0.015em;
+    letter-spacing: 0.03em;
     min-height: 44px;
-    padding: 10px 22px;
-    border: 1px solid transparent;
+    padding: 10px 24px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
     cursor: pointer;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.25);
     transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
                 background-color 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-                color 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-                border-color 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+                color 0.24s ease,
+                border-color 0.28s ease,
                 box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.av-app #open-add-anime::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: var(--av-accent, #ff4500);
-    transform: translate3d(0, 102%, 0);
-    transition: transform 0.34s cubic-bezier(0.16, 1, 0.3, 1);
-    z-index: 0;
-    pointer-events: none;
 }
 
 .av-app #open-add-anime::after {
@@ -2084,7 +2073,7 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
     left: -120%;
     width: 60%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.38), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
     transform: skewX(-25deg);
     transition: left 0.65s cubic-bezier(0.16, 1, 0.3, 1);
     z-index: 1;
@@ -2094,39 +2083,42 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
 .av-app #open-add-anime > * {
     position: relative;
     z-index: 2;
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.28s ease;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.24s ease;
 }
 
 .av-app #open-add-anime iconify-icon,
 .av-app #open-add-anime svg {
     display: inline-block;
     font-size: 14px;
-    transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+    color: var(--av-bg) !important;
+    stroke: currentColor;
+    transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), color 0.24s ease, stroke 0.24s ease;
 }
 
-@media (hover: hover) and (pointer: fine) {
-    .av-app #open-add-anime:hover {
-        transform: translateY(-2px);
-        color: #ffffff !important;
-        box-shadow: 0 10px 28px -4px rgba(255, 69, 0, 0.45),
-                    0 3px 10px rgba(0, 0, 0, 0.25),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.4);
-    }
-    .av-app #open-add-anime:hover::before {
-        transform: translate3d(0, 0, 0);
-    }
-    .av-app #open-add-anime:hover::after {
-        left: 160%;
-    }
-    .av-app #open-add-anime:hover iconify-icon,
-    .av-app #open-add-anime:hover svg {
-        transform: rotate(90deg) scale(1.18);
-        color: #ffffff !important;
-    }
-    .av-app #open-add-anime:hover span {
-        transform: translateX(2px);
-        color: #ffffff !important;
-    }
+.av-app #open-add-anime:hover {
+    transform: translateY(-2px);
+    background: var(--av-accent, #ff7957) !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 10px 28px -4px rgba(255, 69, 0, 0.48),
+                0 3px 10px rgba(0, 0, 0, 0.25),
+                inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.av-app #open-add-anime:hover::after {
+    left: 160%;
+}
+
+.av-app #open-add-anime:hover iconify-icon,
+.av-app #open-add-anime:hover svg {
+    transform: rotate(90deg) scale(1.18);
+    color: #ffffff !important;
+    stroke: #ffffff !important;
+}
+
+.av-app #open-add-anime:hover span {
+    transform: translateX(2px);
+    color: #ffffff !important;
 }
 
 .av-app #open-add-anime:active {
@@ -2139,7 +2131,7 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
     position: relative;
     overflow: hidden;
     isolation: isolate;
-    border-radius: 6px;
+    border-radius: 9999px;
     border: 1px solid var(--av-line);
     color: var(--av-ink);
     background: var(--av-surface, rgba(255, 255, 255, 0.03));
@@ -2147,24 +2139,14 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
     font-size: 12px;
     font-weight: 500;
     min-height: 44px;
-    padding: 10px 20px;
+    padding: 10px 22px;
     cursor: pointer;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
                 border-color 0.28s ease,
                 background-color 0.28s ease,
+                color 0.24s ease,
                 box-shadow 0.28s ease;
-}
-
-.av-app #toggle-filters-btn::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: var(--av-surface-hover, rgba(255, 255, 255, 0.08));
-    transform: translate3d(0, 102%, 0);
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    z-index: 0;
-    pointer-events: none;
 }
 
 .av-app #toggle-filters-btn > * {
@@ -2178,21 +2160,22 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
     transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@media (hover: hover) and (pointer: fine) {
-    .av-app #toggle-filters-btn:hover {
-        transform: translateY(-2px);
-        border-color: var(--av-ink);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-    }
-    .av-app #toggle-filters-btn:hover::before {
-        transform: translate3d(0, 0, 0);
-    }
-    .av-app #toggle-filters-btn:hover iconify-icon {
-        transform: rotate(-15deg) scale(1.18);
-    }
-    .av-app #toggle-filters-btn:hover span {
-        transform: translateX(2px);
-    }
+.av-app #toggle-filters-btn:hover {
+    transform: translateY(-2px);
+    border-color: var(--av-ink);
+    color: #ffffff !important;
+    background: var(--av-surface-hover, rgba(255, 255, 255, 0.1)) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.av-app #toggle-filters-btn:hover iconify-icon {
+    transform: rotate(-15deg) scale(1.18);
+    color: #ffffff !important;
+}
+
+.av-app #toggle-filters-btn:hover span {
+    transform: translateX(2px);
+    color: #ffffff !important;
 }
 
 .av-app #toggle-filters-btn:active {
@@ -2202,11 +2185,11 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
 /* 3. MAL CATEGORY TAB FILTERS (.mal-tab) */
 .av-app #grid-header-section .mal-tab {
     position: relative;
-    font: 11.5px/1.5 var(--av-body);
+    font: 12px/1.5 var(--av-body);
     text-transform: none;
     letter-spacing: 0.02em;
-    padding: 9px 18px;
-    min-height: 38px;
+    padding: 9px 20px;
+    min-height: 40px;
     border-radius: 9999px;
     color: var(--av-muted);
     border-bottom: 0 !important;
@@ -2215,17 +2198,15 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
     transition: color 0.24s ease, background-color 0.24s ease, transform 0.24s var(--av-ease), box-shadow 0.24s ease;
 }
 
-@media (hover: hover) and (pointer: fine) {
-    .av-app #grid-header-section .mal-tab:hover {
-        color: var(--av-ink) !important;
-        background: var(--av-surface-hover, rgba(255, 255, 255, 0.07));
-        transform: translateY(-1.5px);
-    }
+.av-app #grid-header-section .mal-tab:hover {
+    color: #ffffff !important;
+    background: var(--av-surface-hover, rgba(255, 255, 255, 0.08));
+    transform: translateY(-1.5px);
 }
 
 .av-app #grid-header-section .mal-tab.text-brand {
     color: #ffffff !important;
-    background: var(--av-accent, #ff4500) !important;
+    background: var(--av-accent, #ff7957) !important;
     box-shadow: 0 4px 18px rgba(255, 69, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.25);
     font-weight: 600;
 }
@@ -2249,22 +2230,21 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
                 box-shadow 0.26s ease;
 }
 
-@media (hover: hover) and (pointer: fine) {
-    .av-app #grid-header-section #sort-select-container > button:hover,
-    .av-app #status-select-container > button:hover,
-    .custom-select-trigger:hover {
-        transform: translateY(-2px);
-        border-color: var(--av-ink);
-        background: var(--av-surface-hover, rgba(255, 255, 255, 0.07));
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-    }
-    .av-app #grid-header-section #sort-select-container > button:hover iconify-icon,
-    .av-app #status-select-container > button:hover iconify-icon,
-    .custom-select-trigger:hover iconify-icon,
-    .custom-select-trigger:hover .select-chevron {
-        transform: translateY(2px) scale(1.1);
-        transition: transform 0.24s var(--av-ease);
-    }
+.av-app #grid-header-section #sort-select-container > button:hover,
+.av-app #status-select-container > button:hover,
+.custom-select-trigger:hover {
+    transform: translateY(-2px);
+    border-color: var(--av-ink);
+    background: var(--av-surface-hover, rgba(255, 255, 255, 0.08));
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.av-app #grid-header-section #sort-select-container > button:hover iconify-icon,
+.av-app #status-select-container > button:hover iconify-icon,
+.custom-select-trigger:hover iconify-icon,
+.custom-select-trigger:hover .select-chevron {
+    transform: translateY(2px) scale(1.1);
+    transition: transform 0.24s var(--av-ease);
 }
 
 /* 5. GENERAL .av-button SUITE */
@@ -2276,31 +2256,21 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
     display: inline-flex;
     justify-content: center;
     align-items: center;
-    gap: 16px;
+    gap: 14px;
     padding: 13px 26px;
     font-size: 13px;
     font-weight: 600;
     line-height: 1.4;
     border: 1px solid transparent;
-    border-radius: 6px;
+    border-radius: 8px;
     text-decoration: none;
     cursor: pointer;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-                background-color 0.28s ease,
-                color 0.28s ease,
+                background-color 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+                color 0.24s ease,
                 border-color 0.28s ease,
-                box-shadow 0.28s ease;
-}
-
-.av-button::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    transform: translate3d(0, 102%, 0);
-    transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+                box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .av-button::after {
@@ -2312,7 +2282,7 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
     height: 100%;
     background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
     transform: skewX(-25deg);
-    transition: left 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: left 0.65s cubic-bezier(0.16, 1, 0.3, 1);
     z-index: 1;
     pointer-events: none;
 }
@@ -2320,7 +2290,7 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
 .av-button > * {
     position: relative;
     z-index: 2;
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.24s ease;
 }
 
 .av-button svg,
@@ -2328,61 +2298,71 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
     width: 18px;
     height: 18px;
     flex: 0 0 auto;
-    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), color 0.24s ease, stroke 0.24s ease;
 }
 
 .av-button-solid {
     background: var(--av-ink);
-    color: var(--av-bg);
-}
-.av-button-solid::before {
-    background: var(--av-accent, #ff4500);
+    color: var(--av-bg) !important;
+    border: 1px solid transparent;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
 }
 
-@media (hover: hover) and (pointer: fine) {
-    .av-button-solid:hover {
-        transform: translateY(-2px);
-        color: #ffffff !important;
-        box-shadow: 0 10px 28px -4px rgba(255, 69, 0, 0.42), 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-    }
-    .av-button-solid:hover::before {
-        transform: translate3d(0, 0, 0);
-    }
-    .av-button-solid:hover::after {
-        left: 160%;
-    }
-    .av-button-solid:hover svg,
-    .av-button-solid:hover iconify-icon {
-        transform: translateX(4px);
-        color: #ffffff;
-    }
-    .av-button-solid:hover span {
-        color: #ffffff;
-    }
+.av-button-solid svg,
+.av-button-solid iconify-icon {
+    color: var(--av-bg) !important;
+    stroke: currentColor;
+}
+
+.av-button-solid:hover {
+    transform: translateY(-2px);
+    background: var(--av-accent, #ff7957) !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 10px 28px -4px rgba(255, 69, 0, 0.45), 0 3px 10px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.av-button-solid:hover::after {
+    left: 160%;
+}
+
+.av-button-solid:hover svg,
+.av-button-solid:hover iconify-icon {
+    transform: translateX(4px);
+    color: #ffffff !important;
+    stroke: #ffffff !important;
+}
+
+.av-button-solid:hover span {
+    color: #ffffff !important;
+}
+
+.av-button-solid:active {
+    transform: translateY(0) scale(0.97) !important;
 }
 
 .av-button-outline {
-    background: var(--av-surface, rgba(255, 255, 255, 0.025));
-    border-color: var(--av-line);
-    color: var(--av-ink);
-}
-.av-button-outline::before {
-    background: var(--av-surface-hover, rgba(255, 255, 255, 0.08));
+    background: var(--av-surface, rgba(255, 255, 255, 0.03));
+    border: 1px solid var(--av-line);
+    color: var(--av-ink) !important;
 }
 
-@media (hover: hover) and (pointer: fine) {
-    .av-button-outline:hover {
-        transform: translateY(-2px);
-        border-color: var(--av-ink);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-    }
-    .av-button-outline:hover::before {
-        transform: translate3d(0, 0, 0);
-    }
-    .av-button-outline:hover svg,
-    .av-button-outline:hover iconify-icon {
-        transform: scale(1.15);
-    }
+.av-button-outline:hover {
+    transform: translateY(-2px);
+    border-color: var(--av-ink);
+    background: var(--av-surface-hover, rgba(255, 255, 255, 0.09)) !important;
+    color: #ffffff !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.av-button-outline:hover svg,
+.av-button-outline:hover iconify-icon {
+    transform: scale(1.15);
+    color: #ffffff !important;
+}
+
+.av-button-outline:hover span {
+    color: #ffffff !important;
 }
 
 .av-button:active {
@@ -2396,17 +2376,19 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
                 border-color 0.24s ease,
                 box-shadow 0.24s ease;
 }
-@media (hover: hover) and (pointer: fine) {
-    #detail-set-featured-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(255, 69, 0, 0.28);
-    }
-    #detail-set-featured-btn:hover iconify-icon {
-        transform: rotate(-18deg) scale(1.2);
-        display: inline-block;
-        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    }
+
+#detail-set-featured-btn:hover {
+    transform: translateY(-2px);
+    border-color: var(--av-accent, #ff7957);
+    box-shadow: 0 6px 20px rgba(255, 69, 0, 0.35);
 }
+
+#detail-set-featured-btn:hover iconify-icon {
+    transform: rotate(-18deg) scale(1.2);
+    display: inline-block;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 #detail-set-featured-btn:active {
     transform: translateY(0) scale(0.96);
 }
@@ -2418,27 +2400,31 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
                 border-color 0.24s ease,
                 box-shadow 0.24s ease;
 }
-@media (hover: hover) and (pointer: fine) {
-    #detail-edit-anime-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(255, 255, 255, 0.15);
-    }
-    #detail-edit-anime-btn:hover iconify-icon {
-        transform: rotate(15deg) scale(1.15);
-        display: inline-block;
-        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    #detail-delete-anime-btn:hover {
-        transform: translateY(-2px);
-        border-color: #ef4444;
-        box-shadow: 0 6px 20px rgba(239, 68, 68, 0.28);
-    }
-    #detail-delete-anime-btn:hover iconify-icon {
-        transform: scale(1.2);
-        display: inline-block;
-        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    }
+
+#detail-edit-anime-btn:hover {
+    transform: translateY(-2px);
+    border-color: var(--av-ink);
+    box-shadow: 0 6px 20px rgba(255, 255, 255, 0.15);
 }
+
+#detail-edit-anime-btn:hover iconify-icon {
+    transform: rotate(15deg) scale(1.15);
+    display: inline-block;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#detail-delete-anime-btn:hover {
+    transform: translateY(-2px);
+    border-color: #ef4444;
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.35);
+}
+
+#detail-delete-anime-btn:hover iconify-icon {
+    transform: scale(1.2);
+    display: inline-block;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 #detail-edit-anime-btn:active,
 #detail-delete-anime-btn:active {
     transform: translateY(0) scale(0.96);
@@ -2451,18 +2437,19 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
                 background-color 0.24s ease,
                 box-shadow 0.24s ease;
 }
-@media (hover: hover) and (pointer: fine) {
-    .theme-toggle:hover {
-        transform: translateY(-2px);
-        border-color: var(--av-ink);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-    }
-    .theme-toggle:hover [data-theme-symbol] {
-        transform: rotate(35deg) scale(1.2);
-        display: inline-block;
-        transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-    }
+
+.theme-toggle:hover {
+    transform: translateY(-2px);
+    border-color: var(--av-ink);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
+
+.theme-toggle:hover [data-theme-symbol] {
+    transform: rotate(35deg) scale(1.2);
+    display: inline-block;
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .theme-toggle:active {
     transform: translateY(0) scale(0.96);
 }
@@ -2473,27 +2460,30 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
                 background-color 0.24s ease,
                 box-shadow 0.24s ease;
 }
-@media (hover: hover) and (pointer: fine) {
-    #profile-indicator:hover {
-        transform: translateY(-2px);
-        border-color: rgba(255, 255, 255, 0.32);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 0 16px rgba(255, 69, 0, 0.18);
-    }
-    #profile-indicator:hover #active-avatar {
-        transform: scale(1.1);
-        display: inline-block;
-        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    #profile-indicator:hover .select-chevron {
-        transform: translateY(2px);
-    }
+
+#profile-indicator:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.35);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 0 16px rgba(255, 69, 0, 0.25);
 }
+
+#profile-indicator:hover #active-avatar {
+    transform: scale(1.1);
+    display: inline-block;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#profile-indicator:hover .select-chevron {
+    transform: translateY(2px);
+}
+
 #profile-indicator:active {
     transform: translateY(0) scale(0.97);
 }
 
 /* 8. MODAL CLOSE BUTTONS */
 .close-modal,
+.av-account-close,
 .av-stats-close-btn,
 #close-admin-center,
 #close-backup-center,
@@ -2503,17 +2493,17 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
                 border-color 0.2s ease,
                 color 0.2s ease;
 }
-@media (hover: hover) and (pointer: fine) {
-    .close-modal:hover,
-    .av-stats-close-btn:hover,
-    #close-admin-center:hover,
-    #close-backup-center:hover,
-    #close-activity-history:hover {
-        transform: rotate(90deg) scale(1.12);
-        background-color: rgba(255, 255, 255, 0.15);
-        border-color: var(--av-ink);
-        color: #ffffff;
-    }
+
+.close-modal:hover,
+.av-account-close:hover,
+.av-stats-close-btn:hover,
+#close-admin-center:hover,
+#close-backup-center:hover,
+#close-activity-history:hover {
+    transform: rotate(90deg) scale(1.12);
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: var(--av-ink);
+    color: #ffffff !important;
 }
 
 /* 9. BACKUP & SYSTEM ACTIONS */
@@ -2525,18 +2515,19 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
                 box-shadow 0.24s ease,
                 border-color 0.24s ease;
 }
-@media (hover: hover) and (pointer: fine) {
-    #admin-create-backup:hover,
-    #export-backup-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(255, 255, 255, 0.25);
-    }
-    #import-backup-btn:hover {
-        transform: translateY(-2px);
-        border-color: var(--av-ink);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-    }
+
+#admin-create-backup:hover,
+#export-backup-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(255, 255, 255, 0.25);
 }
+
+#import-backup-btn:hover {
+    transform: translateY(-2px);
+    border-color: var(--av-ink);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
 #admin-create-backup:active,
 #export-backup-btn:active,
 #import-backup-btn:active {
