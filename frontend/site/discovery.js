@@ -78,7 +78,7 @@ function renderFeatured(container, model, actions) {
             <h1 class="av-hero-title${anime.title.length > 34 ? ' av-hero-title-long' : ''}" data-av-reveal>${e(anime.title)}</h1>
             <div class="av-hero-subline"><span>${e(anime.studio || 'Estúdio não informado')}</span><span>${total === 1 ? 'Filme' : total ? total + ' episódios' : 'Em lançamento'}</span></div>
             <p class="av-hero-synopsis">${e(anime.synopsis || '')}</p>
-            <div class="av-hero-actions"><a class="av-button av-button-solid" href="#obra/${encodeURIComponent(anime.id)}" data-open>Entrar na obra ${arrow()}</a><a class="av-text-link" href="#anime-grid-section" data-catalog>Explorar acervo <span>↓</span></a></div>
+            <div class="av-hero-actions"><a class="av-button av-button-solid" href="#obra/${encodeURIComponent(anime.id)}" data-open><span>Entrar na obra</span> ${arrow()}</a><a class="av-text-link" href="#anime-grid-section" data-catalog><span>Explorar acervo</span> <span>↓</span></a></div>
             <div class="av-hero-rating"><div>${scoreMarkup(rating?.overall)}<span>${e(model.ratingLabel || 'Sua nota')}</span></div><span class="av-vertical-line"></span><div>${scoreMarkup(groupScore)}<span>Média do grupo</span></div><p><span class="av-card-status-badge av-status-${heroStatusKey}"><span class="av-status-dot${heroStatusKey === 'watching' ? ' av-status-dot-pulse' : ''}" aria-hidden="true"></span><span class="av-status-text">${e(heroDisplayStatus)}</span></span><span>${watched} de ${total || '?'} ${total === 1 ? 'filme' : 'episódios'}</span></p></div>
         </div>
         <div class="av-hero-art">
