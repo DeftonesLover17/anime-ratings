@@ -7,6 +7,9 @@ test('studio presentation resolves local logo aliases and keeps descriptions', (
     assert.equal(studios.findLogoInMap('Tokyo Movie Shinsha', studios.STUDIO_LOGOS), 'logos/tokyo_movie_shinsha.png');
     assert.match(studios.getStudioDescription('Trigger', [{ title: 'Cyberpunk: Edgerunners II' }]), /Cyberpunk: Edgerunners II/);
     assert.equal(studios.STUDIO_BRAND_COLORS.Trigger.text, '#e63946');
+    assert.equal(studios.findLogoInMap('Doga Kobo', studios.STUDIO_LOGOS), 'logos/doga_kobo.png');
+    assert.equal(studios.findLogoInMap('dogakobo', studios.STUDIO_LOGOS), 'logos/doga_kobo.png');
+    assert.equal(studios.STUDIO_BRAND_COLORS['Doga Kobo'].text, '#ff3333');
 });
 
 test('studio presentation only accepts the existing safe logo URL formats', () => {

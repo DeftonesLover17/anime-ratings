@@ -16,6 +16,12 @@ const verifiedStudios = new Map([
     ['Cyberpunk: Edgerunners 2', 'Trigger'],
     ['サイバーパンク: エッジランナーズ II', 'Trigger'],
     ['サイバーパンク: エッジランナーズ 2', 'Trigger'],
+    ['Oshi no Ko', 'Doga Kobo'],
+    ['[Oshi no Ko]', 'Doga Kobo'],
+    ['【推しの子】', 'Doga Kobo'],
+    ['Oshi no Ko Season 2', 'Doga Kobo'],
+    ['[Oshi no Ko] Season 2', 'Doga Kobo'],
+    ['【推しの子】第2期', 'Doga Kobo'],
 ].map(([title, studio]) => [titleKey(title), studio]));
 
 function verifiedStudio(...titles) {
@@ -69,6 +75,7 @@ function standardStudioName(name) {
         'studiom2': 'Studio M2',
         'asread': 'Asread',
         'paworks': 'P.A. Works',
+        'dogakobo': 'Doga Kobo',
         'cloverworks': 'CloverWorks',
         'a1pictures': 'A-1 Pictures',
         'productionig': 'Production I.G',

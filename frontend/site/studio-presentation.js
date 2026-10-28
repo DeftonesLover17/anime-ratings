@@ -51,7 +51,10 @@ const STUDIO_LOGOS = {
     'asread.': 'logos/asread.png',
     'P.A. Works': 'logos/p_a_works.png',
     'P.A.Works': 'logos/p_a_works.png',
-    'PA Works': 'logos/p_a_works.png'
+    'PA Works': 'logos/p_a_works.png',
+    'Doga Kobo': 'logos/doga_kobo.png',
+    'DOGA KOBO': 'logos/doga_kobo.png',
+    'Dogakobo': 'logos/doga_kobo.png'
 };
 
 function normalizeStudioName(name) {
@@ -123,7 +126,8 @@ const STUDIO_BRAND_COLORS = {
     'Studio M2':          { border: 'rgba(255, 255, 255, 0.32)', glow: 'rgba(255, 255, 255, 0.12)', text: '#f5f5f5' },
     'Asread':             { border: 'rgba(0, 112, 74, 0.4)', glow: 'rgba(0, 112, 74, 0.15)', text: '#00704a' },
     'asread':             { border: 'rgba(0, 112, 74, 0.4)', glow: 'rgba(0, 112, 74, 0.15)', text: '#00704a' },
-    'asread.':            { border: 'rgba(0, 112, 74, 0.4)', glow: 'rgba(0, 112, 74, 0.15)', text: '#00704a' }
+    'asread.':            { border: 'rgba(0, 112, 74, 0.4)', glow: 'rgba(0, 112, 74, 0.15)', text: '#00704a' },
+    'Doga Kobo':          { border: 'rgba(255, 51, 51, 0.4)', glow: 'rgba(255, 51, 51, 0.15)', text: '#ff3333' }
 };
 
 module.exports = { getStudioDescription, STUDIO_LOGOS, normalizeStudioLookupKey, sanitizeStudioLogoUrl, findLogoInMap, STUDIO_BRAND_COLORS };
