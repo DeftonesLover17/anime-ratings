@@ -101,7 +101,7 @@ function createAnimeLogoDiscovery({ request = (...args) => fetch(...args), probe
         const names = [input.title, input.japaneseTitle].filter(title => typeof title === 'string' && title.trim() && title !== 'N/A');
         const keys = titleKeys(names);
         let mal = numericId(input.malId || input.mal_id);
-        const kitsu = numericId(input.kitsuId || input.kitsu_id);
+        let kitsu = numericId(input.kitsuId || input.kitsu_id);
         if (!mal && !kitsu && names.length) {
             const data = await json(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(names[0])}&limit=3&sfw=true`, signal);
             const match = matchingJikanAnime(data?.data, keys);
@@ -109,6 +109,20 @@ function createAnimeLogoDiscovery({ request = (...args) => fetch(...args), probe
                 mal = String(match.mal_id);
                 for (const name of [match.title, match.title_english, match.title_japanese]) {
                     if (typeof name === 'string' && name) { keys.add(normalizeAnimeLogoKey(name)); names.push(name); }
+                }
+            } else if (!signal.aborted) {
+                const kitsuData = await json(`https://kitsu.io/api/edge/anime?filter[text]=${encodeURIComponent(names[0])}&page[limit]=5`, signal);
+                const kitsuMatches = (Array.isArray(kitsuData?.data) ? kitsuData.data : []).filter(item => {
+                    const attrs = item?.attributes || {};
+                    const titles = [attrs.canonicalTitle, attrs.titles?.en, attrs.titles?.en_jp, attrs.titles?.ja_jp].filter(Boolean);
+                    return titles.some(t => keys.has(normalizeAnimeLogoKey(t)));
+                });
+                if (kitsuMatches.length === 1 || (kitsuMatches.length > 1 && new Set(kitsuMatches.map(m => m.id)).size === 1)) {
+                    kitsu = numericId(kitsuMatches[0].id);
+                    const attrs = kitsuMatches[0].attributes || {};
+                    for (const t of [attrs.canonicalTitle, attrs.titles?.en, attrs.titles?.en_jp, attrs.titles?.ja_jp]) {
+                        if (typeof t === 'string' && t) { keys.add(normalizeAnimeLogoKey(t)); names.push(t); }
+                    }
                 }
             }
         }
@@ -144,9 +158,16 @@ function createAnimeLogoDiscovery({ request = (...args) => fetch(...args), probe
                     imdbId(meta.id || meta.imdb_id) && keys.has(normalizeAnimeLogoKey(meta.name)) &&
                     (!Array.isArray(meta.genres) || !meta.genres.length || meta.genres.some(genre => /^(?:animation|anime)$/i.test(genre))) &&
                     (!input.year || !meta.releaseInfo || String(meta.releaseInfo).startsWith(String(input.year))));
+                let chosenId = '';
                 const ids = new Set(matches.map(meta => imdbId(meta.id || meta.imdb_id)));
-                if (ids.size !== 1) continue;
-                const found = await candidate(toWeservClearlogoUrl(`https://images.metahub.space/logo/medium/${[...ids][0]}/img`), signal);
+                if (ids.size === 1) {
+                    chosenId = [...ids][0];
+                } else if (ids.size > 1) {
+                    const exact = matches.find(m => names.some(n => n.toLowerCase() === String(m.name || '').toLowerCase()));
+                    chosenId = imdbId(exact?.id || exact?.imdb_id || matches[0]?.id || matches[0]?.imdb_id);
+                }
+                if (!chosenId) continue;
+                const found = await candidate(toWeservClearlogoUrl(`https://images.metahub.space/logo/medium/${chosenId}/img`), signal);
                 if (found || signal.aborted) return found;
             }
         }
