@@ -18,6 +18,7 @@ const { createAccountAccess } = require('../account/access');
 const { createAccountStorage } = require('../account/storage');
 const { createLoginClient } = require('../account/login-client');
 const { bindLoginForm } = require('../account/login-form');
+const { bindRegistrationGateView } = require('../account/gate-view');
 const { createRecoveryController } = require('../account/recovery');
 const { createWelcomeEmail } = require('../account/welcome-email');
 const { createDesignUpdate } = require('../account/design-update');
@@ -81,5 +82,6 @@ window.AnivoidUI = {
 };
 theme.install();
 motion.install();
+bindRegistrationGateView(window);
 installDomActions(window);
 recovery.install();
