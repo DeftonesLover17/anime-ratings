@@ -3668,8 +3668,14 @@ function initUI() {
     const currentFriend = state.getCurrentFriend();
     if (currentFriend) {
         applyUserThemeColor(currentFriend.color || '#ff7957');
+        if (window.AnivoidUI?.applyUserBackground) {
+            window.AnivoidUI.applyUserBackground(currentFriend.id);
+        }
     } else {
         applyUserThemeColor('#ff7957');
+        if (window.AnivoidUI?.applyUserBackground) {
+            window.AnivoidUI.applyUserBackground('');
+        }
     }
     updateProfileIndicator();
     renderFriendsDropdown();
@@ -3897,6 +3903,9 @@ function renderFriendsDropdown() {
         state.currentFriendId = friend.id;
         state.save();
         applyUserThemeColor(friend.color || '#ff7957');
+        if (window.AnivoidUI?.applyUserBackground) {
+            window.AnivoidUI.applyUserBackground(friend.id);
+        }
         updateProfileIndicator();
         renderFriendsDropdown();
         renderAnimeGrid();
@@ -5922,6 +5931,7 @@ function setupEditProfileModal() {
     const newPasswordInput = document.getElementById('edit-profile-new-password');
     let profileForm;
     let originalUserColor = '#ff7957';
+    let originalUserBackground = '';
     const signOutAllBtn = document.getElementById('edit-profile-signout-all');
 
     if (!modal || !form) return;
@@ -5932,6 +5942,9 @@ function setupEditProfileModal() {
         if (currentPasswordInput) currentPasswordInput.value = '';
         if (newPasswordInput) newPasswordInput.value = '';
         applyUserThemeColor(originalUserColor);
+        if (window.AnivoidUI?.setBackground) {
+            window.AnivoidUI.setBackground(originalUserBackground, false);
+        }
         modal.classList.add('hidden');
         modal.classList.remove('flex');
         document.body.classList.remove('overflow-hidden');
@@ -6179,6 +6192,10 @@ function setupEditProfileModal() {
                 syncAvatarPreview(user.avatar || '👤');
                 originalUserColor = user.color || '#ff7957';
                 syncThemeColor(originalUserColor);
+                const userClean = (user.username || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                originalUserBackground = localStorage.getItem('anivoid_background_' + userClean)
+                    ?? localStorage.getItem('anivoid_background')
+                    ?? '';
 
                 if (previewName) previewName.textContent = user.username;
                 if (previewBadge) previewBadge.innerHTML = getUserBadgesHtml(user);
@@ -6244,6 +6261,12 @@ function setupEditProfileModal() {
             state.loadLocalSession();
             originalUserColor = data.user?.color || colorInput?.value || '#ff7957';
             applyUserThemeColor(originalUserColor);
+            const currentBg = localStorage.getItem('anivoid_background') || '';
+            const userClean = (data.user?.username || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (userClean) {
+                localStorage.setItem('anivoid_background_' + userClean, currentBg);
+            }
+            originalUserBackground = currentBg;
             closeModal();
             initUI();
             showToast('Perfil atualizado', data.credentialsChanged ? 'Dados de acesso atualizados e sessão confirmada.' : 'Suas alterações foram salvas.', '✓', '#22c55e');

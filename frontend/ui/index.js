@@ -76,6 +76,8 @@ window.AnivoidUI = {
     site: createSite(window, motion.animate),
     readTheme: theme.readTheme,
     setTheme: theme.setTheme,
+    setBackground: theme.setBackground,
+    applyUserBackground: theme.applyUserBackground,
     animate: motion.animate,
     cancel: motion.cancel,
     cancelAll: motion.cancelAll
