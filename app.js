@@ -680,9 +680,11 @@ class AppState {
                                 pushNotification({
                                     type: 'friend_request',
                                     title: 'Solicitacao de amizade',
-                                    message: `${r.from} te enviou um convite.`,
+                                    message: `${r.from} quer te adicionar.`,
+                                    from: r.from,
+                                    recipient: this.loggedInUser,
                                     color: '#FF4500',
-                                    timestamp: r.createdAt || new Date().toISOString()
+                                    timestamp: r.createdAt || r.timestamp || new Date().toISOString()
                                 });
                                 const sender = serverState.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === r.from.toLowerCase()) || { avatar: '👤', color: '#FF4500' };
                                 showToast('Solicitação de Amizade 🤝', `**${r.from}** te enviou um convite!`, sender.avatar, sender.color);
@@ -1682,6 +1684,7 @@ const projectUI = window.AnivoidUI?.site.connect({
     status: renderDetailStatus
 });
 
+try { localStorage.removeItem('anivoid_notifications_v1'); } catch(_) {}
 const NOTIFICATIONS_KEY = 'anivoid_notifications_v1';
 
 function escapeHtml(value) {
@@ -1768,27 +1771,62 @@ function getProfileStats(profileId = state.currentFriendId) {
 }
 
 
+function getNotificationsStorageKey(user) {
+    const raw = user || (window.__anivoidState && window.__anivoidState.loggedInUser) || localStorage.getItem('anivoid_logged_in_username') || '';
+    const clean = raw ? raw.toLowerCase().replace(/[^a-z0-9]/g, '') : 'guest';
+    return `anivoid_notifications_v2_${clean}`;
+}
+
 function getStoredNotifications() {
     try {
-        const items = JSON.parse(localStorage.getItem(NOTIFICATIONS_KEY)) || [];
-        return Array.isArray(items) ? items : [];
+        const currentUser = (window.__anivoidState && window.__anivoidState.loggedInUser) || localStorage.getItem('anivoid_logged_in_username') || '';
+        if (!currentUser) return [];
+        const currentClean = currentUser.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const key = getNotificationsStorageKey(currentUser);
+        const items = JSON.parse(localStorage.getItem(key)) || [];
+        return (Array.isArray(items) ? items : []).filter(item => {
+            if (!item) return false;
+            if (item.recipient) {
+                return item.recipient.toLowerCase().replace(/[^a-z0-9]/g, '') === currentClean;
+            }
+            return true;
+        });
     } catch (err) {
         return [];
     }
 }
 
 function setStoredNotifications(items) {
-    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify((items || []).slice(0, 100)));
+    const currentUser = (window.__anivoidState && window.__anivoidState.loggedInUser) || localStorage.getItem('anivoid_logged_in_username') || '';
+    if (!currentUser) return;
+    const currentClean = currentUser.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const key = getNotificationsStorageKey(currentUser);
+    const scoped = (items || []).map(item => ({
+        ...item,
+        recipient: item.recipient || currentClean
+    })).slice(0, 100);
+    localStorage.setItem(key, JSON.stringify(scoped));
 }
 
 function pushNotification(notification) {
     if (!notification || !notification.title) return;
+    const currentUser = (window.__anivoidState && window.__anivoidState.loggedInUser) || localStorage.getItem('anivoid_logged_in_username') || '';
+    if (!currentUser) return;
+    const currentClean = currentUser.toLowerCase().replace(/[^a-z0-9]/g, '');
+    
+    // Strict isolation: if recipient is specified and is not the current user, drop it immediately
+    if (notification.recipient) {
+        const targetClean = String(notification.recipient).toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (targetClean !== currentClean) return;
+    }
+    
     const items = getStoredNotifications();
     const timestamp = notification.timestamp || new Date().toISOString();
     const dedupeKey = [
         notification.type || 'system',
         notification.title,
         notification.message || '',
+        notification.from || '',
         notification.animeId || '',
         timestamp.slice(0, 16)
     ].join('|');
@@ -1798,11 +1836,13 @@ function pushNotification(notification) {
         type: notification.type || 'system',
         title: notification.title,
         message: notification.message || '',
+        from: notification.from || (notification.message ? notification.message.replace(/\s+quer te adicionar.*$/i, '').trim() : ''),
         avatar: notification.avatar || 'bell',
         color: notification.color || '#FF4500',
         animeId: notification.animeId || '',
         timestamp,
         read: false,
+        recipient: currentClean,
         dedupeKey
     });
     setStoredNotifications(items);
@@ -1811,6 +1851,9 @@ function pushNotification(notification) {
 
 function mergeServerNotifications(notifications = []) {
     if (!Array.isArray(notifications) || notifications.length === 0) return;
+    const currentUser = (window.__anivoidState && window.__anivoidState.loggedInUser) || localStorage.getItem('anivoid_logged_in_username') || '';
+    if (!currentUser) return;
+    const currentClean = currentUser.toLowerCase().replace(/[^a-z0-9]/g, '');
     const existing = getStoredNotifications();
     const existingByServerId = new Map(existing.filter(item => item.serverId).map(item => [item.serverId, item]));
     const existingByDedupe = new Map(existing.filter(item => item.dedupeKey).map(item => [item.dedupeKey, item]));
@@ -1824,6 +1867,7 @@ function mergeServerNotifications(notifications = []) {
             notification.type || 'system',
             notification.title,
             notification.message || '',
+            notification.from || '',
             notification.animeId || '',
             timestamp.slice(0, 16)
         ].join('|');
@@ -1835,11 +1879,13 @@ function mergeServerNotifications(notifications = []) {
             type: notification.type || 'system',
             title: notification.title,
             message: notification.message || '',
+            from: notification.from || (notification.message ? notification.message.replace(/\s+quer te adicionar.*$/i, '').trim() : ''),
             avatar: notification.avatar || 'bell',
             color: notification.color || '#FF4500',
             animeId: notification.animeId || '',
             timestamp,
             read: Boolean(notification.read),
+            recipient: currentClean,
             dedupeKey
         });
     });
@@ -2150,6 +2196,11 @@ function renderNotificationsModal() {
         return;
     }
 
+    let registeredUsers = [];
+    try { registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || []; } catch (_) {}
+    const loggedInUsername = localStorage.getItem('anivoid_logged_in_username') || '';
+    const curUser = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === loggedInUsername.toLowerCase());
+
     list.innerHTML = items.map(item => {
         const color = item.color || '#FF4500';
         let timeText = '';
@@ -2177,8 +2228,47 @@ function renderNotificationsModal() {
             </span>
         ` : '';
 
+        let friendActionsHtml = '';
+        if (item.type === 'friend_request') {
+            const rawFrom = item.from || (item.message ? item.message.replace(/\s+quer te adicionar.*$/i, '').trim() : '');
+            const cleanFrom = escapeHtml(rawFrom);
+            const isAlreadyFriend = curUser && curUser.friends && curUser.friends.some(f => f && f.toLowerCase() === rawFrom.toLowerCase());
+
+            if (item.resolved === 'accepted' || isAlreadyFriend) {
+                friendActionsHtml = `
+                    <div class="av-notif-friend-actions mt-2.5 flex items-center gap-2">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M20 6 9 17l-5-5"/></svg>
+                            <span>Amigos</span>
+                        </span>
+                    </div>
+                `;
+            } else if (item.resolved === 'declined') {
+                friendActionsHtml = `
+                    <div class="av-notif-friend-actions mt-2.5 flex items-center gap-2">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono text-gray-400 bg-white/5 border border-white/10">
+                            <span>Solicitação recusada</span>
+                        </span>
+                    </div>
+                `;
+            } else {
+                friendActionsHtml = `
+                    <div class="av-notif-friend-actions mt-2.5 flex items-center gap-2 select-none">
+                        <button type="button" class="btn-notif-accept inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500 text-white hover:bg-emerald-600 active:scale-95 transition-all cursor-pointer shadow-[0_2px_10px_rgba(16,185,129,0.3)]" data-from="${cleanFrom}" data-notif-id="${escapeHtml(item.id)}">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5"><path d="M20 6 9 17l-5-5"/></svg>
+                            <span>Aceitar</span>
+                        </button>
+                        <button type="button" class="btn-notif-decline inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-mono text-gray-400 hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer border border-white/10" data-from="${cleanFrom}" data-notif-id="${escapeHtml(item.id)}">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                            <span>Recusar</span>
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
         return `
-            <button type="button" class="notification-row av-notification-card ${item.read ? 'is-read' : 'is-unread'}" style="--note-color:${color}" ${actionAttr}>
+            <div class="notification-row av-notification-card ${item.read ? 'is-read' : 'is-unread'} ${item.animeId ? 'cursor-pointer' : ''}" style="--note-color:${color}" ${actionAttr}>
                 <div class="av-notif-icon-box" style="color:${color}; border-color:${color}44; box-shadow:0 0 16px ${color}22">
                     ${iconSvg}
                 </div>
@@ -2191,15 +2281,71 @@ function renderNotificationsModal() {
                         </span>
                     </div>
                     <p class="av-notif-message">${escapeHtml(item.message)}</p>
+                    ${friendActionsHtml}
                     ${linkHint}
                 </div>
                 ${item.read ? '' : `<span class="av-notif-unread-dot" style="background:${color}; box-shadow:0 0 10px ${color}"></span>`}
-            </button>
+            </div>
         `;
     }).join('');
 
+    list.querySelectorAll('.btn-notif-accept').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const fromUsername = btn.dataset.from;
+            const notifId = btn.dataset.notifId;
+            if (!fromUsername) return;
+            btn.disabled = true;
+            btn.innerHTML = `<iconify-icon icon="lucide:loader-2" class="animate-spin text-xs"></iconify-icon><span>Aceitando...</span>`;
+            const res = await state.respondFriendRequest(fromUsername, 'accept');
+            if (res && res.error) {
+                alert(res.error);
+                renderNotificationsModal();
+            } else {
+                const stored = getStoredNotifications();
+                const targetNotif = stored.find(n => n.id === notifId);
+                if (targetNotif) {
+                    targetNotif.read = true;
+                    targetNotif.resolved = 'accepted';
+                    setStoredNotifications(stored);
+                }
+                window.AnivoidUI.notices.friendship(`Agora você e ${fromUsername} são amigos!`);
+                await state.save();
+                renderNotificationsModal();
+                if (typeof renderCentralDeAmigos === 'function') renderCentralDeAmigos();
+                if (typeof renderFriendsDropdown === 'function') renderFriendsDropdown();
+            }
+        });
+    });
+
+    list.querySelectorAll('.btn-notif-decline').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const fromUsername = btn.dataset.from;
+            const notifId = btn.dataset.notifId;
+            if (!fromUsername) return;
+            btn.disabled = true;
+            const res = await state.respondFriendRequest(fromUsername, 'decline');
+            if (res && res.error) {
+                alert(res.error);
+            } else {
+                const stored = getStoredNotifications();
+                const targetNotif = stored.find(n => n.id === notifId);
+                if (targetNotif) {
+                    targetNotif.read = true;
+                    targetNotif.resolved = 'declined';
+                    setStoredNotifications(stored);
+                }
+                await state.save();
+                renderNotificationsModal();
+                if (typeof renderCentralDeAmigos === 'function') renderCentralDeAmigos();
+            }
+        });
+    });
+
     list.querySelectorAll('.notification-row[data-anime-id]').forEach(row => {
-        row.addEventListener('click', () => {
+        row.addEventListener('click', (e) => {
+            if (e.target.closest('button')) return;
             const animeId = row.dataset.animeId;
             if (window.closeNotificationsModal) {
                 window.closeNotificationsModal();

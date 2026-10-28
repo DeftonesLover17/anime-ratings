@@ -23,7 +23,7 @@ function createAccountSession(browser, storage = browser.localStorage) {
             } catch {}
         }
         for (const key of storage.keys?.() || []) {
-            if (key.startsWith('anivoid_sync_base:')) storage.removeItem(key);
+            if (key.startsWith('anivoid_sync_base:') || key.startsWith('anivoid_notifications_v2_')) storage.removeItem(key);
         }
     }
     async function post(path, body = {}) {
