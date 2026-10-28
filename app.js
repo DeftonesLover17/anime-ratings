@@ -2003,7 +2003,7 @@ function updateModalScrollLock() {
     if (typeof document === 'undefined') return;
     const hasActiveModal = Boolean(
         document.querySelector(
-            '#edit-profile-modal:not(.hidden), #player-profile-modal:not(.hidden), #group-stats-modal:not(.hidden), #notifications-modal:not(.hidden), #activity-history-modal:not(.hidden), #admin-modal:not(.hidden), #backup-modal:not(.hidden), #security-notice-modal:not(.hidden), #add-anime-modal:not(.hidden), #add-friend-modal:not(.hidden), #registration-gate:not(.hidden), dialog[open]'
+            '#edit-profile-modal:not(.hidden), #player-profile-modal:not(.hidden), #group-stats-modal:not(.hidden), #notifications-modal:not(.hidden), #activity-history-modal:not(.hidden), #admin-modal:not(.hidden), #backup-modal:not(.hidden), #add-anime-modal:not(.hidden), #add-friend-modal:not(.hidden), #registration-gate:not(.hidden), dialog[open]'
         )
     );
     if (hasActiveModal) {
@@ -3288,7 +3288,6 @@ function initMotionSuite() {
         '#notifications-modal',
         '#friends-dropdown',
         '#registration-gate',
-        '#security-notice-modal',
         '#activity-history-modal',
         '#admin-modal',
         '#backup-modal',
@@ -3322,7 +3321,7 @@ function initMotionSuite() {
                 prevent: (node) => {
                     if (!node || typeof node.closest !== 'function') return false;
                     const activeModal = node.closest(
-                        '#edit-profile-modal:not(.hidden), #player-profile-modal:not(.hidden), #group-stats-modal:not(.hidden), #notifications-modal:not(.hidden), #activity-history-modal:not(.hidden), #admin-modal:not(.hidden), #backup-modal:not(.hidden), #security-notice-modal:not(.hidden), #add-anime-modal:not(.hidden), #add-friend-modal:not(.hidden)'
+                        '#edit-profile-modal:not(.hidden), #player-profile-modal:not(.hidden), #group-stats-modal:not(.hidden), #notifications-modal:not(.hidden), #activity-history-modal:not(.hidden), #admin-modal:not(.hidden), #backup-modal:not(.hidden), #add-anime-modal:not(.hidden), #add-friend-modal:not(.hidden)'
                     );
                     if (activeModal) return true;
                     return Boolean(
@@ -3506,18 +3505,6 @@ function startApp() {
     initUI();
     initMotionSuite();
 
-    // Setup security notice modal close listener
-    const secModal = document.getElementById('security-notice-modal');
-    const closeSecBtn = document.getElementById('close-security-notice');
-    if (secModal && closeSecBtn) {
-        closeSecBtn.addEventListener('click', () => {
-            secModal.classList.add('hidden');
-            secModal.classList.remove('flex');
-            document.body.classList.remove('overflow-hidden');
-            localStorage.setItem('anivoid_seen_security_notice_v2', 'true');
-        });
-    }
-
     // Setup Group Stats Modal listeners
     const openStatsBtn = document.getElementById('open-group-stats');
     const closeStatsBtn = document.getElementById('close-group-stats');
@@ -3592,16 +3579,6 @@ function startApp() {
 // App execution trigger moved to the bottom of the file to prevent TDZ ReferenceErrors
 
 // Intro Splash Screen Logic (Auto-Transition + Click to Skip Fallback)
-function checkAndShowSecurityModal() {
-    if (!state.loggedInUser) return;
-    const secModal = document.getElementById('security-notice-modal');
-    if (secModal && !localStorage.getItem('anivoid_seen_security_notice_v2')) {
-        secModal.classList.remove('hidden');
-        secModal.classList.add('flex');
-        document.body.classList.add('overflow-hidden');
-    }
-}
-
 function setupSplashScreen() {
     const splashScreen = document.getElementById('splash-screen');
     if (!splashScreen) return;
@@ -3626,7 +3603,7 @@ function setupSplashScreen() {
             } else {
                 hideRegistrationGate();
             }
-        } else { hideRegistrationGate(); checkAndShowSecurityModal(); }
+        } else { hideRegistrationGate(); }
         if (window.initObserver) window.initObserver();
         if (window.initMotionSuite) window.initMotionSuite();
     };
@@ -5575,7 +5552,6 @@ function initRegistrationOptions() {
         if (regPasswordInput) regPasswordInput.value = '';
 
         initUI();
-        checkAndShowSecurityModal();
         window.AnivoidUI.notices.welcome(matchedUser.username);
         state.syncWithServer().then(() => {
             renderAnimeGrid();
@@ -5754,8 +5730,7 @@ function initRegistrationOptions() {
 
             // Reload UI
             initUI();
-            checkAndShowSecurityModal();
-
+    
             // Member welcome modal removed as requested
 
             // Delivery failure never rolls back a successfully created account.
