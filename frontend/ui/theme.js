@@ -10,9 +10,15 @@ function createThemeController(browser) {
     function applyBackground(value) {
         const palette = backgroundPalette(value);
         background = palette ? value : '';
-        for (const [token, field] of [['--av-bg', 'bg'], ['--av-surface', 'surface'], ['--av-line', 'line'], ['--av-ink', 'ink'], ['--av-muted', 'muted'], ['--av-accent', 'accent'], ['--av-on-accent', 'onAccent']]) {
+        for (const [token, field] of [['--av-bg', 'bg'], ['--av-surface', 'surface'], ['--av-line', 'line'], ['--av-ink', 'ink'], ['--av-muted', 'muted']]) {
             if (palette?.[field]) html.style.setProperty(token, palette[field]);
             else html.style.removeProperty(token);
+        }
+        if (palette?.accent) {
+            html.style.setProperty('--av-accent', palette.accent);
+            if (palette?.onAccent) html.style.setProperty('--av-on-accent', palette.onAccent);
+        } else if (typeof browser.applyUserThemeColor === 'function') {
+            browser.applyUserThemeColor();
         }
         const picker = document.querySelector('[data-background-picker]');
         const hex = document.querySelector('[data-background-hex]');

@@ -93,6 +93,7 @@ function clearAuthSession() {
     window.AnivoidUI.access.refresh();
     window.AnivoidUI.session.clearCache();
     localStorage.removeItem('anivoid_logged_in_username');
+    applyUserThemeColor('#ff7957');
     localStorage.removeItem(AUTH_TOKEN_KEY);
     const activeState = window.__anivoidState;
     if (activeState) {
@@ -470,7 +471,7 @@ class AppState {
                         id: curUser.username.toLowerCase().replace(/[^a-z0-9]/g, ''),
                         name: curUser.username + ' (Você)',
                         avatar: curUser.avatar,
-                        color: curUser.color,
+                        color: curUser.color || '#ff7957',
                         email: curUser.email,
                         emailVerified: curUser.emailVerified || false,
                         favoriteGenres: curUser.favoriteGenres || [],
@@ -489,7 +490,7 @@ class AppState {
                                         id: fUser.username.toLowerCase().replace(/[^a-z0-9]/g, ''),
                                         name: fUser.username,
                                         avatar: fUser.avatar,
-                                        color: fUser.color,
+                                        color: fUser.color || '#ff7957',
                                         email: fUser.email,
                                         emailVerified: fUser.emailVerified || false,
                                         favoriteGenres: fUser.favoriteGenres || [],
@@ -1997,6 +1998,23 @@ function updateCatalogLivePreview() {
     }
 }
 window.updateCatalogLivePreview = updateCatalogLivePreview;
+
+function updateModalScrollLock() {
+    if (typeof document === 'undefined') return;
+    const hasActiveModal = Boolean(
+        document.querySelector(
+            '#edit-profile-modal:not(.hidden), #player-profile-modal:not(.hidden), #group-stats-modal:not(.hidden), #notifications-modal:not(.hidden), #activity-history-modal:not(.hidden), #admin-modal:not(.hidden), #backup-modal:not(.hidden), #security-notice-modal:not(.hidden), #add-anime-modal:not(.hidden), #add-friend-modal:not(.hidden), #registration-gate:not(.hidden), dialog[open]'
+        )
+    );
+    if (hasActiveModal) {
+        document.body?.classList.add('overflow-hidden');
+        if (window.lenisStop) window.lenisStop();
+    } else {
+        document.body?.classList.remove('overflow-hidden');
+        if (window.lenisStart) window.lenisStart();
+    }
+}
+window.updateModalScrollLock = updateModalScrollLock;
 
 function closeAnimeCatalogModal() {
     if (window.AnivoidUI.catalogSaveForm()?.close() === false) return;
@@ -3649,7 +3667,9 @@ function initUI() {
     // Render current selection
     const currentFriend = state.getCurrentFriend();
     if (currentFriend) {
-        applyUserThemeColor(currentFriend.color);
+        applyUserThemeColor(currentFriend.color || '#ff7957');
+    } else {
+        applyUserThemeColor('#ff7957');
     }
     updateProfileIndicator();
     renderFriendsDropdown();
@@ -3876,7 +3896,7 @@ function renderFriendsDropdown() {
     window.AnivoidUI.account.renderReviewers(state.friends, state.currentFriendId, (friend, event) => {
         state.currentFriendId = friend.id;
         state.save();
-        applyUserThemeColor(friend.color);
+        applyUserThemeColor(friend.color || '#ff7957');
         updateProfileIndicator();
         renderFriendsDropdown();
         renderAnimeGrid();
@@ -5759,9 +5779,15 @@ function showMemberWelcomeModal(username, memberNumber) {
 // --- PROFILE EDITOR MODAL AND CUSTOM THEME STYLES ---
 
 function applyUserThemeColor(color) {
-    if (!color) return;
+    if (!color) {
+        const activeFriend = (typeof state !== 'undefined' && state && typeof state.getCurrentFriend === 'function')
+            ? state.getCurrentFriend()
+            : null;
+        color = activeFriend?.color || '#ff7957';
+    }
     document.documentElement.style.setProperty('--brand', color);
     document.documentElement.style.setProperty('--accent', color);
+    document.documentElement.style.setProperty('--av-accent', color);
     document.documentElement.style.setProperty('--accent-glow', `${color}40`);
 
     // Dynamically calculate contrast text color (black/dark-gray for light accents, white for dark/saturated accents)
@@ -5780,7 +5806,7 @@ function applyUserThemeColor(color) {
                 // YIQ formula to calculate perceived brightness
                 const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
                 if (yiq >= 135) {
-                    contrastColor = '#09090b'; // Tailwind zinc-950
+                    contrastColor = '#161910';
                 }
             }
         }
@@ -5788,7 +5814,9 @@ function applyUserThemeColor(color) {
         console.error('Error computing color contrast:', e);
     }
     document.documentElement.style.setProperty('--accent-text', contrastColor);
+    document.documentElement.style.setProperty('--av-on-accent', contrastColor);
 }
+window.applyUserThemeColor = applyUserThemeColor;
 
 // ── TITLE PICKER: visual card selector for Felipe's active title ──────────
 window.selectAdminTitle = function(title) {
@@ -5893,6 +5921,7 @@ function setupEditProfileModal() {
     const currentPasswordInput = document.getElementById('edit-profile-current-password');
     const newPasswordInput = document.getElementById('edit-profile-new-password');
     let profileForm;
+    let originalUserColor = '#ff7957';
     const signOutAllBtn = document.getElementById('edit-profile-signout-all');
 
     if (!modal || !form) return;
@@ -5902,6 +5931,7 @@ function setupEditProfileModal() {
         profileForm?.close();
         if (currentPasswordInput) currentPasswordInput.value = '';
         if (newPasswordInput) newPasswordInput.value = '';
+        applyUserThemeColor(originalUserColor);
         modal.classList.add('hidden');
         modal.classList.remove('flex');
         document.body.classList.remove('overflow-hidden');
@@ -5986,6 +6016,7 @@ function setupEditProfileModal() {
         modal.querySelectorAll('.av-palette-pill').forEach(pill => {
             pill.classList.toggle('is-selected', pill.dataset.color.toLowerCase() === color.toLowerCase());
         });
+        applyUserThemeColor(color);
     };
 
     // Banner file upload & compression
@@ -6146,7 +6177,8 @@ function setupEditProfileModal() {
                 
                 syncBannerPreview(user.banner || '');
                 syncAvatarPreview(user.avatar || '👤');
-                syncThemeColor(user.color || '#ff7957');
+                originalUserColor = user.color || '#ff7957';
+                syncThemeColor(originalUserColor);
 
                 if (previewName) previewName.textContent = user.username;
                 if (previewBadge) previewBadge.innerHTML = getUserBadgesHtml(user);
@@ -6210,7 +6242,8 @@ function setupEditProfileModal() {
             if (Array.isArray(data.registeredUsers)) storeRegisteredUsers(data.registeredUsers);
             if (data.user?.username) setAuthSession(data.user.username);
             state.loadLocalSession();
-            applyUserThemeColor(data.user.color || '#ff7957');
+            originalUserColor = data.user?.color || colorInput?.value || '#ff7957';
+            applyUserThemeColor(originalUserColor);
             closeModal();
             initUI();
             showToast('Perfil atualizado', data.credentialsChanged ? 'Dados de acesso atualizados e sessão confirmada.' : 'Suas alterações foram salvas.', '✓', '#22c55e');

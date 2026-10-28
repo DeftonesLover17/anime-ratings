@@ -209,6 +209,8 @@ html[data-color-scheme="light"] .av-app .av-hero-title.av-detail-title-has-logo[
 .av-app #grid-header-section > div:first-child > div > p { font: 11px/1.6 var(--av-body); letter-spacing: .08em; color: var(--av-muted) !important; margin-top: 17px; }
 .av-app #grid-header-section .mal-tab { font: 11px/1.5 var(--av-body); text-transform: none; letter-spacing: 0; padding: 15px 5px; min-height: 44px; color: var(--av-muted); border-bottom-width: 1px; }
 .av-app #grid-header-section .mal-tab.text-brand { color: var(--av-ink) !important; border-color: var(--av-accent) !important; }
+.av-app #grid-header-section .overflow-x-auto { scrollbar-width: none; -ms-overflow-style: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+.av-app #grid-header-section .overflow-x-auto::-webkit-scrollbar { display: none; }
 .av-app #grid-header-section .glass-panel { padding: 0; border: 0; border-radius: 0; background: transparent; }
 .av-app #grid-header-section :is(input,button) { font-family: var(--av-body); font-size: 12px; letter-spacing: 0; text-transform: none; min-height: 46px; }
 .av-app #grid-header-section input { border-radius: 3px; background: var(--av-surface); border-color: var(--av-line); color: var(--av-ink); }
@@ -1269,7 +1271,7 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
 
 /* Existing account/admin dialogs keep their behavior; typography joins the site. */
 .av-app #registration-gate { background: var(--av-bg); }
-.av-app #registration-gate > .glass-panel { background: var(--av-surface); border-color: var(--av-line); border-radius: 18px; }
+.av-app #registration-gate > .glass-panel { background: var(--av-surface); border-color: var(--av-line); border-radius: 5px; }
 .av-app #registration-gate h2 { font: 600 clamp(30px,4vw,44px)/1.15 var(--av-display); letter-spacing: -.05em; }
 .av-app #registration-gate h2 span { font-family: inherit; font-style: normal; }
 .av-app #registration-gate :is(input,textarea,button) { font-family: var(--av-body); }

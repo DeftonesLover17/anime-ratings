@@ -80,6 +80,7 @@ function createAwwwardsSelect(selectEl, options = {}) {
     list.setAttribute('role', 'listbox');
     list.setAttribute('aria-labelledby', triggerId);
     list.setAttribute('tabindex', '-1');
+    list.setAttribute('data-lenis-prevent', 'true');
 
     if (options.align === 'right') {
         list.classList.add('av-dropdown-right');

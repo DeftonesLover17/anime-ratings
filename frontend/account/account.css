@@ -53,7 +53,9 @@
 .av-app .av-account-heading h2 { margin: 0; padding-bottom: .12em; font: 600 clamp(42px,5vw,58px)/1.12 var(--av-display); letter-spacing: -.055em; overflow-wrap: anywhere; }
 .av-account-heading h2 > span { color: var(--av-accent); }
 .av-app .av-account-heading p { margin: 5px 0 0; font-size: 12px; line-height: 1.7; color: var(--av-muted); }
-.av-account-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 32px 24px; scrollbar-gutter: stable; }
+.av-account-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y; padding: 0 32px 24px; scrollbar-gutter: stable; }
 .av-account-group,.av-account-reviewers { margin: 0 0 26px; }
 .av-account-group:last-child { margin-bottom: 0; }
 .av-app .av-account-panel h3 { margin: 0 0 12px; color: var(--av-muted); font: 500 10px/1.6 var(--av-body); letter-spacing: .1em; text-transform: uppercase; }

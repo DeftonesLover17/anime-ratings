@@ -11,7 +11,7 @@ function createProfileDialogs(win) {
         const finish = (restoreFocus = true) => {
             win.clearTimeout(timer); timer = undefined;
             modal.classList.add('hidden'); modal.classList.remove('flex', 'is-closing');
-            if (!othersOpen()) { doc.body.classList.remove('overflow-hidden'); win.lenisStart?.(); }
+            if (win.updateModalScrollLock) win.updateModalScrollLock(); else if (!othersOpen()) { doc.body.classList.remove('overflow-hidden'); win.lenisStart?.(); }
             if (restoreFocus) {
                 const destination = opener?.isConnected && !opener.closest('.hidden') ? opener : doc.getElementById?.('profile-indicator');
                 destination?.focus();
@@ -24,7 +24,7 @@ function createProfileDialogs(win) {
                 modal.classList.remove('hidden', 'is-closing'); modal.classList.add('flex');
                 modal.setAttribute('role', 'dialog'); modal.setAttribute('aria-modal', 'true');
                 modal.setAttribute('aria-label', modal.id === 'player-profile-modal' ? 'Perfil do membro' : 'Central de amigos');
-                doc.body.classList.add('overflow-hidden'); win.lenisStop?.();
+                if (win.updateModalScrollLock) win.updateModalScrollLock(); else { doc.body.classList.add('overflow-hidden'); win.lenisStop?.(); }
                 const shell = modal.querySelector('.av-player-modal-shell, .av-friends-shell');
                 if (shell) shell.scrollTop = 0;
                 modal.tabIndex = -1; (focusables()[0] || modal).focus({ preventScroll: true });

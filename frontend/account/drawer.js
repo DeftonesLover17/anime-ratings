@@ -70,6 +70,8 @@ function createAccountDrawer(browser, motion, { canManageSystem = () => false, r
         panel.classList.add('hidden');
         document.documentElement.style.overflow = previousOverflow;
         if (dialog.open) dialog.close();
+        if (browser.updateModalScrollLock) browser.updateModalScrollLock();
+        else browser.lenisStart?.();
         if (restoreFocus && trigger.isConnected) trigger.focus({ preventScroll: true });
     }
 
@@ -87,6 +89,7 @@ function createAccountDrawer(browser, motion, { canManageSystem = () => false, r
             panel.classList.remove('hidden');
             dialog.showModal();
             document.documentElement.style.overflow = 'hidden';
+            browser.lenisStop?.();
         }
         setPhase('opening');
         closer.focus({ preventScroll: true });
