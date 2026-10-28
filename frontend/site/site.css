@@ -405,9 +405,9 @@ html[data-color-scheme="light"] .av-app .av-hero-title.av-detail-title-has-logo[
 /* Paired ratings share a stable grid, including missing scores and long names. */
 .av-card-comparison {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 20px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr);
     align-items: center;
-    gap: 8px 10px;
+    gap: 8px 12px;
     margin-top: 14px;
     padding: 14px 0 0;
     border-top: 1px solid var(--av-line);
@@ -424,6 +424,10 @@ html[data-color-scheme="light"] .av-app .av-hero-title.av-detail-title-has-logo[
     border-left: 2px solid var(--av-accent);
     padding-left: 10px;
 }
+.av-compare-person:last-child {
+    text-align: right;
+    align-items: flex-end;
+}
 .av-compare-name {
     font: 500 10.5px/1.4 var(--av-mono);
     text-transform: uppercase;
@@ -432,6 +436,7 @@ html[data-color-scheme="light"] .av-app .av-hero-title.av-detail-title-has-logo[
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    max-width: 100%;
 }
 .av-compare-person:first-child .av-compare-name {
     color: var(--av-ink);
@@ -443,14 +448,23 @@ html[data-color-scheme="light"] .av-app .av-hero-title.av-detail-title-has-logo[
     display: flex;
     align-items: center;
 }
+.av-compare-person:last-child .av-compare-score {
+    justify-content: flex-end;
+}
 .av-card-comparison .av-score {
     font: 600 24px/1.1 var(--av-display);
     letter-spacing: -0.03em;
 }
 .av-compare-versus {
-    font: 300 16px/1 var(--av-body);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    font: 400 15px/1 var(--av-mono);
     text-align: center;
-    opacity: 0.45;
+    opacity: 0.55;
+    user-select: none;
 }
 .av-compare-empty {
     font: 500 11px/1.4 var(--av-mono);
@@ -1601,6 +1615,8 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
         font-size: 18px;
     }
     .av-compare-versus {
+        width: 20px;
+        height: 20px;
         font-size: 13px;
     }
     .av-compare-empty {
