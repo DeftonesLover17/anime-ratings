@@ -1262,6 +1262,10 @@ button:not(:disabled):active {
 
 .player-profile-shell {
     max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     padding-bottom: 18px;
@@ -1522,6 +1526,7 @@ aside .rounded-3xl:has(.profile-style-grid) {
 @media (max-width: 900px) {
     .player-profile-shell {
         max-height: calc(100vh - 18px);
+        max-height: calc(100dvh - 18px);
         border-radius: 22px;
     }
 

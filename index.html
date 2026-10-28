@@ -6,7 +6,7 @@
     <meta name="color-scheme" content="dark light">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-    <script src="assets/ui.7681a3de6483.js"></script>
+    <script src="assets/ui.35f1933ad230.js"></script>
     <title>ANIVØID | Season Ratings</title>
     <!-- Favicon / Logo -->
     <link rel="icon" type="image/png" href="favicon.png">
@@ -27,7 +27,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syncopate:wght@700&family=Syne:wght@800&family=Lexend+Tera:wght@900&display=swap" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="assets/styles.0508fa1138b5.css">
+    <link rel="stylesheet" href="assets/styles.d747bff62abe.css">
     
     <meta name="theme-color" content="#050505">
     <script>
@@ -82,7 +82,7 @@
 
 
     <!-- REGISTRATION GATE OVERLAY -->
-    <div id="registration-gate" role="dialog" aria-modal="true" aria-labelledby="reg-header-title" aria-describedby="reg-header-desc" class="fixed inset-0 bg-bgDark/[0.98] backdrop-blur-md z-[9998] hidden items-center justify-center p-3 sm:p-6 md:p-8 overflow-y-auto">
+    <div id="registration-gate" data-lenis-prevent="true" role="dialog" aria-modal="true" aria-labelledby="reg-header-title" aria-describedby="reg-header-desc" class="fixed inset-0 bg-bgDark/[0.98] backdrop-blur-md z-[9998] hidden items-center justify-center p-3 sm:p-6 md:p-8 overflow-y-auto">
         <div class="glass-panel border border-white/10 rounded-2xl sm:rounded-3xl w-full max-w-xl md:max-w-2xl overflow-hidden shadow-2xl p-4 sm:p-7 md:p-8 space-y-3.5 sm:space-y-5 my-auto relative animate-[fadeIn_0.3s_ease-out] max-h-[92dvh] sm:max-h-[90vh] flex flex-col">
             <!-- Theme toggle placed cleanly at top-right -->
             <div class="absolute top-3.5 right-3.5 sm:top-5 sm:right-5 z-20">
@@ -1413,7 +1413,7 @@
     </div>
 
     <!-- ACTIVITY HISTORY MODAL -->
-    <div id="activity-history-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
+    <div id="activity-history-modal" data-lenis-prevent="true" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
         <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl p-6 md:p-8 space-y-5 my-auto relative">
             <div class="flex items-center justify-between border-b border-white/5 pb-4">
                 <div class="flex items-center gap-2 text-xs font-mono text-gray-400">
@@ -1424,14 +1424,14 @@
                     <iconify-icon icon="lucide:x" class="text-lg"></iconify-icon>
                 </button>
             </div>
-            <div id="activity-history-list" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[65vh] overflow-y-auto pr-1">
+            <div id="activity-history-list" data-lenis-prevent="true" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[65vh] overflow-y-auto pr-1">
                 <!-- JS populated -->
             </div>
         </div>
     </div>
 
     <!-- ADMIN MODAL -->
-    <div id="admin-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
+    <div id="admin-modal" data-lenis-prevent="true" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
         <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl p-6 md:p-8 space-y-6 my-auto relative">
             <div class="flex items-center justify-between border-b border-white/5 pb-4">
                 <div class="flex items-center gap-2 text-xs font-mono text-gray-400">
@@ -1451,7 +1451,7 @@
                         <h3 class="text-xs font-mono uppercase tracking-widest text-white/70">Usu&aacute;rios</h3>
                         <span class="text-[9px] text-gray-500 font-mono uppercase">a&ccedil;&otilde;es r&aacute;pidas</span>
                     </div>
-                    <div id="admin-users-list" class="space-y-2 max-h-[42vh] overflow-y-auto pr-1">
+                    <div id="admin-users-list" data-lenis-prevent="true" class="space-y-2 max-h-[42vh] overflow-y-auto pr-1">
                         <!-- JS populated -->
                     </div>
                 </section>
@@ -1460,7 +1460,7 @@
                         <h3 class="text-xs font-mono uppercase tracking-widest text-white/70">Backups D1</h3>
                         <button id="admin-create-backup" class="px-3 py-2 rounded-full bg-white text-black text-[9px] font-mono uppercase tracking-widest font-bold">Criar snapshot</button>
                     </div>
-                    <div id="admin-backups-list" class="space-y-2 max-h-[42vh] overflow-y-auto pr-1">
+                    <div id="admin-backups-list" data-lenis-prevent="true" class="space-y-2 max-h-[42vh] overflow-y-auto pr-1">
                         <!-- JS populated -->
                     </div>
                 </section>
@@ -1469,7 +1469,7 @@
     </div>
 
     <!-- BACKUP MODAL -->
-    <div id="backup-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
+    <div id="backup-modal" data-lenis-prevent="true" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[9998] hidden items-center justify-center p-4 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
         <div class="glass-panel border border-white/10 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl p-6 md:p-8 space-y-6 my-auto relative">
             <div class="flex items-center justify-between border-b border-white/5 pb-4">
                 <div class="flex items-center gap-2 text-xs font-mono text-gray-400">
@@ -1557,6 +1557,6 @@
 
     <!-- Scripts Integration -->
     <script src="assets/sync-state.f95581b9ae66.js"></script>
-    <script src="assets/app.c3364526bbed.js"></script>
+    <script src="assets/app.4b4e6e88be39.js"></script>
 </body>
 </html>

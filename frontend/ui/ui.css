@@ -331,6 +331,9 @@ body ::-webkit-scrollbar {
 .select-options-list {
     max-height: 280px;
     overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
     background: rgba(13, 14, 18, 0.95);
     backdrop-filter: blur(28px) saturate(190%);
     -webkit-backdrop-filter: blur(28px) saturate(190%);

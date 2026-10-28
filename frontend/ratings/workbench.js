@@ -51,7 +51,7 @@ function createWorkbench(host, initialModel, shared) {
                 <span class="av-rail-global-score" id="av-rail-global-score-val">—</span>
             </button>
 
-            <div class="av-episode-buttons" role="group" aria-label="Índice de episódios"></div>
+            <div class="av-episode-buttons" role="group" aria-label="Índice de episódios" data-lenis-prevent="true"></div>
             <label class="av-mobile-picker">Selecionar episódio<select aria-label="Selecionar episódio para avaliar"></select></label>
             <div class="av-episode-pagination"><button type="button" data-page="-1" aria-label="Episódios anteriores">${arrow('left')}</button><span></span><button type="button" data-page="1" aria-label="Próximos episódios">${arrow('right')}</button></div>
             <p class="av-quiet">Uma nota por episódio.<br>Uma leitura que é só sua.</p>
@@ -553,18 +553,6 @@ function createWorkbench(host, initialModel, shared) {
         const button = event.target.closest('[data-episode]');
         if (button) select(button.dataset.episode, event.detail > 0);
     });
-    rail.addEventListener('wheel', (e) => {
-        if (rail.scrollHeight > rail.clientHeight) {
-            const delta = e.deltaY;
-            const atTop = rail.scrollTop <= 0 && delta < 0;
-            const atBottom = Math.ceil(rail.scrollTop + rail.clientHeight) >= rail.scrollHeight && delta > 0;
-            if (!atTop && !atBottom) {
-                rail.scrollTop += delta;
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        }
-    }, { passive: false });
     picker.addEventListener('change', () => select(picker.value, false));
     root.querySelectorAll('[data-page]').forEach((button) =>
         button.addEventListener('click', () =>
