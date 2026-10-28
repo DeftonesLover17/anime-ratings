@@ -25,10 +25,25 @@ function scoreAnimeRelevance(anime, rawQuery) {
     // Exact query match boost
     if (tEn === q || tJp === q) pts += 500;
 
-    // Specific Part matching
-    if (qHasPart2) {
+    // Specific Season & Part matching
+    const qWantsS1 = /\b(?:season\s*1|1st\s*season|primeira\s*temporada|temporada\s*1|1[ªa]?\s*temporada|part\s*1|parte\s*1)\b/i.test(q);
+    const qWantsS2 = /\b(?:season\s*2|2nd\s*season|segunda\s*temporada|temporada\s*2|2[ªa]?\s*temporada|part\s*2|parte\s*2)\b/i.test(q);
+    const qWantsS3 = /\b(?:season\s*3|3rd\s*season|terceira\s*temporada|temporada\s*3|3[ªa]?\s*temporada|part\s*3|parte\s*3)\b/i.test(q);
+
+    if (qWantsS2) {
+        if (/\b(?:season\s*2|2nd\s*season|temporada\s*2|part\s*2|parte\s*2|第2期)\b/i.test(allText)) pts += 500;
+        if (/\b(?:season\s*[1345]|3rd\s*season|1st\s*season|第[1345]期)\b/i.test(allText)) pts -= 300;
+    } else if (qHasPart2) {
         if (/\b(part|parte)\s*2\b/.test(allText)) pts += 450;
         else pts -= 200;
+    }
+    if (qWantsS1) {
+        if (/\b(?:season\s*1|1st\s*season|temporada\s*1|part\s*1|parte\s*1|第1期)\b/i.test(allText) || (!allText.includes('season') && !allText.includes('part'))) pts += 400;
+        if (/\b(?:season\s*[2345]|2nd\s*season|3rd\s*season|第[2345]期)\b/i.test(allText)) pts -= 300;
+    }
+    if (qWantsS3) {
+        if (/\b(?:season\s*3|3rd\s*season|temporada\s*3|part\s*3|parte\s*3|第3期)\b/i.test(allText)) pts += 500;
+        if (/\b(?:season\s*[1245]|2nd\s*season|1st\s*season|第[1245]期)\b/i.test(allText)) pts -= 300;
     }
     if (qHasPart1) {
         if (/\b(part|parte)\s*1\b/.test(allText) || (!allText.includes('part') && allText.includes('final season'))) pts += 350;
