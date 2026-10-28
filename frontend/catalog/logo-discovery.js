@@ -21,6 +21,15 @@ function abortable(task, signal, fallback = null) {
     });
 }
 
+function extractRootTitle(value) {
+    if (typeof value !== 'string') return '';
+    return value
+        .replace(/\s*(?:[-:–—]?\s*(?:season|temporada|\d+[ªa]?\s*temporada|part|parte)\s*\d+.*)$/i, '')
+        .replace(/\s*(?:[-:–—]?\s*(?:the\s+)?final\s+season.*)$/i, '')
+        .replace(/\s*(?:[-:–—]?\s*第\d+期.*)$/u, '')
+        .trim();
+}
+
 function matchingJikanAnime(data, keys) {
     const matches = (Array.isArray(data) ? data : []).filter(anime => anime && numericId(anime.mal_id) &&
         [...titleKeys([anime.title, anime.title_english, anime.title_japanese,
@@ -75,7 +84,7 @@ function createAnimeLogoDiscovery({ request = (...args) => fetch(...args), probe
                     resolve(value);
                 };
                 const cancel = () => finish(null);
-                const timer = setTimer(cancel, 3000);
+                const timer = setTimer(cancel, 4500);
                 image.onload = () => finish({ width: image.naturalWidth, height: image.naturalHeight });
                 image.onerror = cancel;
                 signal.addEventListener('abort', cancel, { once: true });
@@ -99,6 +108,10 @@ function createAnimeLogoDiscovery({ request = (...args) => fetch(...args), probe
 
     async function search(input, signal) {
         const names = [input.title, input.japaneseTitle].filter(title => typeof title === 'string' && title.trim() && title !== 'N/A');
+        for (const t of [...names]) {
+            const root = extractRootTitle(t);
+            if (root && root !== t) { names.push(root); }
+        }
         const keys = titleKeys(names);
         let mal = numericId(input.malId || input.mal_id);
         let kitsu = numericId(input.kitsuId || input.kitsu_id);

@@ -90,6 +90,7 @@ function createCatalogLogoField(document, options = {}) {
     function select(anime) {
         cancel();
         if (!edited) clearAutomatic();
+        edited = false;
         selected = { ...anime };
         return fill(selected);
     }

@@ -64,3 +64,24 @@ test('an older catalog search cannot replace results for a newer query', async (
     assert.equal(suggestions.innerHTML, newerLoadingState);
     assert.ok(newerLoadingState.includes('Consultando base oficial'));
 });
+
+test('portuguese anime season queries expand and prioritize season titles', async () => {
+    const searches = [];
+    const listeners = {};
+    const title = { value: '', addEventListener: (type, handler) => { listeners[type] = handler; }, contains: () => false };
+    const suggestions = { innerHTML: '', classList: { add() {}, remove() {}, contains: () => true }, contains: () => false };
+    const timers = new Map();
+    let nextTimer = 0;
+    initCatalogAutocomplete({
+        document: { getElementById: id => id === 'form-anime-title' ? title : id === 'form-anime-suggestions' ? suggestions : null, addEventListener() {} },
+        studioMetadata, standardStudioName: studioMetadata.standardStudioName, escapeHtml: v => String(v),
+        getStudioLogo: () => '', updateCatalogLivePreview() {},
+        request: (url) => { searches.push(url); return Promise.resolve({ ok: true, json: async () => ({ data: [] }) }); },
+        setTimer: (handler, delay) => { const id = ++nextTimer; timers.set(id, { handler, delay }); return id; },
+        clearTimer: id => timers.delete(id)
+    });
+    title.value = 'segunda temporada de oshi no ko';
+    listeners.input();
+    await [...timers.values()].find(t => t.delay === 450).handler();
+    assert.ok(searches.some(url => url.includes('oshi%20no%20ko%20Season%202') || url.includes('oshi+no+ko+Season+2')));
+});

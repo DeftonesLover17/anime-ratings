@@ -26,6 +26,10 @@ test('one canonical studio name is shared by catalog, Node and Cloudflare', () =
     assert.equal(standardStudioName('tOkYo mOvIe ShInShA'), 'Tokyo Movie Shinsha');
     assert.equal(standardStudioName('bug film'), 'BUG FILMS');
     assert.equal(standardStudioName('trigger'), 'Trigger');
+    assert.equal(standardStudioName('doga kobo'), 'Doga Kobo');
+    assert.equal(studioForAnime({ title: 'Oshi no Ko Season 2' }), 'Doga Kobo');
+    assert.equal(studioForAnime({ title: '[Oshi no Ko] Season 2' }), 'Doga Kobo');
+    assert.equal(studioForAnime({ japaneseTitle: '【推しの子】第2期' }), 'Doga Kobo');
     assert.equal(standardStudioName('tms entertainment'), 'TMS Entertainment');
     assert.equal(standardStudioName('new independent studio'), 'New Independent Studio');
     assert.equal(standardStudioName('constructor'), 'Constructor');

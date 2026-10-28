@@ -121,6 +121,24 @@ function initCatalogAutocomplete({ document, studioMetadata, standardStudioName,
             }
 
             const asciiQuery = String(query || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const ordinalsPt = { primeira: 1, segunda: 2, terceira: 3, quarta: 4, quinta: 5, sexta: 6 };
+            const ptSeasonPrefix = asciiQuery.match(/^(?:(primeira|segunda|terceira|quarta|quinta|sexta|\d+)[ªa]?\s+temporada\s*(?:de|do|da)?\s*)(.+)$/i);
+            if (ptSeasonPrefix) {
+                const num = ordinalsPt[ptSeasonPrefix[1].toLowerCase()] || ptSeasonPrefix[1];
+                const root = ptSeasonPrefix[2].trim();
+                addAnimeSearchQuery(queries, `${root} Season ${num}`);
+                addAnimeSearchQuery(queries, `${root} ${num}nd Season`);
+                addAnimeSearchQuery(queries, root);
+            }
+            const ptSeasonSuffix = asciiQuery.match(/^(.+?)\s+(?:(primeira|segunda|terceira|quarta|quinta|sexta|\d+)[ªa]?\s+temporada|temporada\s+(primeira|segunda|terceira|quarta|quinta|sexta|\d+)[ªa]?)$/i);
+            if (ptSeasonSuffix) {
+                const rawNum = ptSeasonSuffix[2] || ptSeasonSuffix[3];
+                const num = ordinalsPt[rawNum.toLowerCase()] || rawNum;
+                const root = ptSeasonSuffix[1].trim();
+                addAnimeSearchQuery(queries, `${root} Season ${num}`);
+                addAnimeSearchQuery(queries, `${root} ${num}nd Season`);
+                addAnimeSearchQuery(queries, root);
+            }
             const translatedQuery = asciiQuery
                 .replace(/\btemporada\s+final\b/gi, 'Final Season')
                 .replace(/\bultima\s+temporada\b/gi, 'Final Season')
