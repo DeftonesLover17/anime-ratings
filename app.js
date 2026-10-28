@@ -6953,6 +6953,33 @@ function getActivityMeta(activity) {
     return { icon: 'lucide:zap', emoji: '&#9889;', label: 'A\u00e7\u00e3o', color: '#22d3ee' };
 }
 
+function resolveActivityAvatar(act) {
+    const rawUsername = act.username || '';
+    const cleanUsername = rawUsername.toLowerCase().replace(/[^a-z0-9]/g, '');
+    let userObj = getRegisteredUsersSafe().find(u => u && u.username && u.username.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanUsername);
+    if (!userObj) {
+        userObj = (state.friends || []).find(f => {
+            if (!f) return false;
+            const fName = String(f.name || f.username || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const fId = String(f.id || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            return fName === cleanUsername || fId === cleanUsername;
+        });
+    }
+    if (!userObj) {
+        const editable = getEditableProfileUserFromCache();
+        if (editable?.user && String(editable.user.username || '').toLowerCase().replace(/[^a-z0-9]/g, '') === cleanUsername) {
+            userObj = editable.user;
+        }
+    }
+    let avatar = userObj?.avatar || act.userAvatar || '';
+    if (!avatar || avatar === '👤') {
+        if (act.userAvatar && act.userAvatar !== '👤') {
+            avatar = act.userAvatar;
+        }
+    }
+    return avatar || DEFAULT_AVATAR_SVG;
+}
+
 function renderActivitiesFeed() {
     if (state.activeDetailAnimeId || state.filterMALStatus === 'Studios') return;
     const list = document.getElementById('activities-feed-list');
@@ -6976,7 +7003,7 @@ function renderActivitiesFeed() {
     const activities = (filteredActivities.length ? filteredActivities : allActivities).slice(0, 6);
     if (activities.length === 0) {
         list.innerHTML = `
-            <div class="activity-card-3d py-8 text-center text-gray-500 font-light text-[10px] italic col-span-full rounded-3xl border border-white/5 bg-white/[0.02]">
+            <div class="col-span-full py-8 text-center text-gray-500 font-light text-xs italic rounded-2xl border border-white/5 bg-white/[0.02]">
                 <div class="activity-icon-disc mx-auto mb-3" style="--activity-color:#22d3ee">
                     <span class="activity-emoji">&#9889;</span>
                 </div>
@@ -6989,39 +7016,25 @@ function renderActivitiesFeed() {
     list.innerHTML = '';
     activities.forEach(act => {
         const item = document.createElement('div');
-        const isAdminAct = act.username && act.username.toLowerCase().replace(/[^a-z0-9]/g, '') === 'felipe';
+        const isAdminAct = isFelipe(act.username);
         const activityMeta = getActivityMeta(act);
-        item.className = `activity-card-3d tilt-card relative flex gap-3.5 p-4 rounded-2xl text-[11px] transition-all duration-300 animate-[fadeIn_0.3s_ease-out] ${isAdminAct ? 'bg-brand/[0.03] border border-brand/35 hover:bg-brand/[0.06] shadow-[0_0_12px_rgba(255,69,0,0.08)]' : 'bg-white/[0.02] border border-white/5 hover:bg-white/[0.04]'}`;
+        item.className = `av-activity-card ${isAdminAct ? 'av-activity-admin' : ''}`;
         item.style.setProperty('--activity-color', activityMeta.color);
-        item.style.boxShadow = `${isAdminAct ? '0 0 12px rgba(255,69,0,0.08), ' : ''}inset 3px 0 0 ${activityMeta.color}`;
-        
-        // Resolve user's actual avatar from cache (registeredUsers) if stripped
-        let userAvatar = act.userAvatar;
-        if (!userAvatar || userAvatar === '👤' || (userAvatar.startsWith('data:') && userAvatar.length > 2000)) {
-            let registeredUsers = [];
-            try {
-                registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
-            } catch (e) {}
-            const foundUser = registeredUsers.find(u => u && u.username && u.username.toLowerCase() === (act.username || '').toLowerCase());
-            if (foundUser && foundUser.avatar) {
-                userAvatar = foundUser.avatar;
-            }
-        }
 
-        const avatarHtml = userAvatar && (userAvatar.startsWith('data:') || userAvatar.startsWith('http'))
-            ? `<img src="${escapeHtml(userAvatar)}" class="w-5 h-5 rounded-full object-cover border border-black/70" alt="">`
-            : `<div class="w-5 h-5 rounded-full bg-black/80 border border-white/10 flex items-center justify-center text-[10px]">${userAvatar || '&#128100;'}</div>`;
+        const userAvatar = resolveActivityAvatar(act);
+        const isImageAvatar = userAvatar && (
+            String(userAvatar).startsWith('data:image') ||
+            String(userAvatar).startsWith('http://') ||
+            String(userAvatar).startsWith('https://') ||
+            String(userAvatar).startsWith('covers/') ||
+            String(userAvatar).startsWith('logos/') ||
+            String(userAvatar).startsWith('./') ||
+            String(userAvatar).startsWith('/')
+        );
 
-        const activityVisualHtml = `
-            <div class="relative shrink-0 mt-0.5">
-                <div class="activity-icon-disc">
-                    <span class="activity-emoji">${activityMeta.emoji}</span>
-                </div>
-                <div class="absolute -bottom-1 -right-1 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.65)]">
-                    ${avatarHtml}
-                </div>
-            </div>
-        `;
+        const avatarInnerHtml = isImageAvatar
+            ? `<img src="${escapeHtml(userAvatar)}" alt="${escapeHtml(act.username)}" class="w-full h-full rounded-full object-cover" loading="lazy">`
+            : `<div class="av-avatar-fallback">${escapeHtml(userAvatar || act.username?.[0]?.toUpperCase() || 'U')}</div>`;
 
         let timeText = '';
         try {
@@ -7041,32 +7054,42 @@ function renderActivitiesFeed() {
         }
 
         const adminBadgeHtml = getUserBadgesHtml({ username: act.username });
-        const activityPillHtml = `
-            <span class="activity-pill inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[8px] font-mono font-bold uppercase tracking-widest mr-1.5 align-middle"
-                style="color: ${activityMeta.color}; border-color: ${activityMeta.color}55; background: ${activityMeta.color}16; box-shadow: 0 0 12px ${activityMeta.color}22">
-                <iconify-icon icon="${activityMeta.icon}" class="text-[11px]"></iconify-icon>
-                <span>${activityMeta.label}</span>
-            </span>
-        `;
+        const nameColor = getUserDisplayNameColor(act.username, act.userColor);
 
         item.innerHTML = `
-            ${activityVisualHtml}
-            <div class="activity-copy flex-grow min-w-0">
-                <div class="flex justify-between items-baseline gap-1.5">
-                    <span class="font-bold truncate" style="color: ${getUserDisplayNameColor(act.username, act.userColor)}">${escapeHtml(act.username)}${adminBadgeHtml}</span>
-                    <span class="text-[8px] text-gray-500 font-mono shrink-0">${timeText}</span>
+            <div class="av-activity-user-row">
+                <div class="av-activity-user-identity">
+                    <div class="av-activity-avatar-wrap">
+                        ${avatarInnerHtml}
+                        <span class="av-activity-avatar-badge" style="background:${activityMeta.color}; color:#000;">
+                            <iconify-icon icon="${activityMeta.icon}"></iconify-icon>
+                        </span>
+                    </div>
+                    <div class="av-activity-user-meta">
+                        <div class="av-activity-user-name-line">
+                            <span class="av-activity-username" style="color: ${nameColor}">${escapeHtml(act.username)}</span>
+                            ${adminBadgeHtml}
+                        </div>
+                    </div>
                 </div>
-                <p class="text-gray-400 font-light mt-0.5 leading-relaxed">
-                    ${activityPillHtml}
+                <span class="av-activity-time">${timeText}</span>
+            </div>
+            <div class="av-activity-body">
+                <div>
+                    <span class="av-activity-action-tag" style="color:${activityMeta.color}; background:${activityMeta.color}18; border:1px solid ${activityMeta.color}40;">
+                        <iconify-icon icon="${activityMeta.icon}"></iconify-icon>
+                        <span>${activityMeta.label}</span>
+                    </span>
+                </div>
+                <p class="av-activity-text">
                     <span>${escapeHtml(act.details)}</span> em
-                    <a href="#anime-grid-section" class="font-mono text-white/90 hover:text-brand font-semibold select-anime-trigger border-b border-dashed border-white/20 hover:border-brand/40 transition-colors" data-id="${escapeHtml(act.animeId)}">
+                    <a href="#obra/${encodeURIComponent(act.animeId)}" class="av-activity-anime-link select-anime-trigger" data-id="${escapeHtml(act.animeId)}">
                         ${escapeHtml(act.animeTitle)}
                     </a>
                 </p>
             </div>
         `;
 
-        // Click on anime name inside activity triggers details view
         const trigger = item.querySelector('.select-anime-trigger');
         if (trigger) {
             trigger.addEventListener('click', (e) => {
@@ -7100,9 +7123,27 @@ function renderActivityHistoryModal() {
         } catch (err) {}
         return `
             <button class="activity-history-row text-left rounded-2xl border border-white/8 bg-white/[0.03] hover:bg-white/[0.055] p-4 flex gap-3 transition-colors" data-anime-id="${escapeHtml(activity.animeId || '')}">
-                <div class="w-10 h-10 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center shrink-0" style="color:${meta.color}; box-shadow:0 0 18px ${meta.color}22">
-                    <span class="text-lg">${meta.emoji}</span>
-                </div>
+                ${(() => {
+            const rowAvatar = resolveActivityAvatar(activity);
+            const isImg = rowAvatar && (
+                String(rowAvatar).startsWith('data:image') ||
+                String(rowAvatar).startsWith('http://') ||
+                String(rowAvatar).startsWith('https://') ||
+                String(rowAvatar).startsWith('covers/') ||
+                String(rowAvatar).startsWith('logos/') ||
+                String(rowAvatar).startsWith('./') ||
+                String(rowAvatar).startsWith('/')
+            );
+            return `<div class="relative w-10 h-10 shrink-0">
+                ${isImg
+                    ? `<img src="${escapeHtml(rowAvatar)}" class="w-10 h-10 rounded-full object-cover border border-white/15 shadow-md" alt="${escapeHtml(activity.username)}">`
+                    : `<div class="w-10 h-10 rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-sm font-semibold shrink-0 shadow-md text-white/90">${escapeHtml(rowAvatar || activity.username?.[0]?.toUpperCase() || 'U')}</div>`
+                }
+                <span class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[9px] border border-black/70 shadow-md" style="background:${meta.color}; color:#000;">
+                    <iconify-icon icon="${meta.icon}"></iconify-icon>
+                </span>
+            </div>`;
+        })()}
                 <div class="min-w-0 flex-grow">
                     <div class="flex items-center justify-between gap-3">
                         <b class="text-[11px] font-mono truncate" style="color:${getUserDisplayNameColor(activity.username, activity.userColor)}">${escapeHtml(activity.username)}</b>
