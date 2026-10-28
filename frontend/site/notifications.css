@@ -455,3 +455,9 @@
         transform: none !important;
     }
 }
+
+.av-notifications-shell :is(button, [role="button"]):focus-visible { outline: 2px solid var(--av-accent); outline-offset: 3px; }
+.av-notifications-shell :is(.av-button-notif-solid, .av-button-notif-ghost):active { transform: scale(.98); }
+@media (prefers-reduced-motion: reduce) {
+    .av-notifications-shell *, .av-notifications-shell *::before { transition: none !important; }
+}

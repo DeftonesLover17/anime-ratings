@@ -1,20 +1,41 @@
 function createEditorialNotices(browser) {
-    let activeToast = null;
-    let hideTimer = null;
-    let removalTimer = null;
+    let activeToast = null, hideTimer, removalTimer, frame;
+    let remaining = 6500, startedAt = 0, hovering = false, focused = false;
+    const pending = [];
+    const recent = new Map();
+    const document = browser.document;
+    const now = () => browser.Date?.now() || Date.now();
 
+    function pause() {
+        if (!hideTimer) return;
+        browser.clearTimeout(hideTimer);
+        hideTimer = null;
+        remaining = Math.max(0, remaining - (now() - startedAt));
+    }
+    function resume() {
+        if (!activeToast || activeToast.classList.contains('is-leaving') || document.hidden || hovering || focused || hideTimer) return;
+        startedAt = now();
+        hideTimer = browser.setTimeout(dismiss, remaining);
+    }
     function removeActive() {
         browser.clearTimeout(hideTimer);
         browser.clearTimeout(removalTimer);
+        browser.cancelAnimationFrame(frame);
         activeToast?.remove();
         activeToast = null;
-        hideTimer = null;
-        removalTimer = null;
+        hideTimer = removalTimer = frame = null;
     }
-
-    function show(label, message) {
-        removeActive();
-        const toast = browser.document.createElement('section');
+    function dismiss() {
+        if (!activeToast || activeToast.classList.contains('is-leaving')) return;
+        pause();
+        activeToast.classList.add('is-leaving');
+        const delay = browser.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0 : 180;
+        removalTimer = browser.setTimeout(() => { removeActive(); displayNext(); }, delay);
+    }
+    function displayNext() {
+        if (activeToast || !pending.length || document.hidden) return;
+        const { label, message } = pending.shift();
+        const toast = document.createElement('section');
         toast.id = 'av-session-toast';
         toast.className = 'av-session-toast';
         toast.setAttribute('role', 'status');
@@ -27,27 +48,46 @@ function createEditorialNotices(browser) {
         `;
         toast.querySelector('.av-session-toast__label').textContent = label;
         toast.querySelector('.av-session-toast__message').textContent = message;
-
-        const dismiss = () => {
-            if (activeToast !== toast || toast.classList.contains('is-leaving')) return;
-            browser.clearTimeout(hideTimer);
-            toast.classList.add('is-leaving');
-            const delay = browser.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0 : 220;
-            removalTimer = browser.setTimeout(removeActive, delay);
-        };
         toast.querySelector('.av-session-toast__close').addEventListener('click', dismiss);
-        browser.document.body.appendChild(toast);
+        toast.addEventListener('pointerenter', () => { hovering = true; pause(); });
+        toast.addEventListener('pointerleave', () => { hovering = false; resume(); });
+        toast.addEventListener('focusin', () => { focused = true; pause(); });
+        toast.addEventListener('focusout', event => {
+            focused = toast.contains(event.relatedTarget);
+            if (!focused) resume();
+        });
+        document.body.appendChild(toast);
         activeToast = toast;
-        hideTimer = browser.setTimeout(dismiss, 5500);
+        hovering = focused = false;
+        remaining = 6500;
+        frame = browser.requestAnimationFrame(() => toast.classList.add('is-visible'));
+        resume();
     }
-
+    function show(label, message) {
+        label = String(label || 'ANIVØID');
+        message = String(message || '').replace(/\*\*/g, '');
+        const key = JSON.stringify([label, message]);
+        if (recent.has(key) && now() - recent.get(key) < 120000) return;
+        recent.set(key, now());
+        if (recent.size > 50) recent.delete(recent.keys().next().value);
+        // A burst becomes an inbox summary before it can grow into a wall of alerts.
+        if (pending.length >= 3) pending.splice(0, pending.length, { label: 'ANIVØID / SUA REDE', message: 'Há novas atividades. Veja os detalhes nas notificações.' });
+        else pending.push({ label, message });
+        displayNext();
+    }
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) pause();
+        else { displayNext(); resume(); }
+    });
     return {
-        welcome(username) {
-            show('ANIVØID / ENTRADA AUTORIZADA', `Que bom ter você de volta, ${String(username || '').trim()}!`);
+        activity: show,
+        batch(notices) {
+            if (notices.length === 1) show(notices[0].title, notices[0].message);
+            else if (notices.length > 1) show('ANIVØID / SUA REDE', `${notices.length} novidades dos seus amigos. Confira nas notificações.`);
         },
-        friendship(message) {
-            show('ANIVØID / SUA REDE', String(message || ''));
-        }
+        clear() { pending.length = 0; recent.clear(); removeActive(); },
+        welcome(username) { show('ANIVØID / ENTRADA AUTORIZADA', `Que bom ter você de volta, ${String(username || '').trim()}!`); },
+        friendship(message) { show('ANIVØID / SUA REDE', message); }
     };
 }
 

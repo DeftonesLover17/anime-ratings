@@ -42,6 +42,28 @@ test('Cloudflare persists explicit logo removal and text-only preference', async
 });
 const origin = 'https://anime-ratings.pages.dev';
 const copy = (value) => JSON.parse(JSON.stringify(value));
+
+test('Cloudflare delivers a rating once to confirmed friends and never to unilateral contacts', async t => {
+    const { env, send, login } = await fixture(t);
+    const cookie = await login('Ana');
+    const base = await api.readState(env);
+    base.registeredUsers[0].friends = ['Ana'];
+    base.registeredUsers[1].friends = ['Felipe!', 'Bruno'];
+    base.registeredUsers[2].friends = [];
+    await api.writeState(env, base);
+    const before = await api.readState(env), local = copy(before);
+    local.animes[0].ratings.ana.overall = 10;
+    for (let attempt = 0; attempt < 3; attempt++) {
+        const response = await send('/api/sync-state', { localState: local, baseState: before }, cookie);
+        assert.equal(response.status, 200);
+    }
+    const saved = await api.readState(env);
+    const friend = saved.registeredUsers[0], stranger = saved.registeredUsers[2];
+    assert.equal(friend.notifications.filter(item => item.type === 'rating').length, 1);
+    assert.equal(stranger.notifications.length, 0);
+    assert.ok(friend.notifications[0].activityId);
+    assert.equal(friend.notifications[0].actorUsername, 'Ana');
+});
 test('user projections deny unknown secrets and expose private fields only to their owner', () => {
     const user = {
         username: 'Ana',

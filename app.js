@@ -88,6 +88,8 @@ function setAuthSession(username, token, viewerPermissions) {
 }
 
 function clearAuthSession() {
+    window.AnivoidUI.inbox.reset();
+    window.AnivoidUI.notices.clear();
     window.AnivoidUI.session.acceptUsername('');
     window.AnivoidUI.designUpdate?.sync();
     window.AnivoidUI.access.refresh();
@@ -311,7 +313,6 @@ class AppState {
         sanitizeStoredRegisteredUsers();
         this.friends = [];
         this.activities = [];
-        this.knownActivityIds = new Set();
         try {
             const cachedActivities = JSON.parse(localStorage.getItem('anivoid_activities_v1')) || [];
             this.activities = Array.isArray(cachedActivities) ? cachedActivities : [];
@@ -631,89 +632,14 @@ class AppState {
                 this.studioLogos = serverState.studioLogos;
                 localStorage.setItem('anivoid_studio_logos', JSON.stringify(this.studioLogos));
             }
-            // Check new activities and trigger Toasts
-            if (serverState.activities && Array.isArray(serverState.activities)) {
-                const isFirstLoad = this.knownActivityIds.size === 0;
-                const loggedInUsername = localStorage.getItem('anivoid_logged_in_username') || '';
-
-                serverState.activities.forEach(act => {
-                    if (!this.knownActivityIds.has(act.id)) {
-                        this.knownActivityIds.add(act.id);
-                        if (!isFirstLoad) {
-                            if (!loggedInUsername || act.username.toLowerCase() !== loggedInUsername.toLowerCase()) {
-                                showToast(
-                                    act.username,
-                                    `${act.details} em **${act.animeTitle}**`,
-                                    act.userAvatar,
-                                    act.userColor
-                                );
-                                pushNotification({
-                                    type: act.type || 'activity',
-                                    title: act.username,
-                                    message: `${act.details || 'interagiu'} em ${act.animeTitle || 'um anime'}`,
-                                    avatar: act.userAvatar,
-                                    color: act.userColor,
-                                    animeId: act.animeId,
-                                    timestamp: act.timestamp
-                                });
-                            }
-                        }
-                    }
-                });
-                this.activities = serverState.activities;
-                localStorage.setItem('anivoid_activities_v1', JSON.stringify(this.activities));
-                renderActivitiesFeed();
-                renderRecommendationsRail();
-            }
-
-            // Check new friend requests/acceptances before updating localStorage
-            if (serverState.registeredUsers && Array.isArray(serverState.registeredUsers) && this.loggedInUser) {
-                try {
-                    const prevUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
-                    const prevMe = prevUsers.find(u => u && u.username && u.username.toLowerCase() === this.loggedInUser.toLowerCase());
-                    const nextMe = serverState.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === this.loggedInUser.toLowerCase());
- 
-                    if (prevMe && nextMe) {
-                        mergeServerNotifications(nextMe.notifications || []);
-                        const prevReqs = new Set((prevMe.friendRequests || []).map(r => r.from.toLowerCase()));
-                        (nextMe.friendRequests || []).forEach(r => {
-                            if (r.from && !prevReqs.has(r.from.toLowerCase())) {
-                                pushNotification({
-                                    type: 'friend_request',
-                                    title: 'Solicitacao de amizade',
-                                    message: `${r.from} quer te adicionar.`,
-                                    from: r.from,
-                                    recipient: this.loggedInUser,
-                                    color: '#FF4500',
-                                    timestamp: r.createdAt || r.timestamp || new Date().toISOString()
-                                });
-                                const sender = serverState.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === r.from.toLowerCase()) || { avatar: '👤', color: '#FF4500' };
-                                showToast('Solicitação de Amizade 🤝', `**${r.from}** te enviou um convite!`, sender.avatar, sender.color);
-                            }
-                        });
- 
-                        const prevFrs = new Set((prevMe.friends || []).map(f => f.toLowerCase()));
-                        (nextMe.friends || []).forEach(f => {
-                            if (f && !prevFrs.has(f.toLowerCase())) {
-                                pushNotification({
-                                    type: 'friend_accept',
-                                    title: 'Nova amizade',
-                                    message: `${f} agora esta na sua lista.`,
-                                    color: '#22c55e'
-                                });
-                                const friendObj = serverState.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === f.toLowerCase()) || { avatar: '👤', color: '#00FF00' };
-                                showToast('Nova Amizade! 🎉', `**${f}** aceitou seu convite de amizade!`, friendObj.avatar, friendObj.color);
-                            }
-                        });
-                    }
-                } catch (err) {}
-            }
+            const activitiesChanged = deterministicStringify(this.activities) !== deterministicStringify(serverState.activities || []);
+            this.activities = Array.isArray(serverState.activities) ? serverState.activities : [];
+            localStorage.setItem('anivoid_activities_v1', JSON.stringify(this.activities));
+            const newNotices = window.AnivoidUI.inbox.sync(serverState);
+            if (newNotices.length) window.AnivoidUI.notices.batch(newNotices);
+            if (activitiesChanged) renderActivitiesFeed();
 
             if (serverState.registeredUsers && Array.isArray(serverState.registeredUsers)) {
-                if (this.loggedInUser) {
-                    const nextMeForNotifications = serverState.registeredUsers.find(u => u && u.username && u.username.toLowerCase() === this.loggedInUser.toLowerCase());
-                    if (nextMeForNotifications) mergeServerNotifications(nextMeForNotifications.notifications || []);
-                }
                 const mergedUsers = serverState.registeredUsers;
                 storeRegisteredUsers(mergedUsers);
             }
@@ -745,6 +671,8 @@ class AppState {
             // Reload dynamic friends list
             this.loadLocalSession();
 
+            updateNotificationBadges();
+
             // Capture state after update
             const nextAnimesStr = deterministicStringify(this.animes);
             const nextFeaturedId = this.featuredAnimeId;
@@ -754,6 +682,7 @@ class AppState {
                 nextUsersStr = deterministicStringify(parsedUsers);
             } catch (e) {}
 
+            this.catalogChanged = prevAnimesStr !== nextAnimesStr || prevFeaturedId !== nextFeaturedId;
             const hasChanged = prevAnimesStr !== nextAnimesStr || 
                                prevFeaturedId !== nextFeaturedId || 
                                prevUsersStr !== nextUsersStr;
@@ -1693,7 +1622,6 @@ const projectUI = window.AnivoidUI?.site.connect({
 });
 
 try { localStorage.removeItem('anivoid_notifications_v1'); } catch(_) {}
-const NOTIFICATIONS_KEY = 'anivoid_notifications_v1';
 
 function escapeHtml(value) {
     const entities = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };
@@ -1715,41 +1643,32 @@ function getRegisteredUsersSafe() {
     }
 }
 
+function decodeCatalogText(value) {
+    return String(value || '')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&');
+}
+
 function getLoggedInProfileId() {
     return normalizeProfileId(state.loggedInUser || '');
 }
 
-function findRegisteredUserById(profileId) {
-    const cleanId = normalizeProfileId(profileId);
-    return getRegisteredUsersSafe().find(user => normalizeProfileId(user?.username) === cleanId) || null;
+function getActiveProfileId() {
+    return state.currentFriendId || getLoggedInProfileId() || 'felipe';
 }
 
-function getRecommendationPeerIds(profileId) {
-    const cleanId = normalizeProfileId(profileId);
-    const peerIds = new Set();
-    const users = getRegisteredUsersSafe();
-    const profileUser = users.find(user => normalizeProfileId(user?.username) === cleanId);
-
-    (profileUser?.friends || []).forEach(friendName => {
-        const friendId = normalizeProfileId(friendName);
-        if (friendId && friendId !== cleanId) peerIds.add(friendId);
-    });
-
-    if (!peerIds.size && cleanId === getLoggedInProfileId()) {
-        (state.friends || []).forEach(friend => {
-            const friendId = normalizeProfileId(friend?.id || friend?.name);
-            if (friendId && friendId !== cleanId) peerIds.add(friendId);
-        });
-    }
-
-    if (!peerIds.size) {
-        users.forEach(user => {
-            const userId = normalizeProfileId(user?.username);
-            if (userId && userId !== cleanId) peerIds.add(userId);
-        });
-    }
-
-    return peerIds;
+function sanitizeCommentProfile(comment) {
+    if (!comment || typeof comment !== 'object') return comment;
+    const authorUser = findRegisteredUser(comment.friendName || comment.author || '');
+    return {
+        ...comment,
+        friendName: authorUser?.username || comment.friendName || comment.author || 'Membro da comunidade',
+        friendAvatar: authorUser?.avatar || comment.friendAvatar || DEFAULT_AVATAR_SVG,
+        friendColor: authorUser?.color || comment.friendColor || '#FF4500'
+    };
 }
 
 function recommendationTieBreak(profileId, animeId) {
@@ -1778,128 +1697,12 @@ function getProfileStats(profileId = state.currentFriendId) {
     return window.AnivoidUI.profiles.profileStats(profileId, state.animes, state.activities);
 }
 
-
-function getNotificationsStorageKey(user) {
-    const raw = user || (window.__anivoidState && window.__anivoidState.loggedInUser) || localStorage.getItem('anivoid_logged_in_username') || '';
-    const clean = raw ? raw.toLowerCase().replace(/[^a-z0-9]/g, '') : 'guest';
-    return `anivoid_notifications_v2_${clean}`;
-}
-
 function getStoredNotifications() {
-    try {
-        const currentUser = (window.__anivoidState && window.__anivoidState.loggedInUser) || localStorage.getItem('anivoid_logged_in_username') || '';
-        if (!currentUser) return [];
-        const currentClean = currentUser.toLowerCase().replace(/[^a-z0-9]/g, '');
-        const key = getNotificationsStorageKey(currentUser);
-        const items = JSON.parse(localStorage.getItem(key)) || [];
-        return (Array.isArray(items) ? items : []).filter(item => {
-            if (!item) return false;
-            if (item.recipient) {
-                return item.recipient.toLowerCase().replace(/[^a-z0-9]/g, '') === currentClean;
-            }
-            return true;
-        });
-    } catch (err) {
-        return [];
-    }
+    return window.AnivoidUI.inbox.read(state.loggedInUser, getRegisteredUsersSafe());
 }
 
 function setStoredNotifications(items) {
-    const currentUser = (window.__anivoidState && window.__anivoidState.loggedInUser) || localStorage.getItem('anivoid_logged_in_username') || '';
-    if (!currentUser) return;
-    const currentClean = currentUser.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const key = getNotificationsStorageKey(currentUser);
-    const scoped = (items || []).map(item => ({
-        ...item,
-        recipient: item.recipient || currentClean
-    })).slice(0, 100);
-    localStorage.setItem(key, JSON.stringify(scoped));
-}
-
-function pushNotification(notification) {
-    if (!notification || !notification.title) return;
-    const currentUser = (window.__anivoidState && window.__anivoidState.loggedInUser) || localStorage.getItem('anivoid_logged_in_username') || '';
-    if (!currentUser) return;
-    const currentClean = currentUser.toLowerCase().replace(/[^a-z0-9]/g, '');
-    
-    // Strict isolation: if recipient is specified and is not the current user, drop it immediately
-    if (notification.recipient) {
-        const targetClean = String(notification.recipient).toLowerCase().replace(/[^a-z0-9]/g, '');
-        if (targetClean !== currentClean) return;
-    }
-    
-    const items = getStoredNotifications();
-    const timestamp = notification.timestamp || new Date().toISOString();
-    const dedupeKey = [
-        notification.type || 'system',
-        notification.title,
-        notification.message || '',
-        notification.from || '',
-        notification.animeId || '',
-        timestamp.slice(0, 16)
-    ].join('|');
-    if (items.some(item => item.dedupeKey === dedupeKey)) return;
-    items.unshift({
-        id: `n_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        type: notification.type || 'system',
-        title: notification.title,
-        message: notification.message || '',
-        from: notification.from || (notification.message ? notification.message.replace(/\s+quer te adicionar.*$/i, '').trim() : ''),
-        avatar: notification.avatar || 'bell',
-        color: notification.color || '#FF4500',
-        animeId: notification.animeId || '',
-        timestamp,
-        read: false,
-        recipient: currentClean,
-        dedupeKey
-    });
-    setStoredNotifications(items);
-    updateNotificationBadges();
-}
-
-function mergeServerNotifications(notifications = []) {
-    if (!Array.isArray(notifications) || notifications.length === 0) return;
-    const currentUser = (window.__anivoidState && window.__anivoidState.loggedInUser) || localStorage.getItem('anivoid_logged_in_username') || '';
-    if (!currentUser) return;
-    const currentClean = currentUser.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const existing = getStoredNotifications();
-    const existingByServerId = new Map(existing.filter(item => item.serverId).map(item => [item.serverId, item]));
-    const existingByDedupe = new Map(existing.filter(item => item.dedupeKey).map(item => [item.dedupeKey, item]));
-    const merged = [...existing];
-
-    notifications.forEach(notification => {
-        if (!notification || !notification.title) return;
-        const serverId = notification.id || '';
-        const timestamp = notification.timestamp || new Date().toISOString();
-        const dedupeKey = [
-            notification.type || 'system',
-            notification.title,
-            notification.message || '',
-            notification.from || '',
-            notification.animeId || '',
-            timestamp.slice(0, 16)
-        ].join('|');
-        const known = (serverId && existingByServerId.get(serverId)) || existingByDedupe.get(dedupeKey);
-        if (known) return;
-        merged.unshift({
-            id: serverId || `srv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-            serverId,
-            type: notification.type || 'system',
-            title: notification.title,
-            message: notification.message || '',
-            from: notification.from || (notification.message ? notification.message.replace(/\s+quer te adicionar.*$/i, '').trim() : ''),
-            avatar: notification.avatar || 'bell',
-            color: notification.color || '#FF4500',
-            animeId: notification.animeId || '',
-            timestamp,
-            read: Boolean(notification.read),
-            recipient: currentClean,
-            dedupeKey
-        });
-    });
-
-    setStoredNotifications(merged.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 100));
-    updateNotificationBadges();
+    window.AnivoidUI.inbox.write(state.loggedInUser, items);
 }
 
 function isCurrentUserAdmin() {
@@ -3461,7 +3264,52 @@ function setupMagneticPhysics() {
 }
 window.setupMagneticPhysics = setupMagneticPhysics;
 
+function completeAuthenticatedLogin(loginData) {
+    setAuthSession(loginData.user.username, null, loginData.viewerPermissions);
+    const matchedUser = stripSensitiveUserFields(loginData.user);
+    const userId = normalizeProfileId(matchedUser.username);
+
+    if (loginData.state) {
+        applyServerStateSnapshot(loginData.state);
+        try {
+            const restoredAnimes = JSON.parse(localStorage.getItem('anivoid_list_v2')) || [];
+            if (Array.isArray(restoredAnimes)) state.animes = restoredAnimes;
+        } catch (err) {}
+    }
+    const users = getCachedRegisteredUsers();
+    const ownerIndex = users.findIndex(user => user.username === matchedUser.username);
+    if (ownerIndex < 0) users.push(matchedUser);
+    else users[ownerIndex] = matchedUser;
+    storeRegisteredUsers(users);
+
+    state.repairDerivedRatings();
+    localStorage.setItem('anivoid_list_v2', JSON.stringify(state.animes));
+
+    state.currentFriendId = userId;
+    localStorage.setItem('anivoid_current_friend_v2', userId);
+    state.loadLocalSession();
+
+    const regGate = document.getElementById('registration-gate');
+    if (regGate) {
+        hideRegistrationGate();
+    }
+    document.body.classList.remove('overflow-hidden');
+
+    const loginPasswordInput = document.getElementById('login-password');
+    if (loginPasswordInput) loginPasswordInput.value = '';
+    const regPasswordInput = document.getElementById('reg-password');
+    if (regPasswordInput) regPasswordInput.value = '';
+
+    initUI();
+    window.AnivoidUI.notices.welcome(matchedUser.username);
+    state.syncWithServer().then(() => {
+        renderAnimeGrid();
+        renderFeaturedBanner();
+    });
+}
+
 function startApp() {
+    window.AnivoidUI.bindLoginForm({ onAuthenticated: completeAuthenticatedLogin });
     window.AnivoidUI.site.mount();
     window.AnivoidUI.account.mount();
     window.AnivoidUI.session.consumeVerification();
@@ -3553,8 +3401,10 @@ function startApp() {
             
             updateProfileIndicator();
             renderFriendsDropdown();
-            renderAnimeGrid();
-            renderFeaturedBanner();
+            if (state.catalogChanged) {
+                renderAnimeGrid();
+                renderFeaturedBanner();
+            }
             
             // Real-time Central de Amigos update if open
             const addFriendModal = document.getElementById('add-friend-modal');
@@ -4140,7 +3990,6 @@ function renderAnimeGrid() {
     window.AnivoidUI.site.release(grid);
     document.body.dataset.avView = 'catalog';
     grid.querySelectorAll('.reveal').forEach(element => window.releaseRevealElement?.(element));
-    grid.innerHTML = '';
     const filteredList = state.getFilteredAnimeList();
 
     if (filteredList.length === 0) {
@@ -4153,11 +4002,7 @@ function renderAnimeGrid() {
         return;
     }
 
-    const gridFragment = document.createDocumentFragment();
-
-    filteredList.forEach((anime, index) => gridFragment.appendChild(projectUI.createCard(anime, index)));
-
-    grid.appendChild(gridFragment);
+    projectUI.reconcileCatalog(grid, filteredList);
 
     window.AnivoidUI.site.reveal(grid);
     markViewEntered(grid);
@@ -6876,60 +6721,8 @@ function renderModalFriendsList() {
 // ──────────────────────────────────────────────────────────────────────────
 // REAL-TIME TOAST SYSTEM
 // ──────────────────────────────────────────────────────────────────────────
-function showToast(title, message, avatarOrEmoji = '🔔', colorTheme = '#FF4500') {
-    let container = document.getElementById('toast-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'toast-container';
-        container.className = 'fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 w-80 max-w-[calc(100vw-3rem)] pointer-events-none';
-        document.body.appendChild(container);
-    }
-
-    const card = document.createElement('div');
-    card.className = 'toast-card w-full rounded-2xl p-4 flex gap-3 relative overflow-hidden select-none';
-    
-    const avatarHtml = avatarOrEmoji && (avatarOrEmoji.startsWith('data:') || avatarOrEmoji.startsWith('http'))
-        ? `<img src="${avatarOrEmoji}" class="w-8 h-8 rounded-full object-cover shrink-0" alt="">`
-        : `<div class="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-base shrink-0">${avatarOrEmoji || '👤'}</div>`;
-
-    // Process markdown-like bold inside the message
-    const formattedMessage = message.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-white">$1</strong>');
-
-    card.innerHTML = `
-        ${avatarHtml}
-        <div class="flex-grow min-w-0 pr-2">
-            <h4 class="text-[11px] font-bold font-mono tracking-wide uppercase" style="color: ${colorTheme}">${title}</h4>
-            <p class="text-[10px] text-gray-300 font-light mt-0.5 leading-snug">${formattedMessage}</p>
-        </div>
-        <button class="toast-close-btn absolute top-3 right-3 text-gray-500 hover:text-white transition-colors cursor-pointer bg-transparent border-none p-0 flex items-center justify-center">
-            <iconify-icon icon="lucide:x" class="text-[10px]"></iconify-icon>
-        </button>
-        <div class="absolute bottom-0 left-0 h-[2px] toast-progress-bar" style="background-color: ${colorTheme}"></div>
-    `;
-
-    container.appendChild(card);
-    
-    // Animate display
-    setTimeout(() => {
-        card.classList.add('show');
-    }, 10);
-
-    const closeBtn = card.querySelector('.toast-close-btn');
-    const dismiss = () => {
-        card.classList.remove('show');
-        card.classList.add('hide');
-        setTimeout(() => {
-            card.remove();
-        }, 400);
-    };
-
-    closeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        dismiss();
-    });
-
-    // Auto dismiss after 4 seconds
-    setTimeout(dismiss, 4000);
+function showToast(title, message) {
+    window.AnivoidUI.notices.activity(title, message);
 }
 
 // ──────────────────────────────────────────────────────────────────────────

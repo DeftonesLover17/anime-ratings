@@ -156,6 +156,7 @@ function createSite(browser, animate) {
                 reveal(container);
         },
         createCatalogCard: discovery.createCatalogCard,
+        reconcileCatalog: discovery.reconcileCatalog,
         renderRecommendations: discovery.renderRecommendations,
         renderDirectory(container, models, actions) {
             revealCleanups.get(container)?.();

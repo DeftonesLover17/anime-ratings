@@ -36,6 +36,7 @@ function createScenes(browser, animateFallback) {
         const cols = currentMobile ? 2 : 5;
         const delayStep = currentMobile ? 40 : 38;
         nodes.forEach((node, index) => {
+            if (node.dataset.entered === 'true') return;
             node.style.setProperty(
                 '--av-delay',
                 `${Math.min(index % cols, cols - 1) * delayStep}ms`,
