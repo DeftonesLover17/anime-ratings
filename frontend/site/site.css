@@ -1124,8 +1124,8 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
     color: var(--av-ink);
     display: flex;
     flex-direction: column;
-    padding: 28px 24px 22px;
-    border-radius: 18px;
+    padding: 30px 26px 24px;
+    border-radius: 20px;
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid rgba(255, 255, 255, 0.06);
     transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.35s ease;
@@ -1138,21 +1138,23 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
 }
 .av-studio-mark {
     position: relative;
-    aspect-ratio: 16 / 9;
+    min-height: 220px;
+    aspect-ratio: 16 / 10;
     background: transparent !important;
-    display: grid;
-    place-items: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     overflow: visible;
-    padding: 12px;
-    margin-bottom: 20px;
+    padding: 16px 20px;
+    margin-bottom: 22px;
 }
 .av-studio-mark > img {
     width: auto;
     height: auto;
-    max-width: 84%;
-    max-height: 110px;
+    max-width: 92%;
+    max-height: 170px;
     object-fit: contain;
-    filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.35));
+    filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.45));
     transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .av-studio-card:hover .av-studio-mark > img {
@@ -1191,9 +1193,11 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
     filter: brightness(0) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.08)) !important;
 }
 .av-studio-mark > .av-studio-fallback-monogram {
-    font: 600 48px/1 var(--av-display);
+    font: 700 88px/1 var(--av-display);
+    letter-spacing: -0.05em;
     color: var(--av-ink);
-    opacity: 0.8;
+    opacity: 0.9;
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 .av-studio-card-body {
     margin-top: auto;
@@ -1201,7 +1205,7 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
     border-top: 1px solid var(--av-line);
 }
 .av-studio-name {
-    font: 600 22px/1.2 var(--av-display);
+    font: 600 24px/1.2 var(--av-display);
     letter-spacing: -0.04em;
     color: var(--av-ink);
     margin-bottom: 8px;
@@ -1218,7 +1222,7 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
 }
 .av-studio-profile-header { display: grid; grid-template-columns: 1fr 1.25fr; gap: 7%; align-items: center; padding-block: 45px 70px; }
 .av-studio-profile-logo {
-    min-height: 290px;
+    min-height: 320px;
     padding: 40px;
     background: transparent !important;
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1229,14 +1233,14 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
 .av-studio-profile-logo img {
     width: auto;
     height: auto;
-    max-width: 85%;
-    max-height: 220px;
+    max-width: 90%;
+    max-height: 250px;
     object-fit: contain;
     padding: 0 !important;
-    filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.4));
+    filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.45));
 }
 .av-studio-profile-logo > span {
-    font: 600 70px/1 var(--av-display);
+    font: 700 96px/1 var(--av-display);
     color: var(--av-ink);
 }
 .av-studio-profile-header h2 { font: 600 clamp(48px,7vw,100px)/1.08 var(--av-display); letter-spacing: -.07em; overflow-wrap: anywhere; overflow: visible; margin-top: 26px; padding-bottom: 0.12em; }
@@ -1650,9 +1654,11 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
     .av-studios-heading { padding-bottom: 30px; margin-bottom: 30px; }
     .av-studios-heading h2 { font-size: 60px; }
     .av-studio-grid { gap: 24px 16px; }
-    .av-studio-card { padding: 20px 16px 16px; border-radius: 14px; }
-    .av-studio-mark { padding: 8px; aspect-ratio: 16 / 9; margin-bottom: 12px; }
-    .av-studio-name { font-size: 18px; margin-bottom: 6px; }
+    .av-studio-card { padding: 22px 18px 18px; border-radius: 14px; }
+    .av-studio-mark { padding: 12px; aspect-ratio: 16 / 10; min-height: 160px; margin-bottom: 14px; }
+    .av-studio-mark > img { max-width: 92%; max-height: 130px; }
+    .av-studio-mark > .av-studio-fallback-monogram { font-size: 68px; }
+    .av-studio-name { font-size: 20px; margin-bottom: 6px; }
     .av-studio-card-meta { font-size: 9px; align-items: center; }
     .av-studio-card-meta .av-score { font-size: 14px; }
     .av-studio-profile-header { grid-template-columns: 1fr; gap: 30px; padding-top: 30px; padding-bottom: 40px; }
