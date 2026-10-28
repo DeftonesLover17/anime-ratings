@@ -32,7 +32,37 @@ function createThemeController(browser) {
         const palette = backgroundPalette(value);
         setTheme(palette?.scheme || 'dark', persist);
         applyBackground(value);
-        if (persist) { try { browser.localStorage.setItem(BACKGROUND_KEY, background); } catch (_) {} }
+        if (persist) {
+            try {
+                browser.localStorage.setItem(BACKGROUND_KEY, background);
+                const currentUser = (typeof browser.getSessionUsername === 'function' ? browser.getSessionUsername() : '')
+                    || browser.localStorage?.getItem('anivoid_logged_in_username')
+                    || '';
+                if (currentUser) {
+                    const cleanUser = currentUser.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    browser.localStorage?.setItem(`${BACKGROUND_KEY}_${cleanUser}`, background);
+                }
+            } catch (_) {}
+        }
+    }
+
+    function applyUserBackground(username) {
+        const cleanUser = String(username || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        try {
+            if (cleanUser) {
+                const userBg = browser.localStorage?.getItem(`${BACKGROUND_KEY}_${cleanUser}`);
+                if (userBg !== null && userBg !== undefined) {
+                    setBackground(userBg, false);
+                    return;
+                }
+            }
+            const globalBg = browser.localStorage?.getItem(BACKGROUND_KEY);
+            if (globalBg && backgroundPalette(globalBg)) {
+                setBackground(globalBg, false);
+            } else {
+                setBackground('', false);
+            }
+        } catch (_) {}
     }
 
     function readTheme() {
@@ -128,7 +158,7 @@ function createThemeController(browser) {
         });
     }
 
-    return { readTheme, setTheme, install };
+    return { readTheme, setTheme, setBackground, applyUserBackground, install };
 }
 
 module.exports = { createThemeController };
