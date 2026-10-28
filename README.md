@@ -63,6 +63,7 @@ npm start
 | `frontend/ui/index.js` | Inicialização dos módulos de UI e ponte explícita `window.AnivoidUI` usada pelo legado. |
 | `frontend/ui/rating-scale.js` | Regra única de cores das notas; independente de DOM e persistência. |
 | `frontend/ui/theme.js` | Preferência claro/escuro, armazenamento local e controles acessíveis. |
+| `frontend/ui/backgrounds.js` | Paletas de fundo com superfícies e bordas coordenadas, selecionadas na edição do perfil e persistidas neste navegador pelo controlador de tema. |
 | `frontend/ui/motion.js` | Animações interrompíveis por canal e respeito à redução de movimento. |
 | `frontend/ui/ui.css` | Tokens, componentes, temas, adaptações do legado e comportamento responsivo da UI. |
 | `frontend/ui/notifications.js` | Avisos transitórios de login e amizade, com texto seguro, fechamento e timers canceláveis. |
