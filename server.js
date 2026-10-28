@@ -1235,6 +1235,18 @@ const server = http.createServer(async (req, res) => {
                             from: fromUser.username,
                             timestamp: new Date().toISOString()
                         });
+                        if (!toUser.notifications) toUser.notifications = [];
+                        toUser.notifications.unshift({
+                            id: 'srv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+                            type: 'friend_request',
+                            title: 'Solicitacao de amizade',
+                            message: fromUser.username + ' quer te adicionar.',
+                            from: fromUser.username,
+                            color: fromUser.color || '#FF4500',
+                            avatar: fromUser.avatar || 'bell',
+                            timestamp: new Date().toISOString(),
+                            read: false
+                        });
                     }
                     
                     writeState(state, (writeErr) => {

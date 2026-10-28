@@ -48,7 +48,7 @@ function browserUserResponse(value, viewer = '', cached = false) {
     const result = select(user, ['username', 'avatar', 'banner', 'color', 'activeTitle', 'featuredAnimeId', 'memberNumber', 'memberDesc', 'isVirtual', 'emailVerified', 'accountId', 'email']);
     for (const key of ['friends', 'favoriteGenres', 'favoriteStudios', 'favoriteAnimes']) if (Array.isArray(user[key])) result[key] = texts(user[key]);
     if (Array.isArray(user.friendRequests)) result.friendRequests = user.friendRequests.map(item => select(item, ['from', 'timestamp']));
-    if (Array.isArray(user.notifications)) result.notifications = user.notifications.map(item => select(item, ['id', 'type', 'title', 'message', 'animeId', 'avatar', 'color', 'read', 'timestamp']));
+    if (Array.isArray(user.notifications)) result.notifications = user.notifications.map(item => select(item, ['id', 'type', 'title', 'message', 'from', 'animeId', 'avatar', 'color', 'read', 'timestamp']));
     return result;
 }
 const activityResponse = item => select(item, ['id', 'username', 'userColor', 'userAvatar', 'type', 'animeId', 'animeTitle', 'details', 'timestamp']);

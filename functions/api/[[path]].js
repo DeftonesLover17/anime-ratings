@@ -1153,6 +1153,7 @@ async function handleFriendRequest(request, env) {
             type: 'friend_request',
             title: 'Solicitacao de amizade',
             message: `${fromUser.username} quer te adicionar.`,
+            from: fromUser.username,
             color: fromUser.color || '#FF4500',
             avatar: fromUser.avatar || 'bell'
         });
