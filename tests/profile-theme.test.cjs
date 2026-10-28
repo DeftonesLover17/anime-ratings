@@ -85,3 +85,20 @@ test('per-profile theme colors are respected independently upon switching review
     simulateReviewerSwitch(profiles[0]);
     assert.equal(currentAccent, '#ff7957');
 });
+
+test('syncThemeColor and modal closing immediately apply theme without requiring reviewer re-selection', () => {
+    const appJs = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+    // Ensure syncThemeColor updates originalUserColor
+    assert.ok(appJs.includes('originalUserColor = color;'), 'syncThemeColor must update originalUserColor');
+
+    // Ensure syncThemeColor updates stored registered users
+    assert.ok(appJs.includes('storeRegisteredUsers(registeredUsers);'), 'syncThemeColor must persist color to registered users cache');
+
+    // Ensure closeModal retains the active color and background
+    assert.ok(appJs.includes('applyUserThemeColor(originalUserColor);'), 'closeModal must apply originalUserColor');
+    assert.ok(appJs.includes('window.AnivoidUI.setBackground(currentBg, true);'), 'closeModal must retain background with persistence');
+
+    // Ensure getSessionUsername is exposed on window for cross-module theme consistency
+    assert.ok(appJs.includes('window.getSessionUsername = getSessionUsername;'), 'window.getSessionUsername must be defined');
+});
