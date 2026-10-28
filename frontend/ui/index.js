@@ -23,6 +23,7 @@ const { createRecoveryController } = require('../account/recovery');
 const { createWelcomeEmail } = require('../account/welcome-email');
 const { createDesignUpdate } = require('../account/design-update');
 const { createEditorialNotices } = require('./notifications');
+const { createNotificationInbox } = require('../community/notifications');
 const { installDomActions } = require('../security/dom-actions');
 
 const { createProfileClient } = require('../account/profile-client');
@@ -72,9 +73,9 @@ window.AnivoidUI = {
     welcome: createWelcomeEmail(window),
     designUpdate: createDesignUpdate(window, session, storage),
     notices: createEditorialNotices(window),
+    inbox: createNotificationInbox(storage),
     bindLoginForm: (options) => bindLoginForm(window, { client: login, session, ...options }),
     site: createSite(window, motion.animate),
-    readTheme: theme.readTheme,
     setTheme: theme.setTheme,
     setBackground: theme.setBackground,
     applyUserBackground: theme.applyUserBackground,

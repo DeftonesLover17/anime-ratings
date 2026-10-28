@@ -1,4 +1,5 @@
 import syncTools from '../../shared/sync-state.js';
+import notificationTools from '../../shared/notifications.js';
 import stateIntegrity from '../../shared/state-integrity.js';
 import studioMetadata from '../../shared/studio-metadata.js';
 import catalogIdentity from '../../shared/catalog-identity.js';
@@ -223,11 +224,15 @@ function sanitizeNotifications(notifications) {
     if (!Array.isArray(notifications)) return [];
     return notifications.slice(0, 100).map(notification => ({
         id: escapeHtml(notification && notification.id || '', 120),
+        activityId: escapeHtml(notification && notification.activityId || '', 120),
+        actorUsername: escapeHtml(notification && notification.actorUsername || '', 80),
         type: escapeHtml(notification && notification.type || 'system', 60),
         title: escapeHtml(notification && notification.title || '', 120),
         message: escapeHtml(notification && notification.message || '', 300),
+        from: escapeHtml(notification && notification.from || '', 80),
         animeId: escapeHtml(notification && notification.animeId || '', 120),
         color: sanitizeColor(notification && notification.color),
+        avatar: escapeHtml(notification && notification.avatar || 'bell', 120),
         read: Boolean(notification && notification.read),
         timestamp: escapeHtml(notification && notification.timestamp || '', 40)
     })).filter(notification => notification.title);
@@ -585,44 +590,31 @@ function pushUserNotification(user, notification) {
     if (!user || !notification || !notification.title) return;
     if (!Array.isArray(user.notifications)) user.notifications = [];
     const timestamp = notification.timestamp || new Date().toISOString();
-    const dedupeKey = [
-        notification.type || 'system',
-        notification.title,
-        notification.message || '',
-        notification.animeId || '',
-        timestamp.slice(0, 16)
-    ].join('|');
-    const alreadyExists = user.notifications.some(item => item && item.dedupeKey === dedupeKey);
-    if (alreadyExists) return;
+    if (user.notifications.some(item => item && notificationTools.sameNotification(item, { ...notification, timestamp }))) return;
     user.notifications.unshift({
         id: `srv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         type: notification.type || 'system',
         title: notification.title,
         message: notification.message || '',
+        from: notification.from || '',
         animeId: notification.animeId || '',
+        avatar: notification.avatar || 'bell',
         color: notification.color || user.color || '#FF4500',
         read: false,
         timestamp,
-        dedupeKey
+        activityId: notification.activityId || '',
+        actorUsername: notification.actorUsername || ''
     });
     user.notifications = user.notifications.slice(0, 100);
 }
 
 function notifyFriendsOfActivity(state, authorUser, activity) {
-    if (!state || !authorUser || !activity || !Array.isArray(authorUser.friends)) return;
-    authorUser.friends.forEach(friendName => {
-        const friendUser = findRegisteredUser(state, friendName);
-        if (!friendUser || sameUsername(friendUser.username, authorUser.username)) return;
-        pushUserNotification(friendUser, {
-            type: activity.type || 'activity',
-            title: authorUser.username,
-            message: `${activity.details || 'interagiu'} em ${activity.animeTitle || 'um anime'}`,
-            animeId: activity.animeId || '',
-            color: authorUser.color || '#FF4500',
-            avatar: authorUser.avatar || 'bell',
-            timestamp: activity.timestamp
-        });
-    });
+    if (!state || !authorUser || !activity) return;
+    for (const friend of state.registeredUsers || []) {
+        if (notificationTools.areFriends(friend, authorUser)) {
+            pushUserNotification(friend, notificationTools.activityNotification(activity));
+        }
+    }
 }
 
 function isAdminUser(user, env, state) {
@@ -1794,7 +1786,15 @@ async function route(request, env) {
 
 export async function onRequest(context) {
     try {
-        const env = { ...context.env, [REQUEST_LIMITS]: new Set(), [RECOVERY_DEFER]: context.waitUntil ? task => context.waitUntil(task) : null };
+        const env = {
+            RECOVERY_EMAIL_PROVIDER: context.env.RECOVERY_EMAIL_PROVIDER || (context.env.EMAILJS_PRIVATE_KEY ? 'emailjs' : undefined),
+            EMAILJS_PUBLIC_KEY: context.env.EMAILJS_PUBLIC_KEY || 'GWxYaGIyPyxPwouYw',
+            EMAILJS_SERVICE_ID: context.env.EMAILJS_SERVICE_ID || 'service_c57m7os',
+            EMAILJS_RECOVERY_TEMPLATE_ID: context.env.EMAILJS_RECOVERY_TEMPLATE_ID || 'template_w7b4c1j',
+            ...context.env,
+            [REQUEST_LIMITS]: new Set(),
+            [RECOVERY_DEFER]: context.waitUntil ? task => context.waitUntil(task) : null
+        };
         for (let attempt = 0; attempt < 3; attempt++) {
             try { return await route(context.request.clone(), env); }
             catch (error) { if (error.code !== 'STATE_CONFLICT') throw error; }

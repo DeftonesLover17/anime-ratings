@@ -1,4 +1,5 @@
 const { userResponse } = require('./policy');
+const { visibleNotification, compactNotifications } = require('../notifications');
 
 // Storage records may contain private or future metadata. Browser DTOs must
 // explicitly select their fields instead of spreading a storage snapshot.
@@ -48,7 +49,7 @@ function browserUserResponse(value, viewer = '', cached = false) {
     const result = select(user, ['username', 'avatar', 'banner', 'color', 'activeTitle', 'featuredAnimeId', 'memberNumber', 'memberDesc', 'isVirtual', 'emailVerified', 'accountId', 'email']);
     for (const key of ['friends', 'favoriteGenres', 'favoriteStudios', 'favoriteAnimes']) if (Array.isArray(user[key])) result[key] = texts(user[key]);
     if (Array.isArray(user.friendRequests)) result.friendRequests = user.friendRequests.map(item => select(item, ['from', 'timestamp']));
-    if (Array.isArray(user.notifications)) result.notifications = user.notifications.map(item => select(item, ['id', 'type', 'title', 'message', 'from', 'animeId', 'avatar', 'color', 'read', 'timestamp']));
+    if (Array.isArray(user.notifications)) result.notifications = user.notifications.map(item => select(item, ['id', 'activityId', 'actorUsername', 'type', 'title', 'message', 'from', 'animeId', 'avatar', 'color', 'read', 'timestamp']));
     return result;
 }
 const activityResponse = item => select(item, ['id', 'username', 'userColor', 'userAvatar', 'type', 'animeId', 'animeTitle', 'details', 'timestamp']);
@@ -58,7 +59,11 @@ function stateResponse(value, viewer = '') {
         ...select(state, ['revision', 'featuredAnimeId']), viewerUsername: viewer,
         friends: list(state.friends).map(friendResponse), animes: list(state.animes).map(animeResponse),
         studioLogos: Object.fromEntries(Object.entries(record(state.studioLogos)).filter(([, url]) => typeof url === 'string')),
-        registeredUsers: list(state.registeredUsers).map(user => browserUserResponse(user, viewer)).filter(Boolean),
+        registeredUsers: list(state.registeredUsers).map(user => {
+            const result = browserUserResponse(user, viewer);
+            if (result?.notifications) result.notifications = compactNotifications(result.notifications.filter(notice => visibleNotification(notice, user, state.registeredUsers)));
+            return result;
+        }).filter(Boolean),
         activities: list(state.activities).map(activityResponse)
     };
 }

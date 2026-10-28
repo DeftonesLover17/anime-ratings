@@ -310,6 +310,7 @@ function createProjectAdapter(project, site) {
         renderFeatured,
         renderRecommendations,
         createCard,
+        reconcileCatalog: (container, animes) => site.reconcileCatalog(container, animes.map(cardModel), actions),
         renderStudios,
         renderCredit,
         refreshNumbers,

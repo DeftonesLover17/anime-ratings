@@ -25,6 +25,10 @@ const { createAnimeTitleRenderer } = require('./anime-title');
 
 const featuredTitleRenderer = createAnimeTitleRenderer();
 let activeFeaturedTitleEl = null;
+const featuredModels = new WeakMap();
+const cardModels = new WeakMap();
+const staticKey = model => JSON.stringify(['id', 'title', 'studio', 'season', 'episodes', 'synopsis', 'coverUrl', 'logoUrl', 'logoDisabled'].map(key => model.anime[key]));
+const ratingKey = model => JSON.stringify([model.rating?.overall, model.rating?.status, model.rating?.episodesWatched, model.statusLabel, model.groupScore, model.ratingLabel, model.ownRating?.overall, Boolean(model.ownRating), model.friendName]);
 
 function bindLogoPreload(target, anime, eagerWarmup = false) {
     if (!target || !anime) return;
@@ -51,6 +55,10 @@ function statusFallbackLabel(kind) {
 
 
 function renderFeatured(container, model, actions) {
+    const identity = staticKey(model) + ':' + model.collectionSize;
+    const values = ratingKey(model);
+    const previous = featuredModels.get(container);
+    if (previous?.identity === identity && previous.values === values && container.firstElementChild) return;
     const {
         anime,
         rating,
@@ -79,6 +87,11 @@ function renderFeatured(container, model, actions) {
         </div>
         <div class="av-hero-bottom"><span>Obras que ficam.<br>Notas que contam.</span><a href="#anime-grid-section" data-catalog><span>${String(collectionSize).padStart(2, '0')} obras no acervo</span><span aria-hidden="true">↓</span></a></div>
     </div>`);
+    featuredModels.set(container, { identity, values });
+    if (previous?.identity === identity && container.firstElementChild) {
+        container.querySelector('.av-hero-rating').replaceWith(root.querySelector('.av-hero-rating'));
+        return;
+    }
     preloadAnimeLogo(anime, 'high');
     if (nextAnime) scheduleAnimeLogoWarmup(nextAnime);
     const heroTitleEl = root.querySelector('.av-hero-title');
@@ -146,7 +159,36 @@ function createCatalogCard(model, actions, index) {
         actions.studio(anime.studio, event.detail > 0),
     );
     attachImageFallbacks(root);
+    cardModels.set(root, { identity: staticKey(model), values: ratingKey(model) });
     return root;
+}
+
+function reconcileCatalog(container, models, actions) {
+    const existing = new Map([...container.children].map(node => [node.dataset.animeId, node]));
+    const keep = new Set();
+    models.forEach((model, index) => {
+        let node = existing.get(String(model.anime.id));
+        const previous = node && cardModels.get(node);
+        const identity = staticKey(model), values = ratingKey(model);
+        if (!previous || previous.identity !== identity) {
+            const replacement = createCatalogCard(model, actions, index);
+            if (node?.dataset.entered === 'true') replacement.dataset.entered = 'true';
+            node?.replaceWith(replacement);
+            node = replacement;
+        } else if (previous.values !== values) {
+            const updated = createCatalogCard(model, actions, index);
+            for (const selector of ['.av-card-meta', '.av-card-personal', '.av-card-comparison']) {
+                const before = node.querySelector(selector), after = updated.querySelector(selector);
+                if (before && after) before.replaceWith(after);
+                else if (before) before.remove();
+                else if (after) node.appendChild(after);
+            }
+            cardModels.set(node, { identity, values });
+        }
+        keep.add(node);
+        if (container.children[index] !== node) container.insertBefore(node, container.children[index] || null);
+    });
+    [...container.children].forEach(node => { if (!keep.has(node)) node.remove(); });
 }
 
 function renderRecommendations(container, recommendations, actions) {
@@ -167,4 +209,4 @@ function renderRecommendations(container, recommendations, actions) {
     container.replaceChildren(fragment);
 }
 
-module.exports = { renderFeatured, createCatalogCard, renderRecommendations };
+module.exports = { renderFeatured, createCatalogCard, reconcileCatalog, renderRecommendations };
