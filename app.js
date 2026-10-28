@@ -3317,6 +3317,7 @@ function initMotionSuite() {
                 smoothWheel: true,
                 wheelMultiplier: 0.98,
                 touchMultiplier: 1.0,
+                syncTouch: true,
                 infinite: false,
                 prevent: (node) => {
                     if (!node || typeof node.closest !== 'function') return false;
@@ -3401,7 +3402,7 @@ function initMotionSuite() {
         try {
             // A. Hero Parallax on Scroll
             const heroWrapper = document.getElementById('featured-banner-wrapper');
-            const heroMedia = heroWrapper?.querySelector('.av-hero-media');
+            const heroMedia = heroWrapper?.querySelector('.av-art-frame img') || heroWrapper?.querySelector('.av-art-frame') || heroWrapper?.querySelector('.av-hero-media');
             if (heroWrapper && heroMedia && typeof ScrollTrigger !== 'undefined') {
                 gsap.to(heroMedia, {
                     yPercent: 16,
@@ -4073,7 +4074,10 @@ function getScoreColor(score) {
 function renderFeaturedBanner() {
     if (state.activeDetailAnimeId) return;
     const container = document.getElementById('featured-banner-wrapper');
-    if (container) projectUI.renderFeatured(container);
+    if (container) {
+        projectUI.renderFeatured(container);
+        window.AnivoidUI?.site.reveal(container);
+    }
 }
 
 let catalogPanelsFrame = null;
@@ -4178,7 +4182,10 @@ function getStudioLogo(studioName) {
 
 function renderStudiosDirectory() {
     const container = document.getElementById('studios-directory-container');
-    if (container) projectUI.renderStudios(container, activeStudioName);
+    if (container) {
+        projectUI.renderStudios(container, activeStudioName);
+        window.AnivoidUI?.site.reveal(container);
+    }
 }
 
 window.switchTabToFeatured = (immediate = false) => {

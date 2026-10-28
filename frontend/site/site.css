@@ -1714,3 +1714,26 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
 
 
 /* ==========================================================================
+
+/* Tactile mobile touch feedback — smooth 60fps micro-transition */
+@media (hover: none) and (pointer: coarse) {
+    .av-anime-card {
+        -webkit-tap-highlight-color: transparent;
+    }
+    .av-anime-card:active .av-card-poster img {
+        transform: scale(0.975);
+        transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .av-anime-card:active {
+        transform: scale(0.985);
+        transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .av-studio-card:active {
+        transform: scale(0.98);
+        transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .av-art-frame:active img {
+        transform: scale(0.98);
+        transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+}

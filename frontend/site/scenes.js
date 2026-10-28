@@ -4,6 +4,7 @@ function createScenes(browser, animateFallback) {
     let sequence = 0;
     let transition;
     const pending = new Set();
+    const isMobile = Boolean(browser.innerWidth && browser.innerWidth <= 760);
     const observer = new browser.IntersectionObserver(
         (entries) => {
             entries.forEach((entry) => {
@@ -13,7 +14,10 @@ function createScenes(browser, animateFallback) {
                 observer.unobserve(entry.target);
             });
         },
-        { threshold: 0.08, rootMargin: '0px 0px 32px 0px' },
+        {
+            threshold: isMobile ? 0.02 : 0.04,
+            rootMargin: isMobile ? '48px 0px 48px 0px' : '32px 0px 32px 0px',
+        },
     );
 
     preference.addEventListener('change', () => {
@@ -28,10 +32,13 @@ function createScenes(browser, animateFallback) {
 
     function reveal(root) {
         const nodes = [...root.querySelectorAll('[data-av-reveal]')];
+        const currentMobile = Boolean(browser.innerWidth && browser.innerWidth <= 760);
+        const cols = currentMobile ? 2 : 5;
+        const delayStep = currentMobile ? 40 : 38;
         nodes.forEach((node, index) => {
             node.style.setProperty(
                 '--av-delay',
-                `${Math.min(index % 5, 4) * 38}ms`,
+                `${Math.min(index % cols, cols - 1) * delayStep}ms`,
             );
             if (preference.matches) node.dataset.entered = 'true';
             else {
@@ -94,11 +101,18 @@ function createScenes(browser, animateFallback) {
                 detail && !detail.classList.contains('hidden')
                     ? detail
                     : document.getElementById('anime-grid-section');
-            animateFallback?.(target, [{ opacity: 0.4 }, { opacity: 1 }], {
-                channel: 'site-scene',
-                duration: 200,
-                easing: 'cubic-bezier(.22,1,.36,1)',
-            });
+            animateFallback?.(
+                target,
+                [
+                    { opacity: 0, transform: 'translate3d(0, 24px, 0)' },
+                    { opacity: 1, transform: 'translate3d(0, 0, 0)' },
+                ],
+                {
+                    channel: 'site-scene',
+                    duration: 350,
+                    easing: 'cubic-bezier(.16,1,.3,1)',
+                },
+            );
             return;
         }
         const owned = [];
