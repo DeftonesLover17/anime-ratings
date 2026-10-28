@@ -148,12 +148,9 @@ function createSite(browser, animate) {
         renderFeatured(container, model, actions) {
             revealCleanups.get(container)?.();
             discovery.renderFeatured(container, model, actions);
-            if (
-                browser.getComputedStyle(
-                    browser.document.getElementById('splash-screen'),
-                ).display === 'none'
-            )
-                reveal(container);
+            const splash = browser.document.getElementById('splash-screen');
+            // The splash leaves the DOM after the intro; a missing splash means the intro is done.
+            if (!splash || browser.getComputedStyle(splash).display === 'none') reveal(container);
         },
         createCatalogCard: discovery.createCatalogCard,
         reconcileCatalog: discovery.reconcileCatalog,

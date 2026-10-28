@@ -1671,6 +1671,39 @@ function sanitizeCommentProfile(comment) {
     };
 }
 
+function findRegisteredUserById(profileId) {
+    const cleanId = normalizeProfileId(profileId);
+    return getRegisteredUsersSafe().find(user => normalizeProfileId(user?.username) === cleanId) || null;
+}
+
+function getRecommendationPeerIds(profileId) {
+    const cleanId = normalizeProfileId(profileId);
+    const peerIds = new Set();
+    const users = getRegisteredUsersSafe();
+    const profileUser = users.find(user => normalizeProfileId(user?.username) === cleanId);
+
+    (profileUser?.friends || []).forEach(friendName => {
+        const friendId = normalizeProfileId(friendName);
+        if (friendId && friendId !== cleanId) peerIds.add(friendId);
+    });
+
+    if (!peerIds.size && cleanId === getLoggedInProfileId()) {
+        (state.friends || []).forEach(friend => {
+            const friendId = normalizeProfileId(friend?.id || friend?.name);
+            if (friendId && friendId !== cleanId) peerIds.add(friendId);
+        });
+    }
+
+    if (!peerIds.size) {
+        users.forEach(user => {
+            const userId = normalizeProfileId(user?.username);
+            if (userId && userId !== cleanId) peerIds.add(userId);
+        });
+    }
+
+    return peerIds;
+}
+
 function recommendationTieBreak(profileId, animeId) {
     const key = `${normalizeProfileId(profileId)}:${animeId || ''}`;
     let hash = 0;
