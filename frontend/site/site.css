@@ -1255,7 +1255,7 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
 
 /* Existing account/admin dialogs keep their behavior; typography joins the site. */
 .av-app #registration-gate { background: var(--av-bg); }
-.av-app #registration-gate > .glass-panel { background: var(--av-surface); border-color: var(--av-line); border-radius: 5px; }
+.av-app #registration-gate > .glass-panel { background: var(--av-surface); border-color: var(--av-line); border-radius: 18px; }
 .av-app #registration-gate h2 { font: 600 clamp(30px,4vw,44px)/1.15 var(--av-display); letter-spacing: -.05em; }
 .av-app #registration-gate h2 span { font-family: inherit; font-style: normal; }
 .av-app #registration-gate :is(input,textarea,button) { font-family: var(--av-body); }
