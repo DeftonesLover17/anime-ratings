@@ -1,5 +1,28 @@
 const ANIME_LOGO_CATALOG = [
     {
+        "slug": "oshi-no-ko",
+        "url": "logos/animes/oshi-no-ko.png",
+        "title": "Oshi no Ko",
+        "aliases": [
+            "[Oshi no Ko]",
+            "【推しの子】",
+            "Oshi No Ko",
+            "Oshinoko",
+            "Oshi no Ko Season 1",
+            "【推しの子】第1期"
+        ],
+        "ids": [
+            "a_oshi_no_ko",
+            "52034",
+            "kitsu_46170"
+        ],
+        "width": 808,
+        "height": 192,
+        "ar": 4.21,
+        "tier": "standard",
+        "lightTone": false
+    },
+    {
         "slug": "demon-slayer-infinity-castle",
         "url": "logos/animes/demon-slayer-infinity-castle.png",
         "title": "Demon Slayer: Infinity Castle",

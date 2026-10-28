@@ -152,22 +152,22 @@ test('discoverAnimeLogo and resolveAnimeLogo support newly added animes automati
     assert.equal(networkCalled, false);
 
     // 2. Newly added anime resolves via ani.zip mappings -> IMDb ID -> Metahub + Weserv clearlogo
-    const oshiNoKoTarget = {
-        id: 'a_new_oshinoko',
-        title: 'Oshi no Ko',
-        japaneseTitle: '【推しの子】',
-        malId: 52034
+    const uncatalogedTarget = {
+        id: 'a_new_uncataloged',
+        title: 'Uncataloged Star Journey',
+        japaneseTitle: '星の未登録',
+        malId: 99999
     };
-    const expectedMetahubWeserv = toWeservClearlogoUrl('https://images.metahub.space/logo/medium/tt21030032/img');
+    const expectedMetahubWeserv = toWeservClearlogoUrl('https://images.metahub.space/logo/medium/tt99999/img');
 
-    const discoveredOshi = await discoverAnimeLogo(oshiNoKoTarget, {
+    const discoveredUrl = await discoverAnimeLogo(uncatalogedTarget, {
         request: async (url) => {
-            if (String(url).includes('api.ani.zip/mappings?mal_id=52034')) {
+            if (String(url).includes('api.ani.zip/mappings?mal_id=99999')) {
                 return {
                     ok: true,
                     json: async () => ({
-                        titles: { en: 'Oshi No Ko' },
-                        mappings: { imdb_id: 'tt21030032' },
+                        titles: { en: 'Uncataloged Star Journey' },
+                        mappings: { imdb_id: 'tt99999' },
                         images: []
                     })
                 };
@@ -180,15 +180,21 @@ test('discoverAnimeLogo and resolveAnimeLogo support newly added animes automati
         }
     });
 
-    assert.equal(discoveredOshi, expectedMetahubWeserv);
-    assert.equal(oshiNoKoTarget.logoUrl, undefined);
+    assert.equal(discoveredUrl, expectedMetahubWeserv);
+    assert.equal(uncatalogedTarget.logoUrl, undefined);
 
-    const resolvedOshi = resolveAnimeLogo({ ...oshiNoKoTarget, logoUrl: discoveredOshi });
-    assert.ok(resolvedOshi);
-    assert.equal(resolvedOshi.url, expectedMetahubWeserv);
-    assert.equal(resolvedOshi.width, 520);
-    assert.equal(resolvedOshi.height, 158);
-    assert.equal(resolvedOshi.tier, 'standard');
+    const resolvedDynamic = resolveAnimeLogo({ ...uncatalogedTarget, logoUrl: discoveredUrl });
+    assert.ok(resolvedDynamic);
+    assert.equal(resolvedDynamic.url, expectedMetahubWeserv);
+    assert.equal(resolvedDynamic.width, 520);
+    assert.equal(resolvedDynamic.height, 158);
+
+    // Verify Oshi no Ko resolves to local catalog logo
+    const oshi = resolveAnimeLogo({ title: 'Oshi no Ko' });
+    assert.ok(oshi);
+    assert.equal(oshi.url, 'logos/animes/oshi-no-ko.png');
+    assert.equal(oshi.tier, 'standard');
+    assert.equal(resolvedDynamic.tier, 'standard');
 
     // 3. Cinemeta fallback when ani.zip has no mapping
     const blueLockTarget = {
