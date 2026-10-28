@@ -5861,6 +5861,7 @@ window.selectAdminTitle = function(title) {
 function getSessionUsername() {
     return window.AnivoidUI.session.username();
 }
+window.getSessionUsername = getSessionUsername;
 
 function getCachedRegisteredUsers() {
     try {
@@ -5943,11 +5944,17 @@ function setupEditProfileModal() {
         if (newPasswordInput) newPasswordInput.value = '';
         applyUserThemeColor(originalUserColor);
         if (window.AnivoidUI?.setBackground) {
-            window.AnivoidUI.setBackground(originalUserBackground, false);
+            const currentBg = localStorage.getItem('anivoid_background') ?? originalUserBackground ?? '';
+            window.AnivoidUI.setBackground(currentBg, true);
         }
         modal.classList.add('hidden');
         modal.classList.remove('flex');
         document.body.classList.remove('overflow-hidden');
+
+        updateProfileIndicator();
+        if (typeof renderFriendsDropdown === 'function') renderFriendsDropdown();
+        if (typeof renderFeaturedBanner === 'function') renderFeaturedBanner();
+        if (typeof renderAnimeGrid === 'function') renderAnimeGrid();
     };
 
     // Backdrop click & Escape handling
@@ -6021,7 +6028,8 @@ function setupEditProfileModal() {
         }
     };
 
-    const syncThemeColor = (color) => {
+    let colorDebounceTimer = null;
+    const syncThemeColor = (color, { persistServer = true } = {}) => {
         if (!color) color = '#ff7957';
         if (colorInput) colorInput.value = color;
         if (colorLabel) colorLabel.textContent = color.toUpperCase();
@@ -6029,7 +6037,58 @@ function setupEditProfileModal() {
         modal.querySelectorAll('.av-palette-pill').forEach(pill => {
             pill.classList.toggle('is-selected', pill.dataset.color.toLowerCase() === color.toLowerCase());
         });
+        originalUserColor = color;
         applyUserThemeColor(color);
+
+        const loggedInUsername = getSessionUsername();
+        if (loggedInUsername) {
+            try {
+                let registeredUsers = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
+                let matched = false;
+                registeredUsers.forEach(u => {
+                    if (u && u.username && u.username.toLowerCase() === loggedInUsername.toLowerCase()) {
+                        u.color = color;
+                        matched = true;
+                    }
+                });
+                if (matched) {
+                    storeRegisteredUsers(registeredUsers);
+                }
+            } catch (_) {}
+        }
+
+        if (typeof state !== 'undefined' && state && Array.isArray(state.friends)) {
+            const cleanUser = (loggedInUsername || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const myFriend = state.friends.find(f => f && (f.isMe || f.id === cleanUser || (f.name && loggedInUsername && f.name.toLowerCase().startsWith(loggedInUsername.toLowerCase()))));
+            if (myFriend) {
+                myFriend.color = color;
+            }
+            const currentFriend = state.getCurrentFriend();
+            if (currentFriend && (currentFriend.isMe || currentFriend.id === cleanUser)) {
+                currentFriend.color = color;
+            }
+            state.save();
+        }
+
+        updateProfileIndicator();
+        if (typeof renderFriendsDropdown === 'function') renderFriendsDropdown();
+        if (typeof renderFeaturedBanner === 'function') renderFeaturedBanner();
+
+        if (persistServer && loggedInUsername && typeof fetch === 'function') {
+            clearTimeout(colorDebounceTimer);
+            colorDebounceTimer = setTimeout(async () => {
+                try {
+                    await fetch((typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '') + '/api/patch-user', {
+                        method: 'POST',
+                        headers: authHeaders({ 'Content-Type': 'application/json' }),
+                        body: JSON.stringify({
+                            username: loggedInUsername,
+                            fields: { color: color }
+                        })
+                    });
+                } catch (_) {}
+            }, 600);
+        }
     };
 
     // Banner file upload & compression
@@ -6142,6 +6201,48 @@ function setupEditProfileModal() {
     if (colorInput && !colorInput.dataset.hooked) {
         colorInput.dataset.hooked = 'true';
         colorInput.addEventListener('input', (e) => syncThemeColor(e.target.value));
+        colorInput.addEventListener('change', (e) => syncThemeColor(e.target.value));
+    }
+
+    // Hook background options in modal so background is saved immediately and originalUserBackground stays in sync
+    const bgChoicesContainer = modal.querySelector('[data-background-choices]');
+    if (bgChoicesContainer && !bgChoicesContainer.dataset.editModalHooked) {
+        bgChoicesContainer.dataset.editModalHooked = 'true';
+        bgChoicesContainer.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-background]');
+            if (btn) {
+                const bgId = btn.dataset.background || '';
+                originalUserBackground = bgId;
+                if (window.AnivoidUI?.setBackground) {
+                    window.AnivoidUI.setBackground(bgId, true);
+                }
+            }
+        });
+    }
+    const bgPicker = modal.querySelector('[data-background-picker]');
+    if (bgPicker && !bgPicker.dataset.editModalHooked) {
+        bgPicker.dataset.editModalHooked = 'true';
+        const onPicker = () => {
+            originalUserBackground = bgPicker.value;
+            if (window.AnivoidUI?.setBackground) {
+                window.AnivoidUI.setBackground(bgPicker.value, true);
+            }
+        };
+        bgPicker.addEventListener('input', onPicker);
+        bgPicker.addEventListener('change', onPicker);
+    }
+    const bgHex = modal.querySelector('[data-background-hex]');
+    if (bgHex && !bgHex.dataset.editModalHooked) {
+        bgHex.dataset.editModalHooked = 'true';
+        bgHex.addEventListener('input', () => {
+            const val = bgHex.value.trim().toLowerCase();
+            if (/^#[0-9a-f]{6}$/i.test(val)) {
+                originalUserBackground = val;
+                if (window.AnivoidUI?.setBackground) {
+                    window.AnivoidUI.setBackground(val, true);
+                }
+            }
+        });
     }
 
     // Open modal
@@ -6191,7 +6292,7 @@ function setupEditProfileModal() {
                 syncBannerPreview(user.banner || '');
                 syncAvatarPreview(user.avatar || '👤');
                 originalUserColor = user.color || '#ff7957';
-                syncThemeColor(originalUserColor);
+                syncThemeColor(originalUserColor, { persistServer: false });
                 const userClean = (user.username || '').toLowerCase().replace(/[^a-z0-9]/g, '');
                 originalUserBackground = localStorage.getItem('anivoid_background_' + userClean)
                     ?? localStorage.getItem('anivoid_background')

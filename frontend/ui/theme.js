@@ -36,6 +36,7 @@ function createThemeController(browser) {
             try {
                 browser.localStorage.setItem(BACKGROUND_KEY, background);
                 const currentUser = (typeof browser.getSessionUsername === 'function' ? browser.getSessionUsername() : '')
+                    || (browser.AnivoidUI?.session?.username ? browser.AnivoidUI.session.username() : '')
                     || browser.localStorage?.getItem('anivoid_logged_in_username')
                     || '';
                 if (currentUser) {
@@ -117,6 +118,7 @@ function createThemeController(browser) {
                 if (status) status.textContent = `Fundo ${value.toUpperCase()} aplicado e salvo neste navegador.`;
             };
             picker.addEventListener('input', () => { hex.value = picker.value; applyCustom(picker.value); });
+            picker.addEventListener('change', () => { hex.value = picker.value; applyCustom(picker.value); });
             hex.addEventListener('input', () => applyCustom(hex.value.trim()));
         }
         const choices = document.querySelector('[data-background-choices]');
