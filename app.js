@@ -122,7 +122,14 @@ function stripSensitiveUserFields(user) {
 
 function storeRegisteredUsers(users) {
     if (!Array.isArray(users)) return;
-    localStorage.setItem('anivoid_registered_users', JSON.stringify(users.map(stripSensitiveUserFields)));
+    const sanitized = users.map(u => {
+        const cleaned = stripSensitiveUserFields(u);
+        if (cleaned && cleaned.color && cleaned.color.toLowerCase() === '#10b981') {
+            cleaned.color = '#ff7957';
+        }
+        return cleaned;
+    });
+    localStorage.setItem('anivoid_registered_users', JSON.stringify(sanitized));
 }
 
 let registeredUsersRefreshPromise = null;
@@ -221,7 +228,14 @@ async function refreshRegisteredUsersFromServer({ force = false } = {}) {
 function sanitizeStoredRegisteredUsers() {
     try {
         const users = JSON.parse(localStorage.getItem('anivoid_registered_users')) || [];
-        if (Array.isArray(users)) storeRegisteredUsers(users);
+        if (Array.isArray(users)) {
+            users.forEach(u => {
+                if (u && u.color && u.color.toLowerCase() === '#10b981') {
+                    u.color = '#ff7957';
+                }
+            });
+            storeRegisteredUsers(users);
+        }
     } catch (err) {}
 }
 

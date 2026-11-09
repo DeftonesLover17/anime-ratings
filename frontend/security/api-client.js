@@ -31,7 +31,10 @@ function createApiFetch(win, fetch, { origin, baseOrigin = win.location.origin, 
             }).finally(() => { if (share && pending.get(key) === operation) pending.delete(key); });
             if (share) pending.set(key, operation);
         }
-        return (await operation).clone();
+        if (share) {
+            try { return (await operation).clone(); } catch (_) { return await operation; }
+        }
+        return await operation;
     };
 }
 module.exports = { createApiFetch };

@@ -44,9 +44,21 @@ const DEFAULT_STATE = {
     activities: []
 };
 
-function corsHeaders() {
+function resolveOrigin(origin) {
+    if (!origin || typeof origin !== 'string') return DEFAULT_ALLOWED_ORIGIN;
+    const trimmed = origin.trim();
+    if (/^https:\/\/([a-z0-9-]+\.)?anime-ratings\.pages\.dev$/i.test(trimmed)) return trimmed;
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(trimmed)) return trimmed;
+    return DEFAULT_ALLOWED_ORIGIN;
+}
+
+function corsHeaders(requestOrOrigin = null) {
+    const originStr = typeof requestOrOrigin === 'string'
+        ? requestOrOrigin
+        : requestOrOrigin?.headers?.get('Origin');
+    const origin = resolveOrigin(originStr);
     return {
-        'Access-Control-Allow-Origin': DEFAULT_ALLOWED_ORIGIN,
+        'Access-Control-Allow-Origin': origin,
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'X-Requested-With,content-type,Authorization',
         'Access-Control-Allow-Credentials': 'true',
@@ -1724,7 +1736,7 @@ async function route(request, env) {
 
     if (request.method === 'OPTIONS') return new Response(null, {
         status: 204,
-        headers: corsHeaders()
+        headers: corsHeaders(request)
     });
 
     if (path === '/api/health' && request.method === 'GET') {
@@ -1785,6 +1797,15 @@ async function route(request, env) {
 }
 
 export async function onRequest(context) {
+    const applyCors = (response) => {
+        try {
+            const origin = resolveOrigin(context.request.headers.get('Origin'));
+            response.headers.set('Access-Control-Allow-Origin', origin);
+            response.headers.set('Access-Control-Allow-Credentials', 'true');
+            response.headers.set('Vary', 'Origin');
+        } catch (_) {}
+        return response;
+    };
     try {
         const env = {
             RECOVERY_EMAIL_PROVIDER: context.env.RECOVERY_EMAIL_PROVIDER || (context.env.EMAILJS_PRIVATE_KEY ? 'emailjs' : undefined),
@@ -1796,20 +1817,20 @@ export async function onRequest(context) {
             [RECOVERY_DEFER]: context.waitUntil ? task => context.waitUntil(task) : null
         };
         for (let attempt = 0; attempt < 3; attempt++) {
-            try { return await route(context.request.clone(), env); }
+            try { return applyCors(await route(context.request.clone(), env)); }
             catch (error) { if (error.code !== 'STATE_CONFLICT') throw error; }
         }
-        return json({ error: 'Os dados mudaram durante a gravacao. Tente salvar novamente.', code: 'STATE_CONFLICT' }, 409, { 'Retry-After': '1' });
+        return applyCors(json({ error: 'Os dados mudaram durante a gravacao. Tente salvar novamente.', code: 'STATE_CONFLICT' }, 409, { 'Retry-After': '1' }));
     } catch (err) {
-        if (err instanceof security.SecurityError) return json({ error: err.message, code: err.code }, err.status);
+        if (err instanceof security.SecurityError) return applyCors(json({ error: err.message, code: err.code }, err.status));
         if (String(err && err.message) === 'missing_d1_binding') {
-            return json({
+            return applyCors(json({
                 ok: false,
                 error: 'missing_d1_binding',
                 message: 'Configure um binding D1 chamado ANIVOID_DB no Cloudflare Pages.'
-            }, 503);
+            }, 503));
         }
         console.error('Unhandled API error', err);
-        return json({ error: 'Internal Server Error' }, 500);
+        return applyCors(json({ error: 'Internal Server Error' }, 500));
     }
 }

@@ -15,6 +15,6 @@ function backgroundPalette(value) {
     const light = luminance > .179, ink = light ? '#000000' : '#ffffff';
     const mix = amount => '#' + rgb.map(channel => Math.round(channel * (1 - amount) + (light ? 0 : 255) * amount).toString(16).padStart(2, '0')).join('');
     return { scheme: light ? 'light' : 'dark', bg: value, surface: mix(.035), line: mix(.35), ink,
-        muted: ink, accent: ink, onAccent: value };
+        muted: ink };
 }
 module.exports = { BACKGROUND_KEY, BACKGROUNDS, backgroundPalette };
