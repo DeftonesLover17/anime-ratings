@@ -105,9 +105,9 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: #10b981;
-    background: rgba(16, 185, 129, 0.1);
-    border: 1px solid rgba(16, 185, 129, 0.25);
+    color: var(--av-accent, #ff7957);
+    background: color-mix(in srgb, var(--av-accent, #ff7957) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--av-accent, #ff7957) 30%, transparent);
     padding: 3px 8px;
     border-radius: 999px;
 }
@@ -116,8 +116,8 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #10b981;
-    box-shadow: 0 0 8px #10b981;
+    background: var(--av-accent, #ff7957);
+    box-shadow: 0 0 8px var(--av-accent, #ff7957);
     animation: avPulse 2s ease-in-out infinite;
 }
 

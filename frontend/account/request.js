@@ -39,6 +39,7 @@ function createAccountRequest(browser, { baseUrl = '', timeoutMs = 35000 } = {})
             ]);
         } catch (error) {
             if (error instanceof AccountError) throw error;
+            try { browser.console?.error?.('Account request failed:', error); } catch (_) {}
             throw new AccountError('Não foi possível conectar. Confira sua internet e tente novamente.', 'NETWORK_ERROR');
         } finally { browser.clearTimeout(timer); }
     };

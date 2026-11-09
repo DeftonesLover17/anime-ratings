@@ -81,12 +81,20 @@ function passwordChangeError(currentPassword, newPassword) {
     return passwordPolicyError(newPassword) || (currentPassword === newPassword ? 'A nova senha deve ser diferente da senha atual.' : '');
 }
 
+function isAllowedOrigin(origin, allowedOrigins) {
+    if (!origin) return false;
+    if (Array.isArray(allowedOrigins) && allowedOrigins.includes(origin)) return true;
+    if (/^https:\/\/([a-z0-9-]+\.)?anime-ratings\.pages\.dev$/i.test(origin)) return true;
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) return true;
+    return false;
+}
+
 function mutationPolicy(
     { method, origin, contentType, fetchSite, authorization },
     allowedOrigins
 ) {
     if (['GET', 'HEAD', 'OPTIONS'].includes(method)) return null;
-    if (origin && !allowedOrigins.includes(origin))
+    if (origin && !isAllowedOrigin(origin, allowedOrigins))
         return new SecurityError(
             403,
             'ORIGIN_REJECTED',
@@ -100,7 +108,7 @@ function mutationPolicy(
         );
     // Non-browser clients use an explicit bearer credential. Browser writes must
     // identify an allowed Origin. JSON cannot be sent by a simple HTML form.
-    if (!origin && !/^Bearer\s+\S+$/i.test(authorization || ''))
+    if (!origin && !['same-origin', 'same-site'].includes(fetchSite) && !/^Bearer\s+\S+$/i.test(authorization || ''))
         return new SecurityError(
             403,
             'ORIGIN_REQUIRED',

@@ -2349,7 +2349,7 @@ html[data-color-scheme="light"] .av-app #detail-title.av-detail-title-has-logo[d
 
 .av-button-outline:hover {
     transform: translateY(-2px);
-    border-color: var(--av-ink);
+    border-color: rgba(255, 255, 255, 0.35);
     background: var(--av-surface-hover, rgba(255, 255, 255, 0.09)) !important;
     color: #ffffff !important;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
